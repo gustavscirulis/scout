@@ -4,71 +4,101 @@ import { dirname, join } from 'path'
 import isDev from 'electron-is-dev'
 import { nativeImage } from 'electron'
 
-const { app, BrowserWindow, Tray } = electron
+const { app, BrowserWindow, Tray, nativeTheme, screen } = electron
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
 let tray: electron.Tray | null = null
 let mainWindow: electron.BrowserWindow | null = null
 
+function getWindowPosition() {
+  if (!tray) return { x: 0, y: 0 }
+  const trayBounds = tray.getBounds()
+  const windowBounds = mainWindow?.getBounds() || { width: 350, height: 530 }
+  
+  // Center window horizontally below the tray icon
+  const x = Math.round(trayBounds.x + (trayBounds.width / 2) - (windowBounds.width / 2))
+  const y = Math.round(trayBounds.y + trayBounds.height)
+  
+  return { x, y }
+}
+
+function showWindow() {
+  if (!mainWindow) return
+  const position = getWindowPosition()
+  mainWindow.setPosition(position.x, position.y, false)
+  mainWindow.show()
+}
+
 function createWindow() {
   // Hide dock icon
   app.dock.hide()
 
-  mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 800,
-    webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false,
-    },
-    show: false, // Don't show window initially
-    frame: false, // Remove window frame
-  })
+  // Force dark mode
+  nativeTheme.themeSource = 'dark'
 
-  // Create a default icon
+  // Create tray icon first
   const icon = nativeImage.createFromPath(join(__dirname, '../public/icon.png'))
   if (icon.isEmpty()) {
-    // If custom icon not found, create a simple 16x16 icon
     const defaultIcon = nativeImage.createEmpty()
     const size = { width: 16, height: 16 }
     defaultIcon.addRepresentation({
       width: size.width,
       height: size.height,
-      buffer: Buffer.alloc(size.width * size.height * 4, 255) // Create a white square
+      buffer: Buffer.alloc(size.width * size.height * 4, 255)
     })
     tray = new Tray(defaultIcon)
   } else {
     tray = new Tray(icon)
   }
-  
   tray.setToolTip('Vision Tasks')
 
-  // Toggle window visibility on tray click
-  tray.on('click', () => {
-    if (mainWindow.isVisible()) {
-      mainWindow.hide()
-    } else {
-      mainWindow.show()
-    }
+  // Create window but don't show it yet
+  mainWindow = new BrowserWindow({
+    width: 350,
+    height: 530,
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false,
+    },
+    show: false,
+    frame: false,
+    backgroundColor: '#0a0a0a',
+    titleBarStyle: 'hidden',
+    trafficLightPosition: { x: -100, y: -100 },
+    vibrancy: 'under-window',
+    visualEffectState: 'active',
+    transparent: true,
   })
 
-  // Position window below the tray icon when shown
-  mainWindow.on('show', () => {
-    const trayPos = tray.getBounds()
-    const windowPos = mainWindow.getBounds()
-    const x = Math.round(trayPos.x + (trayPos.width / 2) - (windowPos.width / 2))
-    const y = Math.round(trayPos.y + trayPos.height)
-    mainWindow.setPosition(x, y, false)
-  })
-
-  // Load the local URL for development or the local file for production
+  // Load the content
   if (isDev) {
-    mainWindow.loadURL('http://localhost:5173')
-    mainWindow.webContents.openDevTools({ mode: 'detach' })
+    mainWindow.loadURL('http://localhost:5173').then(() => {
+      if (mainWindow && isDev) {
+        mainWindow.webContents.openDevTools({ mode: 'detach' })
+      }
+    })
   } else {
     mainWindow.loadFile(join(__dirname, '../dist/index.html'))
   }
+
+  // Toggle window on tray click
+  tray.on('click', () => {
+    if (!mainWindow) return
+    if (mainWindow.isVisible()) {
+      mainWindow.hide()
+    } else {
+      showWindow()
+    }
+  })
+
+  // Update position when screen changes
+  screen.on('display-metrics-changed', () => {
+    if (mainWindow?.isVisible()) {
+      const position = getWindowPosition()
+      mainWindow.setPosition(position.x, position.y, false)
+    }
+  })
 }
 
 app.whenReady().then(createWindow)
