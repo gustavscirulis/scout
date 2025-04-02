@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import './App.css'
 
-type RecurringFrequency = 'none' | 'hourly' | 'daily' | 'weekly'
+type RecurringFrequency = 'hourly' | 'daily' | 'weekly'
 
 interface AnalysisJob {
   id: string
@@ -30,7 +30,7 @@ function App() {
   const [newJob, setNewJob] = useState<NewJobFormData>(() => ({
     websiteUrl: '',
     analysisPrompt: '',
-    frequency: 'none',
+    frequency: 'daily',
     scheduledTime: (() => {
       const now = new Date()
       return `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`
@@ -94,11 +94,6 @@ function App() {
   }
 
   const scheduleJob = (job: AnalysisJob) => {
-    if (job.frequency === 'none') {
-      runAnalysis(job)
-      return
-    }
-
     const nextRun = getNextRunTime(job)
     const delay = nextRun.getTime() - Date.now()
 
@@ -106,7 +101,7 @@ function App() {
       clearTimeout(intervals.current[job.id].timeout!)
     }
 
-    const intervalTimes: Record<Exclude<RecurringFrequency, 'none'>, number> = {
+    const intervalTimes: Record<RecurringFrequency, number> = {
       hourly: 60 * 60 * 1000,
       daily: 24 * 60 * 60 * 1000,
       weekly: 7 * 24 * 60 * 60 * 1000
@@ -117,10 +112,8 @@ function App() {
       timeout: setTimeout(() => {
         runAnalysis(job)
         
-        if (job.frequency !== 'none') {
-          const interval = setInterval(() => runAnalysis(job), intervalTimes[job.frequency])
-          intervals.current[job.id].interval = interval
-        }
+        const interval = setInterval(() => runAnalysis(job), intervalTimes[job.frequency])
+        intervals.current[job.id].interval = interval
       }, delay)
     }
   }
@@ -248,6 +241,17 @@ function App() {
     }
   }
 
+  const testJob = async (job: NewJobFormData) => {
+    const testJobData: AnalysisJob = {
+      ...job,
+      id: 'test',
+      isRunning: false
+    }
+    setLoading(true)
+    await runAnalysis(testJobData)
+    setLoading(false)
+  }
+
   return (
     <div className="flex flex-col h-full w-full bg-[#f6f6f7] dark:bg-[#1e1e1e] font-['SF_Pro_Display',-apple-system,BlinkMacSystemFont,'Segoe_UI',Roboto,Oxygen-Sans,Ubuntu,Cantarell,'Helvetica_Neue',sans-serif]">
       {/* Titlebar */}
@@ -338,16 +342,14 @@ function App() {
                     <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    {job.frequency === 'none' ? 'Once' : `Every ${job.frequency}`}
+                    Every {job.frequency}
                   </span>
-                  {job.frequency !== 'none' && (
-                    <span className="flex items-center">
-                      <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      {job.scheduledTime}
-                    </span>
-                  )}
+                  <span className="flex items-center">
+                    <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    {job.scheduledTime}
+                  </span>
                   {job.lastRun && (
                     <span className="flex items-center">
                       <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -376,6 +378,7 @@ function App() {
                     <label className="block text-sm font-medium mb-2 text-[#1d1d1f] dark:text-[#f5f5f7]">Website URL</label>
                     <input
                       type="url"
+                      value={newJob.websiteUrl}
                       className="w-full px-4 py-2 rounded-lg border border-[#e5e5e5] dark:border-[#3a3a3c] bg-white/50 dark:bg-[#1c1c1e]/50 backdrop-blur-xl text-[#1d1d1f] dark:text-[#f5f5f7] focus:outline-none focus:ring-2 focus:ring-[#0071e3] dark:focus:ring-[#0377e3] transition-all"
                       placeholder="https://example.com"
                       onChange={(e) => setNewJob(prev => ({ ...prev, websiteUrl: e.target.value }))}
@@ -385,6 +388,7 @@ function App() {
                   <div>
                     <label className="block text-sm font-medium mb-2 text-[#1d1d1f] dark:text-[#f5f5f7]">Analysis Prompt</label>
                     <textarea
+                      value={newJob.analysisPrompt}
                       className="w-full px-4 py-2 rounded-lg border border-[#e5e5e5] dark:border-[#3a3a3c] bg-white/50 dark:bg-[#1c1c1e]/50 backdrop-blur-xl text-[#1d1d1f] dark:text-[#f5f5f7] focus:outline-none focus:ring-2 focus:ring-[#0071e3] dark:focus:ring-[#0377e3] transition-all resize-none"
                       placeholder="What would you like to analyze about this website?"
                       rows={3}
@@ -395,26 +399,25 @@ function App() {
                   <div>
                     <label className="block text-sm font-medium mb-2 text-[#1d1d1f] dark:text-[#f5f5f7]">Frequency</label>
                     <select
+                      value={newJob.frequency}
                       className="w-full px-4 py-2 rounded-lg border border-[#e5e5e5] dark:border-[#3a3a3c] bg-white/50 dark:bg-[#1c1c1e]/50 backdrop-blur-xl text-[#1d1d1f] dark:text-[#f5f5f7] focus:outline-none focus:ring-2 focus:ring-[#0071e3] dark:focus:ring-[#0377e3] transition-all appearance-none"
                       onChange={(e) => setNewJob(prev => ({ ...prev, frequency: e.target.value as RecurringFrequency }))}
                     >
-                      <option value="none">Run Once</option>
                       <option value="hourly">Every Hour</option>
                       <option value="daily">Every Day</option>
                       <option value="weekly">Every Week</option>
                     </select>
                   </div>
 
-                  {newJob.frequency !== 'none' && (
-                    <div>
-                      <label className="block text-sm font-medium mb-2 text-[#1d1d1f] dark:text-[#f5f5f7]">Start Time</label>
-                      <input
-                        type="time"
-                        className="w-full px-4 py-2 rounded-lg border border-[#e5e5e5] dark:border-[#3a3a3c] bg-white/50 dark:bg-[#1c1c1e]/50 backdrop-blur-xl text-[#1d1d1f] dark:text-[#f5f5f7] focus:outline-none focus:ring-2 focus:ring-[#0071e3] dark:focus:ring-[#0377e3] transition-all"
-                        onChange={(e) => setNewJob(prev => ({ ...prev, scheduledTime: e.target.value }))}
-                      />
-                    </div>
-                  )}
+                  <div>
+                    <label className="block text-sm font-medium mb-2 text-[#1d1d1f] dark:text-[#f5f5f7]">Start Time</label>
+                    <input
+                      type="time"
+                      value={newJob.scheduledTime}
+                      className="w-full px-4 py-2 rounded-lg border border-[#e5e5e5] dark:border-[#3a3a3c] bg-white/50 dark:bg-[#1c1c1e]/50 backdrop-blur-xl text-[#1d1d1f] dark:text-[#f5f5f7] focus:outline-none focus:ring-2 focus:ring-[#0071e3] dark:focus:ring-[#0377e3] transition-all"
+                      onChange={(e) => setNewJob(prev => ({ ...prev, scheduledTime: e.target.value }))}
+                    />
+                  </div>
 
                   <div className="flex justify-end space-x-3 pt-2">
                     <button
@@ -424,13 +427,20 @@ function App() {
                       Cancel
                     </button>
                     <button
+                      onClick={() => testJob(newJob)}
+                      disabled={!newJob.websiteUrl || !newJob.analysisPrompt || loading}
+                      className="px-4 py-2 bg-[#f5f5f7] dark:bg-[#323233] text-[#1d1d1f] dark:text-[#f5f5f7] rounded-lg shadow-sm hover:bg-[#e5e5e5] dark:hover:bg-[#3a3a3c] transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {loading ? 'Testing...' : 'Test Job'}
+                    </button>
+                    <button
                       onClick={() => {
                         if (newJob.websiteUrl && newJob.analysisPrompt) {
                           addJob(newJob)
                         }
                       }}
+                      disabled={!newJob.websiteUrl || !newJob.analysisPrompt || loading}
                       className="px-4 py-2 bg-[#0071e3] dark:bg-[#0377e3] text-white rounded-lg shadow-sm hover:bg-[#0077ed] dark:hover:bg-[#0384ff] transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                      disabled={!newJob.websiteUrl || !newJob.analysisPrompt}
                     >
                       Add Job
                     </button>
