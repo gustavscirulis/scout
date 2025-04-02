@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import './App.css'
 
 function App() {
@@ -9,6 +9,9 @@ function App() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [notificationPermission, setNotificationPermission] = useState(Notification.permission)
+  const [isRecurring, setIsRecurring] = useState(false)
+  const [isRunning, setIsRunning] = useState(false)
+  const intervalRef = useRef<NodeJS.Timeout | null>(null)
 
   // Request notification permission immediately on app launch
   useEffect(() => {
@@ -35,6 +38,15 @@ function App() {
     localStorage.setItem('analysisPrompt', analysisPrompt)
     localStorage.setItem('apiKey', apiKey)
   }, [websiteUrl, analysisPrompt, apiKey])
+
+  // Cleanup interval on unmount
+  useEffect(() => {
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+      }
+    }
+  }, [])
 
   const sendNotification = (result: string) => {
     if (notificationPermission === 'granted') {
@@ -115,6 +127,32 @@ function App() {
     }
   }
 
+  const startRecurringAnalysis = () => {
+    setIsRunning(true)
+    handleAnalysis() // Run immediately
+    intervalRef.current = setInterval(handleAnalysis, 60000) // Run every minute
+  }
+
+  const stopRecurringAnalysis = () => {
+    setIsRunning(false)
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current)
+      intervalRef.current = null
+    }
+  }
+
+  const handleStartStop = () => {
+    if (isRunning) {
+      stopRecurringAnalysis()
+    } else {
+      if (isRecurring) {
+        startRecurringAnalysis()
+      } else {
+        handleAnalysis()
+      }
+    }
+  }
+
   return (
     <div className="flex flex-col h-full w-full bg-[#f5f5f5] dark:bg-[#1e1e1e]">
       {/* Titlebar */}
@@ -158,12 +196,34 @@ function App() {
               />
             </div>
 
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="recurring"
+                checked={isRecurring}
+                onChange={(e) => {
+                  setIsRecurring(e.target.checked)
+                  if (!e.target.checked && isRunning) {
+                    stopRecurringAnalysis()
+                  }
+                }}
+                className="h-4 w-4 rounded border-gray-300 text-[#0071e3] focus:ring-[#0071e3]"
+              />
+              <label htmlFor="recurring" className="text-sm text-[#1d1d1f] dark:text-[#f5f5f7]">
+                Run analysis every minute
+              </label>
+            </div>
+
             <button
-              className="w-full px-4 py-2 bg-[#0071e3] dark:bg-[#0377e3] text-white rounded-md hover:bg-[#0077ed] dark:hover:bg-[#0384ff] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              onClick={handleAnalysis}
+              className={`w-full px-4 py-2 text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                isRunning 
+                  ? 'bg-[#e11d48] hover:bg-[#be123c]' 
+                  : 'bg-[#0071e3] dark:bg-[#0377e3] hover:bg-[#0077ed] dark:hover:bg-[#0384ff]'
+              }`}
+              onClick={handleStartStop}
               disabled={loading || !websiteUrl || !analysisPrompt || !apiKey}
             >
-              {loading ? 'Analyzing...' : 'Analyze Website'}
+              {loading ? 'Analyzing...' : isRunning ? 'Stop Analysis' : 'Analyze Website'}
             </button>
           </div>
 
