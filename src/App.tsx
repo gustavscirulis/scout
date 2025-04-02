@@ -8,6 +8,26 @@ function App() {
   const [response, setResponse] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [notificationPermission, setNotificationPermission] = useState(Notification.permission)
+
+  // Request notification permission immediately on app launch
+  useEffect(() => {
+    const requestNotificationPermission = async () => {
+      try {
+        const permission = await Notification.requestPermission()
+        setNotificationPermission(permission)
+        
+        if (permission === 'denied') {
+          console.warn('Notification permission denied. Some features will be limited.')
+        }
+      } catch (error) {
+        console.error('Error requesting notification permission:', error)
+      }
+    }
+
+    // Request permission immediately
+    requestNotificationPermission()
+  }, [])
 
   // Save values to localStorage whenever they change
   useEffect(() => {
@@ -15,6 +35,28 @@ function App() {
     localStorage.setItem('analysisPrompt', analysisPrompt)
     localStorage.setItem('apiKey', apiKey)
   }, [websiteUrl, analysisPrompt, apiKey])
+
+  const sendNotification = (result: string) => {
+    if (notificationPermission === 'granted') {
+      // First close any existing notifications with the same tag
+      const notification = new Notification('Analysis Complete', {
+        body: result.slice(0, 100) + (result.length > 100 ? '...' : ''),
+        icon: '/favicon.ico',
+        requireInteraction: true,
+        silent: false,
+        tag: 'analysis-result'
+      })
+
+      notification.onclick = () => {
+        // Bring window to front when notification is clicked
+        const { ipcRenderer } = window.require('electron')
+        ipcRenderer.send('focus-window')
+        notification.close()
+      }
+    } else if (notificationPermission === 'denied') {
+      console.warn('Notifications are blocked. Please enable them in your system settings.')
+    }
+  }
 
   const handleAnalysis = async () => {
     try {
@@ -63,7 +105,9 @@ function App() {
       }
 
       const data = await openaiResponse.json()
-      setResponse(data.choices[0].message.content)
+      const resultContent = data.choices[0].message.content
+      setResponse(resultContent)
+      sendNotification(resultContent)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'An unknown error occurred')
     } finally {

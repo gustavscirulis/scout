@@ -38,6 +38,17 @@ function createWindow() {
   }
 }
 
+// Handle window focus request from renderer
+ipcMain.on('focus-window', () => {
+  if (mainWindow) {
+    if (mainWindow.isMinimized()) {
+      mainWindow.restore()
+    }
+    mainWindow.show()
+    mainWindow.focus()
+  }
+})
+
 ipcMain.handle('take-screenshot', async (_event, url: string) => {
   const offscreenWindow = new BrowserWindow({
     width: 1920,
