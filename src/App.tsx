@@ -3,22 +3,42 @@ import './App.css'
 
 type RecurringFrequency = 'none' | 'hourly' | 'daily' | 'weekly'
 
+interface AnalysisJob {
+  id: string
+  websiteUrl: string
+  analysisPrompt: string
+  frequency: RecurringFrequency
+  scheduledTime: string
+  isRunning: boolean
+  lastResult?: string
+  lastRun?: Date
+}
+
+type NewJobFormData = Omit<AnalysisJob, 'id' | 'isRunning' | 'lastResult' | 'lastRun'>
+
 function App() {
-  const [websiteUrl, setWebsiteUrl] = useState(() => localStorage.getItem('websiteUrl') || '')
-  const [analysisPrompt, setAnalysisPrompt] = useState(() => localStorage.getItem('analysisPrompt') || '')
+  const [jobs, setJobs] = useState<AnalysisJob[]>(() => {
+    const savedJobs = localStorage.getItem('analysisJobs')
+    return savedJobs ? JSON.parse(savedJobs) : []
+  })
   const [apiKey, setApiKey] = useState(() => localStorage.getItem('apiKey') || '')
-  const [response, setResponse] = useState('')
+  const [showSettings, setShowSettings] = useState(false)
+  const [showNewJobForm, setShowNewJobForm] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [notificationPermission, setNotificationPermission] = useState(Notification.permission)
-  const [frequency, setFrequency] = useState<RecurringFrequency>('none')
-  const [scheduledTime, setScheduledTime] = useState(() => {
-    const now = new Date()
-    return `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`
-  })
-  const [isRunning, setIsRunning] = useState(false)
-  const intervalRef = useRef<NodeJS.Timeout | null>(null)
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const [newJob, setNewJob] = useState<NewJobFormData>(() => ({
+    websiteUrl: '',
+    analysisPrompt: '',
+    frequency: 'none',
+    scheduledTime: (() => {
+      const now = new Date()
+      return `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`
+    })()
+  }))
+  
+  // Store job intervals
+  const intervals = useRef<Record<string, { interval: NodeJS.Timeout | null, timeout: NodeJS.Timeout | null }>>({})
 
   // Request notification permission immediately on app launch
   useEffect(() => {
@@ -26,7 +46,6 @@ function App() {
       try {
         const permission = await Notification.requestPermission()
         setNotificationPermission(permission)
-        
         if (permission === 'denied') {
           console.warn('Notification permission denied. Some features will be limited.')
         }
@@ -34,135 +53,150 @@ function App() {
         console.error('Error requesting notification permission:', error)
       }
     }
-
     requestNotificationPermission()
   }, [])
 
-  // Save values to localStorage whenever they change
+  // Save jobs to localStorage
   useEffect(() => {
-    localStorage.setItem('websiteUrl', websiteUrl)
-    localStorage.setItem('analysisPrompt', analysisPrompt)
+    localStorage.setItem('analysisJobs', JSON.stringify(jobs))
+  }, [jobs])
+
+  // Save API key to localStorage
+  useEffect(() => {
     localStorage.setItem('apiKey', apiKey)
-  }, [websiteUrl, analysisPrompt, apiKey])
+  }, [apiKey])
 
   // Cleanup intervals on unmount
   useEffect(() => {
     return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current)
-      }
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current)
-      }
+      Object.values(intervals.current).forEach(({ interval, timeout }) => {
+        if (interval) clearInterval(interval)
+        if (timeout) clearTimeout(timeout)
+      })
     }
   }, [])
 
-  const getNextRunTime = () => {
-    const [hours, minutes] = scheduledTime.split(':').map(Number)
+  const getNextRunTime = (job: AnalysisJob) => {
+    const [hours, minutes] = job.scheduledTime.split(':').map(Number)
     const now = new Date()
     const next = new Date()
     next.setHours(hours, minutes, 0, 0)
 
-    if (frequency === 'hourly') {
-      if (next <= now) {
-        next.setHours(next.getHours() + 1)
-      }
-    } else if (frequency === 'daily') {
-      if (next <= now) {
-        next.setDate(next.getDate() + 1)
-      }
-    } else if (frequency === 'weekly') {
-      if (next <= now) {
-        next.setDate(next.getDate() + 7)
-      }
+    if (job.frequency === 'hourly') {
+      if (next <= now) next.setHours(next.getHours() + 1)
+    } else if (job.frequency === 'daily') {
+      if (next <= now) next.setDate(next.getDate() + 1)
+    } else if (job.frequency === 'weekly') {
+      if (next <= now) next.setDate(next.getDate() + 7)
     }
 
     return next
   }
 
-  const scheduleNextRun = () => {
-    const nextRun = getNextRunTime()
+  const scheduleJob = (job: AnalysisJob) => {
+    if (job.frequency === 'none') {
+      runAnalysis(job)
+      return
+    }
+
+    const nextRun = getNextRunTime(job)
     const delay = nextRun.getTime() - Date.now()
 
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current)
+    if (intervals.current[job.id]?.timeout) {
+      clearTimeout(intervals.current[job.id].timeout!)
     }
 
-    timeoutRef.current = setTimeout(() => {
-      handleAnalysis()
-      
-      // Schedule next run based on frequency
-      if (frequency === 'hourly') {
-        intervalRef.current = setInterval(handleAnalysis, 60 * 60 * 1000)
-      } else if (frequency === 'daily') {
-        intervalRef.current = setInterval(handleAnalysis, 24 * 60 * 60 * 1000)
-      } else if (frequency === 'weekly') {
-        intervalRef.current = setInterval(handleAnalysis, 7 * 24 * 60 * 60 * 1000)
-      }
-    }, delay)
+    const intervalTimes: Record<Exclude<RecurringFrequency, 'none'>, number> = {
+      hourly: 60 * 60 * 1000,
+      daily: 24 * 60 * 60 * 1000,
+      weekly: 7 * 24 * 60 * 60 * 1000
+    }
+
+    intervals.current[job.id] = {
+      interval: null,
+      timeout: setTimeout(() => {
+        runAnalysis(job)
+        
+        if (job.frequency !== 'none') {
+          const interval = setInterval(() => runAnalysis(job), intervalTimes[job.frequency])
+          intervals.current[job.id].interval = interval
+        }
+      }, delay)
+    }
   }
 
-  const startRecurringAnalysis = () => {
-    setIsRunning(true)
-    if (frequency === 'none') {
-      handleAnalysis()
+  const stopJob = (jobId: string) => {
+    if (intervals.current[jobId]) {
+      if (intervals.current[jobId].interval) clearInterval(intervals.current[jobId].interval)
+      if (intervals.current[jobId].timeout) clearTimeout(intervals.current[jobId].timeout)
+      delete intervals.current[jobId]
+    }
+
+    setJobs(jobs.map(job => 
+      job.id === jobId ? { ...job, isRunning: false } : job
+    ))
+  }
+
+  const toggleJob = (jobId: string) => {
+    const job = jobs.find(j => j.id === jobId)
+    if (!job) return
+
+    if (job.isRunning) {
+      stopJob(jobId)
     } else {
-      scheduleNextRun()
+      setJobs(jobs.map(j => 
+        j.id === jobId ? { ...j, isRunning: true } : j
+      ))
+      scheduleJob(job)
     }
   }
 
-  const stopRecurringAnalysis = () => {
-    setIsRunning(false)
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current)
-      intervalRef.current = null
-    }
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current)
-      timeoutRef.current = null
-    }
+  const deleteJob = (jobId: string) => {
+    stopJob(jobId)
+    setJobs(jobs.filter(job => job.id !== jobId))
   }
 
-  const handleStartStop = () => {
-    if (isRunning) {
-      stopRecurringAnalysis()
-    } else {
-      startRecurringAnalysis()
+  const addJob = (job: Omit<AnalysisJob, 'id' | 'isRunning' | 'lastResult' | 'lastRun'>) => {
+    const newJob: AnalysisJob = {
+      ...job,
+      id: crypto.randomUUID(),
+      isRunning: false
     }
+    setJobs([...jobs, newJob])
+    setShowNewJobForm(false)
   }
 
-  const sendNotification = (result: string) => {
+  const sendNotification = (job: AnalysisJob, result: string) => {
     if (notificationPermission === 'granted') {
-      // First close any existing notifications with the same tag
-      const notification = new Notification('Analysis Complete', {
+      const notification = new Notification(`Analysis Complete: ${job.websiteUrl}`, {
         body: result.slice(0, 100) + (result.length > 100 ? '...' : ''),
         icon: '/favicon.ico',
         requireInteraction: true,
         silent: false,
-        tag: 'analysis-result'
+        tag: `analysis-${job.id}`
       })
 
       notification.onclick = () => {
-        // Bring window to front when notification is clicked
         const { ipcRenderer } = window.require('electron')
         ipcRenderer.send('focus-window')
         notification.close()
       }
-    } else if (notificationPermission === 'denied') {
-      console.warn('Notifications are blocked. Please enable them in your system settings.')
     }
   }
 
-  const handleAnalysis = async () => {
+  const runAnalysis = async (job: AnalysisJob) => {
+    if (!apiKey) {
+      setError('Please set your OpenAI API key in settings')
+      return
+    }
+
     try {
       setLoading(true)
       setError('')
 
-      // Take screenshot using Electron
       const { ipcRenderer } = window.require('electron')
-      const screenshot = await ipcRenderer.invoke('take-screenshot', websiteUrl)
+      const screenshot = await ipcRenderer.invoke('take-screenshot', job.websiteUrl)
 
-      // Call OpenAI Vision API
       const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -175,10 +209,7 @@ function App() {
             {
               role: "user",
               content: [
-                { 
-                  type: "text", 
-                  text: analysisPrompt 
-                },
+                { type: "text", text: job.analysisPrompt },
                 {
                   type: "image_url",
                   image_url: {
@@ -201,130 +232,222 @@ function App() {
 
       const data = await openaiResponse.json()
       const resultContent = data.choices[0].message.content
-      setResponse(resultContent)
-      sendNotification(resultContent)
+      
+      setJobs(jobs.map(j => 
+        j.id === job.id 
+          ? { ...j, lastResult: resultContent, lastRun: new Date() }
+          : j
+      ))
+      
+      sendNotification(job, resultContent)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'An unknown error occurred')
+      stopJob(job.id)
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="flex flex-col h-full w-full bg-[#f5f5f5] dark:bg-[#1e1e1e]">
+    <div className="flex flex-col h-full w-full bg-[#f6f6f7] dark:bg-[#1e1e1e] font-['SF_Pro_Display',-apple-system,BlinkMacSystemFont,'Segoe_UI',Roboto,Oxygen-Sans,Ubuntu,Cantarell,'Helvetica_Neue',sans-serif]">
       {/* Titlebar */}
-      <div className="h-8 bg-[#e7e7e7] dark:bg-[#323233] drag-region" />
+      <div className="h-8 bg-[#f6f6f7]/80 dark:bg-[#2c2c2e]/80 backdrop-blur-xl border-b border-[#d1d1d6] dark:border-[#3a3a3c] drag-region flex items-center justify-between px-4">
+        <div className="text-sm font-medium text-[#1d1d1f] dark:text-[#f5f5f7]">Vision Tasks</div>
+        <button
+          onClick={() => setShowSettings(!showSettings)}
+          className="text-sm text-[#1d1d1f] dark:text-[#f5f5f7] hover:text-[#0071e3] dark:hover:text-[#0377e3] transition-colors"
+        >
+          Settings
+        </button>
+      </div>
 
       {/* Main content */}
       <div className="flex-1 overflow-y-auto">
         <div className="w-full p-6 space-y-6">
-          {/* Input Section */}
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium mb-1 text-[#1d1d1f] dark:text-[#f5f5f7]">Website URL</label>
-              <input
-                type="url"
-                value={websiteUrl}
-                onChange={(e) => setWebsiteUrl(e.target.value)}
-                className="w-full px-3 py-2 rounded-md border border-[#d2d2d7] dark:border-[#424245] bg-white dark:bg-[#2c2c2e] text-[#1d1d1f] dark:text-[#f5f5f7] focus:outline-none focus:ring-2 focus:ring-[#0071e3] dark:focus:ring-[#0377e3]"
-                placeholder="https://example.com"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-1 text-[#1d1d1f] dark:text-[#f5f5f7]">Analysis Prompt</label>
-              <textarea
-                value={analysisPrompt}
-                onChange={(e) => setAnalysisPrompt(e.target.value)}
-                className="w-full px-3 py-2 rounded-md border border-[#d2d2d7] dark:border-[#424245] bg-white dark:bg-[#2c2c2e] text-[#1d1d1f] dark:text-[#f5f5f7] focus:outline-none focus:ring-2 focus:ring-[#0071e3] dark:focus:ring-[#0377e3]"
-                placeholder="What would you like to analyze about this website?"
-                rows={3}
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-1 text-[#1d1d1f] dark:text-[#f5f5f7]">OpenAI API Key</label>
-              <input
-                type="password"
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                className="w-full px-3 py-2 rounded-md border border-[#d2d2d7] dark:border-[#424245] bg-white dark:bg-[#2c2c2e] text-[#1d1d1f] dark:text-[#f5f5f7] focus:outline-none focus:ring-2 focus:ring-[#0071e3] dark:focus:ring-[#0377e3]"
-                placeholder="sk-..."
-              />
-            </div>
-
-            <div className="space-y-3">
+          {/* Settings Panel */}
+          {showSettings && (
+            <div className="bg-white/50 dark:bg-[#2c2c2e]/50 backdrop-blur-xl rounded-xl border border-[#e5e5e5] dark:border-[#3a3a3c] p-6 space-y-4 shadow-sm">
+              <h2 className="text-lg font-semibold text-[#1d1d1f] dark:text-[#f5f5f7]">Settings</h2>
               <div>
-                <label className="block text-sm font-medium mb-1 text-[#1d1d1f] dark:text-[#f5f5f7]">
-                  Analysis Frequency
+                <label className="block text-sm font-medium mb-2 text-[#1d1d1f] dark:text-[#f5f5f7]">
+                  OpenAI API Key
                 </label>
-                <select
-                  value={frequency}
-                  onChange={(e) => {
-                    const newFrequency = e.target.value as RecurringFrequency
-                    setFrequency(newFrequency)
-                    if (isRunning) {
-                      stopRecurringAnalysis()
-                    }
-                  }}
-                  className="w-full px-3 py-2 rounded-md border border-[#d2d2d7] dark:border-[#424245] bg-white dark:bg-[#2c2c2e] text-[#1d1d1f] dark:text-[#f5f5f7] focus:outline-none focus:ring-2 focus:ring-[#0071e3] dark:focus:ring-[#0377e3]"
-                >
-                  <option value="none">Run Once</option>
-                  <option value="hourly">Every Hour</option>
-                  <option value="daily">Every Day</option>
-                  <option value="weekly">Every Week</option>
-                </select>
+                <input
+                  type="password"
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  className="w-full px-4 py-2 rounded-lg border border-[#e5e5e5] dark:border-[#3a3a3c] bg-white/50 dark:bg-[#1c1c1e]/50 backdrop-blur-xl text-[#1d1d1f] dark:text-[#f5f5f7] focus:outline-none focus:ring-2 focus:ring-[#0071e3] dark:focus:ring-[#0377e3] transition-all"
+                  placeholder="sk-..."
+                />
               </div>
+            </div>
+          )}
 
-              {frequency !== 'none' && (
-                <div>
-                  <label className="block text-sm font-medium mb-1 text-[#1d1d1f] dark:text-[#f5f5f7]">
-                    Start Time
-                  </label>
-                  <input
-                    type="time"
-                    value={scheduledTime}
-                    onChange={(e) => {
-                      setScheduledTime(e.target.value)
-                      if (isRunning) {
-                        stopRecurringAnalysis()
-                        startRecurringAnalysis()
-                      }
-                    }}
-                    className="w-full px-3 py-2 rounded-md border border-[#d2d2d7] dark:border-[#424245] bg-white dark:bg-[#2c2c2e] text-[#1d1d1f] dark:text-[#f5f5f7] focus:outline-none focus:ring-2 focus:ring-[#0071e3] dark:focus:ring-[#0377e3]"
-                  />
-                </div>
-              )}
+          {/* Jobs List */}
+          <div className="space-y-4">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-lg font-semibold text-[#1d1d1f] dark:text-[#f5f5f7]">Analysis Jobs</h2>
+              <button
+                onClick={() => setShowNewJobForm(true)}
+                className="px-4 py-2 bg-[#0071e3] dark:bg-[#0377e3] text-white rounded-lg shadow-sm hover:bg-[#0077ed] dark:hover:bg-[#0384ff] transition-colors text-sm font-medium"
+              >
+                Add Job
+              </button>
             </div>
 
-            <button
-              className={`w-full px-4 py-2 text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                isRunning 
-                  ? 'bg-[#e11d48] hover:bg-[#be123c]' 
-                  : 'bg-[#0071e3] dark:bg-[#0377e3] hover:bg-[#0077ed] dark:hover:bg-[#0384ff]'
-              }`}
-              onClick={handleStartStop}
-              disabled={loading || !websiteUrl || !analysisPrompt || !apiKey}
-            >
-              {loading ? 'Analyzing...' : isRunning ? 'Stop Analysis' : 'Start Analysis'}
-            </button>
+            {jobs.length === 0 && !showNewJobForm && (
+              <div className="text-center py-12 text-[#86868b] dark:text-[#86868b] bg-white/50 dark:bg-[#2c2c2e]/50 backdrop-blur-xl rounded-xl border border-[#e5e5e5] dark:border-[#3a3a3c]">
+                <div className="text-3xl mb-3">📊</div>
+                <div className="font-medium mb-1">No Analysis Jobs</div>
+                <div className="text-sm">Click "Add Job" to create your first analysis task</div>
+              </div>
+            )}
+
+            {jobs.map(job => (
+              <div
+                key={job.id}
+                className="bg-white/50 dark:bg-[#2c2c2e]/50 backdrop-blur-xl rounded-xl border border-[#e5e5e5] dark:border-[#3a3a3c] p-6 space-y-4 shadow-sm transition-all hover:shadow-md"
+              >
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="font-semibold text-[#1d1d1f] dark:text-[#f5f5f7]">{job.websiteUrl}</h3>
+                    <p className="text-sm text-[#86868b] dark:text-[#86868b] mt-1">{job.analysisPrompt}</p>
+                  </div>
+                  <div className="flex space-x-3">
+                    <button
+                      onClick={() => toggleJob(job.id)}
+                      className={`px-4 py-2 rounded-lg shadow-sm text-white text-sm font-medium transition-all ${
+                        job.isRunning
+                          ? 'bg-[#e11d48] hover:bg-[#be123c]'
+                          : 'bg-[#0071e3] dark:bg-[#0377e3] hover:bg-[#0077ed] dark:hover:bg-[#0384ff]'
+                      }`}
+                    >
+                      {job.isRunning ? 'Stop' : 'Start'}
+                    </button>
+                    <button
+                      onClick={() => deleteJob(job.id)}
+                      className="px-4 py-2 text-[#e11d48] hover:bg-[#fee2e2] dark:hover:bg-[#3b2424] rounded-lg transition-colors text-sm font-medium"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+                
+                <div className="flex space-x-6 text-sm text-[#86868b] dark:text-[#86868b]">
+                  <span className="flex items-center">
+                    <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    {job.frequency === 'none' ? 'Once' : `Every ${job.frequency}`}
+                  </span>
+                  {job.frequency !== 'none' && (
+                    <span className="flex items-center">
+                      <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      {job.scheduledTime}
+                    </span>
+                  )}
+                  {job.lastRun && (
+                    <span className="flex items-center">
+                      <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      Last run: {new Date(job.lastRun).toLocaleString()}
+                    </span>
+                  )}
+                </div>
+
+                {job.lastResult && (
+                  <div className="mt-3 p-4 bg-[#f6f6f7] dark:bg-[#1c1c1e] rounded-lg">
+                    <div className="font-medium text-[#1d1d1f] dark:text-[#f5f5f7] mb-2">Last Result</div>
+                    <p className="text-[#1d1d1f] dark:text-[#f5f5f7] text-sm whitespace-pre-wrap leading-relaxed">{job.lastResult}</p>
+                  </div>
+                )}
+              </div>
+            ))}
+
+            {/* New Job Form */}
+            {showNewJobForm && (
+              <div className="bg-white/50 dark:bg-[#2c2c2e]/50 backdrop-blur-xl rounded-xl border border-[#e5e5e5] dark:border-[#3a3a3c] p-6 space-y-5 shadow-sm">
+                <h3 className="font-semibold text-[#1d1d1f] dark:text-[#f5f5f7] text-lg">New Analysis Job</h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2 text-[#1d1d1f] dark:text-[#f5f5f7]">Website URL</label>
+                    <input
+                      type="url"
+                      className="w-full px-4 py-2 rounded-lg border border-[#e5e5e5] dark:border-[#3a3a3c] bg-white/50 dark:bg-[#1c1c1e]/50 backdrop-blur-xl text-[#1d1d1f] dark:text-[#f5f5f7] focus:outline-none focus:ring-2 focus:ring-[#0071e3] dark:focus:ring-[#0377e3] transition-all"
+                      placeholder="https://example.com"
+                      onChange={(e) => setNewJob(prev => ({ ...prev, websiteUrl: e.target.value }))}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-2 text-[#1d1d1f] dark:text-[#f5f5f7]">Analysis Prompt</label>
+                    <textarea
+                      className="w-full px-4 py-2 rounded-lg border border-[#e5e5e5] dark:border-[#3a3a3c] bg-white/50 dark:bg-[#1c1c1e]/50 backdrop-blur-xl text-[#1d1d1f] dark:text-[#f5f5f7] focus:outline-none focus:ring-2 focus:ring-[#0071e3] dark:focus:ring-[#0377e3] transition-all resize-none"
+                      placeholder="What would you like to analyze about this website?"
+                      rows={3}
+                      onChange={(e) => setNewJob(prev => ({ ...prev, analysisPrompt: e.target.value }))}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-2 text-[#1d1d1f] dark:text-[#f5f5f7]">Frequency</label>
+                    <select
+                      className="w-full px-4 py-2 rounded-lg border border-[#e5e5e5] dark:border-[#3a3a3c] bg-white/50 dark:bg-[#1c1c1e]/50 backdrop-blur-xl text-[#1d1d1f] dark:text-[#f5f5f7] focus:outline-none focus:ring-2 focus:ring-[#0071e3] dark:focus:ring-[#0377e3] transition-all appearance-none"
+                      onChange={(e) => setNewJob(prev => ({ ...prev, frequency: e.target.value as RecurringFrequency }))}
+                    >
+                      <option value="none">Run Once</option>
+                      <option value="hourly">Every Hour</option>
+                      <option value="daily">Every Day</option>
+                      <option value="weekly">Every Week</option>
+                    </select>
+                  </div>
+
+                  {newJob.frequency !== 'none' && (
+                    <div>
+                      <label className="block text-sm font-medium mb-2 text-[#1d1d1f] dark:text-[#f5f5f7]">Start Time</label>
+                      <input
+                        type="time"
+                        className="w-full px-4 py-2 rounded-lg border border-[#e5e5e5] dark:border-[#3a3a3c] bg-white/50 dark:bg-[#1c1c1e]/50 backdrop-blur-xl text-[#1d1d1f] dark:text-[#f5f5f7] focus:outline-none focus:ring-2 focus:ring-[#0071e3] dark:focus:ring-[#0377e3] transition-all"
+                        onChange={(e) => setNewJob(prev => ({ ...prev, scheduledTime: e.target.value }))}
+                      />
+                    </div>
+                  )}
+
+                  <div className="flex justify-end space-x-3 pt-2">
+                    <button
+                      onClick={() => setShowNewJobForm(false)}
+                      className="px-4 py-2 text-[#1d1d1f] dark:text-[#f5f5f7] hover:bg-[#f5f5f7] dark:hover:bg-[#323233] rounded-lg transition-colors text-sm font-medium"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (newJob.websiteUrl && newJob.analysisPrompt) {
+                          addJob(newJob)
+                        }
+                      }}
+                      className="px-4 py-2 bg-[#0071e3] dark:bg-[#0377e3] text-white rounded-lg shadow-sm hover:bg-[#0077ed] dark:hover:bg-[#0384ff] transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={!newJob.websiteUrl || !newJob.analysisPrompt}
+                    >
+                      Add Job
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Error message */}
           {error && (
-            <div className="p-3 bg-[#fef1f1] dark:bg-[#3b2424] border border-[#e11d48] dark:border-[#ef4444] rounded-md text-[#e11d48] dark:text-[#ef4444] text-sm">
-              {error}
-            </div>
-          )}
-
-          {/* Results Section */}
-          {response && (
-            <div className="bg-white dark:bg-[#2c2c2e] rounded-md border border-[#d2d2d7] dark:border-[#424245] overflow-hidden">
-              <div className="sticky top-0 px-4 py-3 bg-[#f5f5f7] dark:bg-[#323233] border-b border-[#d2d2d7] dark:border-[#424245]">
-                <h3 className="font-medium text-[#1d1d1f] dark:text-[#f5f5f7]">Analysis Result</h3>
-              </div>
-              <div className="p-4">
-                <p className="whitespace-pre-wrap text-[#1d1d1f] dark:text-[#f5f5f7] text-sm leading-relaxed">{response}</p>
+            <div className="p-4 bg-[#fef1f1] dark:bg-[#3b2424] border border-[#e11d48] dark:border-[#ef4444] rounded-lg text-[#e11d48] dark:text-[#ef4444] text-sm font-medium shadow-sm">
+              <div className="flex items-center">
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                {error}
               </div>
             </div>
           )}
