@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import './App.css'
 
+type RecurringFrequency = 'none' | 'hourly' | 'daily' | 'weekly'
+
 function App() {
   const [websiteUrl, setWebsiteUrl] = useState(() => localStorage.getItem('websiteUrl') || '')
   const [analysisPrompt, setAnalysisPrompt] = useState(() => localStorage.getItem('analysisPrompt') || '')
@@ -9,9 +11,14 @@ function App() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [notificationPermission, setNotificationPermission] = useState(Notification.permission)
-  const [isRecurring, setIsRecurring] = useState(false)
+  const [frequency, setFrequency] = useState<RecurringFrequency>('none')
+  const [scheduledTime, setScheduledTime] = useState(() => {
+    const now = new Date()
+    return `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`
+  })
   const [isRunning, setIsRunning] = useState(false)
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Request notification permission immediately on app launch
   useEffect(() => {
@@ -28,7 +35,6 @@ function App() {
       }
     }
 
-    // Request permission immediately
     requestNotificationPermission()
   }, [])
 
@@ -39,14 +45,91 @@ function App() {
     localStorage.setItem('apiKey', apiKey)
   }, [websiteUrl, analysisPrompt, apiKey])
 
-  // Cleanup interval on unmount
+  // Cleanup intervals on unmount
   useEffect(() => {
     return () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current)
       }
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current)
+      }
     }
   }, [])
+
+  const getNextRunTime = () => {
+    const [hours, minutes] = scheduledTime.split(':').map(Number)
+    const now = new Date()
+    const next = new Date()
+    next.setHours(hours, minutes, 0, 0)
+
+    if (frequency === 'hourly') {
+      if (next <= now) {
+        next.setHours(next.getHours() + 1)
+      }
+    } else if (frequency === 'daily') {
+      if (next <= now) {
+        next.setDate(next.getDate() + 1)
+      }
+    } else if (frequency === 'weekly') {
+      if (next <= now) {
+        next.setDate(next.getDate() + 7)
+      }
+    }
+
+    return next
+  }
+
+  const scheduleNextRun = () => {
+    const nextRun = getNextRunTime()
+    const delay = nextRun.getTime() - Date.now()
+
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current)
+    }
+
+    timeoutRef.current = setTimeout(() => {
+      handleAnalysis()
+      
+      // Schedule next run based on frequency
+      if (frequency === 'hourly') {
+        intervalRef.current = setInterval(handleAnalysis, 60 * 60 * 1000)
+      } else if (frequency === 'daily') {
+        intervalRef.current = setInterval(handleAnalysis, 24 * 60 * 60 * 1000)
+      } else if (frequency === 'weekly') {
+        intervalRef.current = setInterval(handleAnalysis, 7 * 24 * 60 * 60 * 1000)
+      }
+    }, delay)
+  }
+
+  const startRecurringAnalysis = () => {
+    setIsRunning(true)
+    if (frequency === 'none') {
+      handleAnalysis()
+    } else {
+      scheduleNextRun()
+    }
+  }
+
+  const stopRecurringAnalysis = () => {
+    setIsRunning(false)
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current)
+      intervalRef.current = null
+    }
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current)
+      timeoutRef.current = null
+    }
+  }
+
+  const handleStartStop = () => {
+    if (isRunning) {
+      stopRecurringAnalysis()
+    } else {
+      startRecurringAnalysis()
+    }
+  }
 
   const sendNotification = (result: string) => {
     if (notificationPermission === 'granted') {
@@ -127,38 +210,12 @@ function App() {
     }
   }
 
-  const startRecurringAnalysis = () => {
-    setIsRunning(true)
-    handleAnalysis() // Run immediately
-    intervalRef.current = setInterval(handleAnalysis, 60000) // Run every minute
-  }
-
-  const stopRecurringAnalysis = () => {
-    setIsRunning(false)
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current)
-      intervalRef.current = null
-    }
-  }
-
-  const handleStartStop = () => {
-    if (isRunning) {
-      stopRecurringAnalysis()
-    } else {
-      if (isRecurring) {
-        startRecurringAnalysis()
-      } else {
-        handleAnalysis()
-      }
-    }
-  }
-
   return (
     <div className="flex flex-col h-full w-full bg-[#f5f5f5] dark:bg-[#1e1e1e]">
       {/* Titlebar */}
       <div className="h-8 bg-[#e7e7e7] dark:bg-[#323233] drag-region" />
 
-      {/* Main content - Make the container scrollable */}
+      {/* Main content */}
       <div className="flex-1 overflow-y-auto">
         <div className="w-full p-6 space-y-6">
           {/* Input Section */}
@@ -196,22 +253,48 @@ function App() {
               />
             </div>
 
-            <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                id="recurring"
-                checked={isRecurring}
-                onChange={(e) => {
-                  setIsRecurring(e.target.checked)
-                  if (!e.target.checked && isRunning) {
-                    stopRecurringAnalysis()
-                  }
-                }}
-                className="h-4 w-4 rounded border-gray-300 text-[#0071e3] focus:ring-[#0071e3]"
-              />
-              <label htmlFor="recurring" className="text-sm text-[#1d1d1f] dark:text-[#f5f5f7]">
-                Run analysis every minute
-              </label>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium mb-1 text-[#1d1d1f] dark:text-[#f5f5f7]">
+                  Analysis Frequency
+                </label>
+                <select
+                  value={frequency}
+                  onChange={(e) => {
+                    const newFrequency = e.target.value as RecurringFrequency
+                    setFrequency(newFrequency)
+                    if (isRunning) {
+                      stopRecurringAnalysis()
+                    }
+                  }}
+                  className="w-full px-3 py-2 rounded-md border border-[#d2d2d7] dark:border-[#424245] bg-white dark:bg-[#2c2c2e] text-[#1d1d1f] dark:text-[#f5f5f7] focus:outline-none focus:ring-2 focus:ring-[#0071e3] dark:focus:ring-[#0377e3]"
+                >
+                  <option value="none">Run Once</option>
+                  <option value="hourly">Every Hour</option>
+                  <option value="daily">Every Day</option>
+                  <option value="weekly">Every Week</option>
+                </select>
+              </div>
+
+              {frequency !== 'none' && (
+                <div>
+                  <label className="block text-sm font-medium mb-1 text-[#1d1d1f] dark:text-[#f5f5f7]">
+                    Start Time
+                  </label>
+                  <input
+                    type="time"
+                    value={scheduledTime}
+                    onChange={(e) => {
+                      setScheduledTime(e.target.value)
+                      if (isRunning) {
+                        stopRecurringAnalysis()
+                        startRecurringAnalysis()
+                      }
+                    }}
+                    className="w-full px-3 py-2 rounded-md border border-[#d2d2d7] dark:border-[#424245] bg-white dark:bg-[#2c2c2e] text-[#1d1d1f] dark:text-[#f5f5f7] focus:outline-none focus:ring-2 focus:ring-[#0071e3] dark:focus:ring-[#0377e3]"
+                  />
+                </div>
+              )}
             </div>
 
             <button
@@ -223,7 +306,7 @@ function App() {
               onClick={handleStartStop}
               disabled={loading || !websiteUrl || !analysisPrompt || !apiKey}
             >
-              {loading ? 'Analyzing...' : isRunning ? 'Stop Analysis' : 'Analyze Website'}
+              {loading ? 'Analyzing...' : isRunning ? 'Stop Analysis' : 'Start Analysis'}
             </button>
           </div>
 
@@ -234,7 +317,7 @@ function App() {
             </div>
           )}
 
-          {/* Results Section - Scrollable content */}
+          {/* Results Section */}
           {response && (
             <div className="bg-white dark:bg-[#2c2c2e] rounded-md border border-[#d2d2d7] dark:border-[#424245] overflow-hidden">
               <div className="sticky top-0 px-4 py-3 bg-[#f5f5f7] dark:bg-[#323233] border-b border-[#d2d2d7] dark:border-[#424245]">
