@@ -7,10 +7,10 @@
   "scripts": {
     "dev": "concurrently \"vite\" \"npm run start-electron\"",
     "build": "npm run build-electron && vite build && electron-builder",
-    "build-electron": "tsc -p electron",
+    "build-electron": "tsc --sourceMap false -p electron",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
-    "start-electron": "tsc -p electron && electron ."
+    "start-electron": "tsc --sourceMap false -p electron && electron ."
   },
   "dependencies": {
     "@hookform/resolvers": "^4.1.3",

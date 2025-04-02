@@ -40,3 +40,43 @@
 .read-the-docs {
   color: #888;
 }
+
+.drag-region {
+  -webkit-app-region: drag;
+  padding-left: 80px; /* Space for traffic lights */
+}
+
+/* Ensure inputs and buttons are not draggable */
+input, textarea, button {
+  -webkit-app-region: no-drag;
+}
+
+/* Custom scrollbar for macOS style */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #a1a1a6;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #86868b;
+}
+
+/* Dark mode scrollbar */
+@media (prefers-color-scheme: dark) {
+  ::-webkit-scrollbar-thumb {
+    background: #424245;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    background: #6e6e73;
+  }
+}
