@@ -1,13 +1,20 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import './App.css'
 
 function App() {
-  const [websiteUrl, setWebsiteUrl] = useState('')
-  const [analysisPrompt, setAnalysisPrompt] = useState('')
-  const [apiKey, setApiKey] = useState('')
+  const [websiteUrl, setWebsiteUrl] = useState(() => localStorage.getItem('websiteUrl') || '')
+  const [analysisPrompt, setAnalysisPrompt] = useState(() => localStorage.getItem('analysisPrompt') || '')
+  const [apiKey, setApiKey] = useState(() => localStorage.getItem('apiKey') || '')
   const [response, setResponse] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  // Save values to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem('websiteUrl', websiteUrl)
+    localStorage.setItem('analysisPrompt', analysisPrompt)
+    localStorage.setItem('apiKey', apiKey)
+  }, [websiteUrl, analysisPrompt, apiKey])
 
   const handleAnalysis = async () => {
     try {
