@@ -182,7 +182,16 @@ function App() {
 
   const deleteJob = (jobId: string) => {
     stopJob(jobId)
-    setJobs(jobs.filter(job => job.id !== jobId))
+    
+    // Update the jobs array
+    const updatedJobs = jobs.filter(job => job.id !== jobId)
+    setJobs(updatedJobs)
+    
+    // If we're deleting the last job, or the job we're currently editing,
+    // exit edit mode to show the empty state
+    if (updatedJobs.length === 0 || jobId === editingJobId) {
+      resetNewJobForm()
+    }
   }
 
   const resetNewJobForm = () => {
@@ -609,7 +618,7 @@ Return your response in this JSON format:
               </div>
             )}
 
-            {/* When in edit mode, only show the job being edited */}
+            {/* When in edit mode or creating a new job, only show that form */}
             {editingJobId ? (
               // Find and display only the job being edited
               jobs.filter(job => job.id === editingJobId).map(job => (
@@ -779,8 +788,8 @@ Return your response in this JSON format:
                   )}
                 </Card>
               ))
-            ) : (
-              // When not in edit mode, show all job cards
+            ) : !showNewJobForm ? (
+              // When not in edit mode and not creating new job, show all job cards
               jobs.map(job => (
                 <Card 
                   key={job.id} 
@@ -854,7 +863,7 @@ Return your response in this JSON format:
                   </CardContent>
                 </Card>
               ))
-            )}
+            ) : null }
 
             {/* New Job Form (only shown when not editing any job) */}
             {showNewJobForm && !editingJobId && (
