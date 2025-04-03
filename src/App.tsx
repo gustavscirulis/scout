@@ -12,9 +12,11 @@ interface AnalysisJob {
   isRunning: boolean
   lastResult?: string
   lastRun?: Date
+  notificationCriteria?: string
+  lastMatchedCriteria?: boolean
 }
 
-type NewJobFormData = Omit<AnalysisJob, 'id' | 'isRunning' | 'lastResult' | 'lastRun'>
+type NewJobFormData = Omit<AnalysisJob, 'id' | 'isRunning' | 'lastResult' | 'lastRun' | 'lastMatchedCriteria'>
 
 function App() {
   const [jobs, setJobs] = useState<AnalysisJob[]>(() => {
@@ -34,7 +36,8 @@ function App() {
     scheduledTime: (() => {
       const now = new Date()
       return `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`
-    })()
+    })(),
+    notificationCriteria: ''
   }))
   
   // Store job intervals
@@ -159,10 +162,24 @@ function App() {
     setShowNewJobForm(false)
   }
 
-  const sendNotification = (job: AnalysisJob, result: string) => {
+  const sendNotification = (job: AnalysisJob, analysis: string, relevantData?: string) => {
     if (notificationPermission === 'granted') {
-      const notification = new Notification(`Analysis Complete: ${job.websiteUrl}`, {
-        body: result.slice(0, 100) + (result.length > 100 ? '...' : ''),
+      const title = `Alert: ${job.websiteUrl}`;
+      
+      // Create a notification body that includes the condition and relevant data
+      let body = `Condition met: "${job.notificationCriteria}"`;
+      
+      if (relevantData) {
+        body += `\n\nData: ${relevantData}`;
+      }
+      
+      if (analysis) {
+        const briefAnalysis = analysis.length > 100 ? analysis.slice(0, 100) + '...' : analysis;
+        body += `\n\n${briefAnalysis}`;
+      }
+      
+      const notification = new Notification(title, {
+        body: body,
         icon: '/favicon.ico',
         requireInteraction: true,
         silent: false,
@@ -190,6 +207,17 @@ function App() {
       const { ipcRenderer } = window.require('electron')
       const screenshot = await ipcRenderer.invoke('take-screenshot', job.websiteUrl)
 
+      // Construct a focused prompt that directly evaluates the notification criteria
+      const promptText = `Analyze this webpage and determine if the following condition is true: "${job.notificationCriteria}"
+
+Return your response in this JSON format:
+{
+  "analysis": "A brief analysis of what you see on the page related to the condition...",
+  "criteriaMatched": true/false,
+  "criteriaEvaluation": "Explanation of how you evaluated the criteria and why it matched or didn't match",
+  "relevantData": "Any specific data points that are relevant (e.g., prices, availability status, etc.)"
+}`;
+      
       const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -202,7 +230,7 @@ function App() {
             {
               role: "user",
               content: [
-                { type: "text", text: job.analysisPrompt },
+                { type: "text", text: promptText },
                 {
                   type: "image_url",
                   image_url: {
@@ -213,8 +241,9 @@ function App() {
               ]
             }
           ],
-          max_tokens: 500,
-          temperature: 0.7
+          max_tokens: 1000,
+          temperature: 0.7,
+          response_format: { type: "json_object" }
         })
       })
 
@@ -226,13 +255,51 @@ function App() {
       const data = await openaiResponse.json()
       const resultContent = data.choices[0].message.content
       
-      setJobs(jobs.map(j => 
-        j.id === job.id 
-          ? { ...j, lastResult: resultContent, lastRun: new Date() }
-          : j
-      ))
+      let parsedResult;
+      let criteriaMatched = undefined;
       
-      sendNotification(job, resultContent)
+      try {
+        parsedResult = JSON.parse(resultContent);
+        criteriaMatched = parsedResult.criteriaMatched;
+        
+        // Format the result to display relevant information
+        const formattedResult = [
+          `${parsedResult.analysis}`,
+          '',
+          `Relevant Data: ${parsedResult.relevantData || 'None'}`,
+          '',
+          `Evaluation: ${parsedResult.criteriaEvaluation}`,
+          '',
+          criteriaMatched ? '✅ Condition matched!' : '❌ Condition not matched'
+        ].join('\n');
+        
+        setJobs(jobs.map(j => 
+          j.id === job.id 
+            ? { 
+                ...j, 
+                lastResult: formattedResult,
+                lastRun: new Date(),
+                lastMatchedCriteria: criteriaMatched
+              }
+            : j
+        ));
+        
+        // Only send notification if criteria matched
+        if (criteriaMatched === true) {
+          sendNotification(job, parsedResult.analysis, parsedResult.relevantData);
+        }
+      } catch (error) {
+        console.error("Failed to parse response:", error);
+        setJobs(jobs.map(j => 
+          j.id === job.id 
+            ? { 
+                ...j, 
+                lastResult: `Error parsing response: ${resultContent.slice(0, 200)}...`,
+                lastRun: new Date()
+              }
+            : j
+        ));
+      }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'An unknown error occurred')
       stopJob(job.id)
@@ -290,20 +357,29 @@ function App() {
           {/* Jobs List */}
           <div className="space-y-4">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-base font-semibold text-[#1d1d1f] dark:text-[#f5f5f7]">Analysis Jobs</h2>
+              <h2 className="text-base font-semibold text-[#1d1d1f] dark:text-[#f5f5f7]">Website Monitors</h2>
               <button
                 onClick={() => setShowNewJobForm(true)}
                 className="mac-button px-3 py-1.5 bg-[#0071e3] dark:bg-[#0377e3] text-white rounded-md hover:bg-[#0077ed] dark:hover:bg-[#0384ff] transition-colors text-xs font-medium"
               >
-                + Add Job
+                + New Monitor
               </button>
             </div>
 
             {jobs.length === 0 && !showNewJobForm && (
-              <div className="mac-card mac-animate-in text-center py-10 text-[#86868b] dark:text-[#86868b] rounded-xl border border-[#e0e0e0] dark:border-[#3a3a3c]">
-                <div className="text-3xl mb-3">📊</div>
-                <div className="font-medium mb-1">No Analysis Jobs</div>
-                <div className="text-xs">Click "+ Add Job" to create your first analysis task</div>
+              <div className="mac-card mac-animate-in text-center py-10 px-6 text-[#86868b] dark:text-[#86868b] rounded-xl border border-[#e0e0e0] dark:border-[#3a3a3c]">
+                <div className="text-3xl mb-3">🔍</div>
+                <div className="font-medium mb-2 text-[#1d1d1f] dark:text-[#f5f5f7]">Get notified when something changes on a website</div>
+                <div className="text-xs max-w-md mx-auto">
+                  Monitor product prices, stock availability, content changes, or anything else visible on a website. 
+                  We'll alert you when your specified conditions are met.
+                </div>
+                <button
+                  onClick={() => setShowNewJobForm(true)}
+                  className="mac-button mt-4 px-4 py-1.5 bg-[#0071e3] dark:bg-[#0377e3] text-white rounded-md hover:bg-[#0077ed] dark:hover:bg-[#0384ff] transition-colors text-xs font-medium"
+                >
+                  + Create Your First Monitor
+                </button>
               </div>
             )}
 
@@ -314,9 +390,33 @@ function App() {
               >
                 <div className="flex justify-between items-start">
                   <div>
-                    <h3 className="font-medium text-sm text-[#1d1d1f] dark:text-[#f5f5f7]">{job.websiteUrl}</h3>
-                    <p className="text-xs text-[#86868b] dark:text-[#86868b] mt-0.5">{job.analysisPrompt}</p>
+                    <div className="flex items-center">
+                      <h3 className="font-medium text-sm text-[#1d1d1f] dark:text-[#f5f5f7]">{job.websiteUrl}</h3>
+                      {job.isRunning && (
+                        <span className="ml-2 inline-flex h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse"></span>
+                      )}
+                    </div>
+                    
+                    <div className="mt-2">
+                      <div className="flex items-start">
+                        <span className="flex-shrink-0 mt-0.5">
+                          <svg className="w-3 h-3 text-[#0071e3] dark:text-[#0377e3]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                          </svg>
+                        </span>
+                        <div className="ml-1.5 text-xs">
+                          <span className="text-[#86868b] dark:text-[#a1a1a6]">Notify when: </span>
+                          <span className="text-[#1d1d1f] dark:text-[#f5f5f7]">{job.notificationCriteria}</span>
+                          {job.lastMatchedCriteria !== undefined && (
+                            <span className={`ml-1 ${job.lastMatchedCriteria ? 'text-green-600 dark:text-green-500 font-medium' : 'text-[#86868b]'}`}>
+                              {job.lastMatchedCriteria ? '✓ Matched!' : '(Not matched)'}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
                   </div>
+                  
                   <div className="flex space-x-2">
                     <button
                       onClick={() => toggleJob(job.id)}
@@ -337,25 +437,19 @@ function App() {
                   </div>
                 </div>
                 
-                <div className="flex flex-wrap gap-4 text-xs text-[#86868b] dark:text-[#86868b]">
+                <div className="flex flex-wrap gap-4 text-xs text-[#86868b] dark:text-[#86868b] border-t border-[#e0e0e0] dark:border-[#3a3a3c] pt-2 mt-2">
                   <span className="flex items-center">
                     <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    Every {job.frequency}
-                  </span>
-                  <span className="flex items-center">
-                    <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    {job.scheduledTime}
+                    Every {job.frequency} at {job.scheduledTime}
                   </span>
                   {job.lastRun && (
                     <span className="flex items-center">
                       <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
-                      Last run: {new Date(job.lastRun).toLocaleString()}
+                      Last check: {new Date(job.lastRun).toLocaleString()}
                     </span>
                   )}
                 </div>
@@ -386,14 +480,32 @@ function App() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-medium mb-1.5 text-[#1d1d1f] dark:text-[#f5f5f7]">Analysis Prompt</label>
+                    <div className="flex items-center mb-1.5">
+                      <label className="block text-xs font-medium text-[#1d1d1f] dark:text-[#f5f5f7]">Notify me when...</label>
+                    </div>
                     <textarea
-                      value={newJob.analysisPrompt}
+                      value={newJob.notificationCriteria || ''}
                       className="mac-input w-full px-3 py-1.5 rounded-md border border-[#e0e0e0] dark:border-[#3a3a3c] bg-white/70 dark:bg-[#1c1c1e]/50 backdrop-blur-xl text-[#1d1d1f] dark:text-[#f5f5f7] text-sm focus:outline-none focus:ring-2 focus:ring-[#0071e3] dark:focus:ring-[#0377e3] transition-all resize-none"
-                      placeholder="What would you like to analyze about this website?"
+                      placeholder="e.g., 'price of iPhone 15 drops below $899' or 'PS5 is back in stock'"
                       rows={3}
-                      onChange={(e) => setNewJob(prev => ({ ...prev, analysisPrompt: e.target.value }))}
+                      onChange={(e) => {
+                        // Store the notification criteria directly
+                        const criteria = e.target.value;
+                        // Generate an analysis prompt behind the scenes
+                        const analysisPrompt = criteria ? 
+                          `Analyze this webpage to determine if the following is true: "${criteria}". Check elements like prices, availability, text content, and other visible information.` : 
+                          '';
+                        
+                        setNewJob(prev => ({ 
+                          ...prev, 
+                          notificationCriteria: criteria,
+                          analysisPrompt: analysisPrompt
+                        }));
+                      }}
                     />
+                    <p className="text-xs text-[#86868b] mt-1">
+                      Describe what needs to be true for you to get notified. Be specific about what you're looking for.
+                    </p>
                   </div>
 
                   <div className="flex gap-4">
@@ -421,7 +533,7 @@ function App() {
                     </div>
                   </div>
 
-                  <div className="flex justify-end space-x-2 pt-2">
+                  <div className="flex justify-end space-x-2 pt-3 border-t border-[#e0e0e0] dark:border-[#3a3a3c] mt-3">
                     <button
                       onClick={() => setShowNewJobForm(false)}
                       className="mac-button px-3 py-1 bg-[#f5f5f7]/80 dark:bg-[#323233]/80 text-[#1d1d1f] dark:text-[#f5f5f7] hover:bg-[#e5e5e5] dark:hover:bg-[#3a3a3c] rounded-md transition-colors text-xs font-medium border border-[#e0e0e0] dark:border-[#3a3a3c]"
@@ -433,7 +545,7 @@ function App() {
                       disabled={!newJob.websiteUrl || !newJob.analysisPrompt || loading}
                       className="mac-button px-3 py-1 bg-[#f5f5f7]/80 dark:bg-[#323233]/80 text-[#1d1d1f] dark:text-[#f5f5f7] rounded-md hover:bg-[#e5e5e5] dark:hover:bg-[#3a3a3c] transition-colors text-xs font-medium border border-[#e0e0e0] dark:border-[#3a3a3c] disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {loading ? 'Testing...' : 'Test Job'}
+                      {loading ? 'Running Test...' : 'Test Now'}
                     </button>
                     <button
                       onClick={() => {
@@ -444,7 +556,7 @@ function App() {
                       disabled={!newJob.websiteUrl || !newJob.analysisPrompt || loading}
                       className="mac-button px-3 py-1 bg-[#0071e3] dark:bg-[#0377e3] text-white rounded-md hover:bg-[#0077ed] dark:hover:bg-[#0384ff] transition-colors text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      Add Job
+                      Create Monitor
                     </button>
                   </div>
                 </div>
