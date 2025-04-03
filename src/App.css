@@ -1,58 +1,70 @@
-#root {
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  font-family: "SF Pro", -apple-system, BlinkMacSystemFont, sans-serif;
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 240 5.9% 10%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 240 5.9% 10%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 240 5.9% 10%;
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 240 4.9% 83.9%;
+  }
 }
 
 /* macOS UI Specifics */
 .mac-window {
-  width: 100%;
-  height: 100%;
-  background-color: transparent;
-  border-radius: 10px;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
+  @apply w-full h-full bg-transparent rounded-lg overflow-hidden flex flex-col;
 }
 
 .mac-toolbar {
-  height: 38px;
-  padding-left: 80px; /* Space for traffic lights */
-  -webkit-app-region: drag;
+  @apply h-10 pl-20 -webkit-app-region-drag;
 }
 
 .mac-content {
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
-  border-radius: 0 0 10px 10px;
-  background-color: rgba(246, 246, 247, 0.6);
+  @apply flex-1 overflow-y-auto overflow-x-hidden rounded-b-lg bg-background/80 backdrop-blur-xl;
 }
 
-/* macOS-style components */
-.mac-card {
-  border-radius: 8px;
-  background-color: rgba(255, 255, 255, 0.4);
-  backdrop-filter: blur(20px);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-}
-
-.mac-button {
-  border-radius: 6px;
-  padding: 4px 12px;
-  font-size: 13px;
-  font-weight: 500;
-  transition: all 0.2s;
-}
-
-.mac-input {
-  border-radius: 6px;
-  background-color: rgba(255, 255, 255, 0.8);
-  padding: 8px 12px;
-  font-size: 13px;
+/* Ensure inputs and buttons are not draggable */
+input, textarea, button {
+  @apply -webkit-app-region-no-drag;
 }
 
 /* macOS animations */
@@ -65,42 +77,12 @@
   animation: mac-fade-in 0.2s ease-out;
 }
 
-.drag-region {
-  -webkit-app-region: drag;
-  padding-left: 80px; /* Space for traffic lights */
-}
-
-/* Ensure inputs and buttons are not draggable */
-input, textarea, button {
-  -webkit-app-region: no-drag;
-}
-
-/* Custom scrollbar for macOS style */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #a1a1a6;
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #86868b;
-}
-
-/* Dark mode scrollbar */
-@media (prefers-color-scheme: dark) {
-  ::-webkit-scrollbar-thumb {
-    background: #424245;
+@layer utilities {
+  .-webkit-app-region-drag {
+    -webkit-app-region: drag;
   }
-  
-  ::-webkit-scrollbar-thumb:hover {
-    background: #6e6e73;
+
+  .-webkit-app-region-no-drag {
+    -webkit-app-region: no-drag;
   }
-}
+} 
