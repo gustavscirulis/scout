@@ -1,7 +1,6 @@
 import electron from 'electron'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
-import isDev from 'electron-is-dev'
 
 const { app, BrowserWindow, nativeTheme, ipcMain, Tray, screen } = electron
 const __filename = fileURLToPath(import.meta.url)
@@ -50,7 +49,7 @@ function createTray() {
 
   try {
     // Create tray icon
-    const iconPath = isDev 
+    const iconPath = !app.isPackaged 
       ? join(process.cwd(), 'public', 'icon.png')
       : join(__dirname, '..', 'dist', 'icon.png')
     
@@ -122,7 +121,7 @@ function createWindow() {
   })
 
   // Load the content
-  if (isDev) {
+  if (!app.isPackaged) {
     mainWindow.loadURL('http://localhost:5173')
   } else {
     mainWindow.loadFile(join(__dirname, '../dist/index.html'))
