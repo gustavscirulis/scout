@@ -25,9 +25,13 @@ function createWindow() {
     },
     backgroundColor: '#f5f5f5',
     titleBarStyle: 'hiddenInset',
-    trafficLightPosition: { x: 10, y: 10 },
+    trafficLightPosition: { x: 16, y: 16 },
     vibrancy: 'under-window',
-    visualEffectState: 'active'
+    visualEffectState: 'active',
+    transparent: true,
+    frame: false,
+    roundedCorners: true,
+    hasShadow: true
   })
 
   // Load the content
