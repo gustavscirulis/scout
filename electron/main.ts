@@ -3,11 +3,73 @@ import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
 import isDev from 'electron-is-dev'
 
-const { app, BrowserWindow, nativeTheme, ipcMain } = electron
+const { app, BrowserWindow, nativeTheme, ipcMain, Tray, screen } = electron
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
 let mainWindow: electron.BrowserWindow | null = null
+let tray: electron.Tray | null = null
+
+function getWindowPosition() {
+  if (!tray) return { x: 0, y: 0 }
+  
+  const windowBounds = mainWindow?.getBounds()
+  const trayBounds = tray.getBounds()
+  const screenBounds = screen.getPrimaryDisplay().bounds
+
+  // Center window horizontally below the tray icon
+  const x = Math.round(trayBounds.x + (trayBounds.width / 2) - ((windowBounds?.width || 0) / 2))
+  
+  // Position window 4 pixels vertically below the tray icon
+  const y = Math.round(trayBounds.y + trayBounds.height + 4)
+
+  // Ensure window is always within screen bounds
+  return {
+    x: Math.min(Math.max(x, 0), screenBounds.width - (windowBounds?.width || 0)),
+    y: Math.min(Math.max(y, 0), screenBounds.height - (windowBounds?.height || 0))
+  }
+}
+
+function toggleWindow() {
+  if (!mainWindow) return
+  
+  if (mainWindow.isVisible()) {
+    mainWindow.hide()
+  } else {
+    const position = getWindowPosition()
+    mainWindow.setPosition(position.x, position.y)
+    mainWindow.show()
+  }
+}
+
+function createTray() {
+  if (tray) {
+    tray.destroy()
+    tray = null
+  }
+
+  try {
+    // Create tray icon
+    const iconPath = isDev 
+      ? join(process.cwd(), 'public', 'icon.png')
+      : join(__dirname, '..', 'dist', 'icon.png')
+    
+    const icon = electron.nativeImage.createFromPath(iconPath)
+    if (icon.isEmpty()) {
+      throw new Error('Icon is empty')
+    }
+    
+    tray = new Tray(icon)
+  } catch (error) {
+    console.error('Failed to create tray icon with image:', error)
+    // Create a fallback tray icon with just text
+    tray = new Tray(electron.nativeImage.createEmpty())
+    tray.setTitle('👁️')
+  }
+
+  tray.setToolTip('Vision Tasks')
+  tray.on('click', toggleWindow)
+}
 
 function createWindow() {
   // Force dark mode
@@ -15,23 +77,34 @@ function createWindow() {
 
   // Create window
   mainWindow = new BrowserWindow({
-    width: 900,
-    height: 800,
-    minWidth: 600,
-    minHeight: 600,
+    width: 400,
+    height: 500,
+    show: false,
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
     },
     backgroundColor: '#f5f5f5',
-    titleBarStyle: 'hiddenInset',
-    trafficLightPosition: { x: 16, y: 16 },
     vibrancy: 'under-window',
     visualEffectState: 'active',
     transparent: true,
     frame: false,
     roundedCorners: true,
-    hasShadow: true
+    hasShadow: true,
+    skipTaskbar: true,
+    resizable: false,
+    fullscreenable: false
+  })
+
+  // Hide dock icon
+  if (app.dock) app.dock.hide()
+
+  // Create the tray icon
+  createTray()
+
+  // Hide window when it loses focus
+  mainWindow.on('blur', () => {
+    mainWindow?.hide()
   })
 
   // Load the content
