@@ -42,7 +42,7 @@ function App() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [notificationPermission, setNotificationPermission] = useState(Notification.permission)
-  const [testResult, setTestResult] = useState<{result: string, matched?: boolean} | null>(null)
+  const [testResult, setTestResult] = useState<{result: string, matched?: boolean, timestamp?: Date} | null>(null)
   const [editingJobId, setEditingJobId] = useState<string | null>(null)
   const [newJob, setNewJob] = useState<NewJobFormData>(() => ({
     websiteUrl: '',
@@ -474,10 +474,21 @@ Return your response in this JSON format:
           criteriaMatched ? '✅ Condition matched!' : '❌ Condition not matched'
         ].join('\n');
         
+        const now = new Date();
         setTestResult({
           result: formattedResult,
-          matched: criteriaMatched
+          matched: criteriaMatched,
+          timestamp: now
         });
+        
+        // If we're testing an existing job, update its lastRun timestamp too
+        if (editingJobId) {
+          setJobs(jobs.map(j => 
+            j.id === editingJobId 
+              ? { ...j, lastRun: now }
+              : j
+          ));
+        }
       } catch (error) {
         console.error("Failed to parse response:", error);
         setTestResult({
@@ -694,29 +705,36 @@ Return your response in this JSON format:
                               ? 'bg-muted border-muted-foreground/20'
                               : 'bg-destructive/10 border-destructive/30'
                         } mac-animate-in`}>
-                          <div className="flex items-center mb-2">
-                            <span className="flex-shrink-0">
-                              {testResult.matched === true ? (
-                                <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                              ) : testResult.matched === false ? (
-                                <svg className="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                              ) : (
-                                <svg className="w-5 h-5 text-destructive" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                              )}
-                            </span>
-                            <span className="ml-2 text-sm font-medium">
-                              {testResult.matched === true
-                                ? 'Condition matched! Notification would trigger.'
-                                : testResult.matched === false
-                                  ? 'Condition not matched. No notification would be sent.'
-                                  : 'Error running test'}
-                            </span>
+                          <div className="flex flex-col gap-2 mb-2">
+                            <div className="flex items-center">
+                              <span className="flex-shrink-0">
+                                {testResult.matched === true ? (
+                                  <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                  </svg>
+                                ) : testResult.matched === false ? (
+                                  <svg className="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                  </svg>
+                                ) : (
+                                  <svg className="w-5 h-5 text-destructive" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                  </svg>
+                                )}
+                              </span>
+                              <span className="ml-2 text-sm font-medium">
+                                {testResult.matched === true
+                                  ? 'Condition matched! Notification would trigger.'
+                                  : testResult.matched === false
+                                    ? 'Condition not matched. No notification would be sent.'
+                                    : 'Error running test'}
+                              </span>
+                            </div>
+                            {testResult.timestamp && (
+                              <div className="text-xs text-muted-foreground ml-7">
+                                Tested: {testResult.timestamp.toLocaleString()}
+                              </div>
+                            )}
                           </div>
                           <div className="text-xs whitespace-pre-wrap leading-relaxed max-h-32 overflow-y-auto rounded-md bg-background/50 p-3 font-mono border border-input/50">
                             {testResult.result}
@@ -747,11 +765,15 @@ Return your response in this JSON format:
                 >
                   <CardContent className="pt-6">
                   <div className="space-y-4">
-                    <div className="flex items-center">
-                      <h3 className="font-semibold text-base">{job.websiteUrl}</h3>
-                      {job.isRunning && (
-                        <span className="ml-2 inline-flex h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>
-                      )}
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center">
+                        <h3 className="font-semibold text-base truncate max-w-[220px]" title={job.websiteUrl}>
+                          {job.websiteUrl}
+                        </h3>
+                        {job.isRunning && (
+                          <span className="ml-2 inline-flex h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>
+                        )}
+                      </div>
                     </div>
                     
                     <div>
@@ -787,7 +809,7 @@ Return your response in this JSON format:
 
                   <Separator className="my-4" />
 
-                  <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+                  <div className="flex flex-wrap justify-between items-center text-sm text-muted-foreground">
                     <span className="flex items-center">
                       <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -795,11 +817,11 @@ Return your response in this JSON format:
                       Every {job.frequency} at {job.scheduledTime}
                     </span>
                     {job.lastRun && (
-                      <span className="flex items-center">
-                        <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <span className="flex items-center text-xs">
+                        <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
-                        Last check: {new Date(job.lastRun).toLocaleString()}
+                        Last ran: {new Date(job.lastRun).toLocaleString()}
                       </span>
                     )}
                   </div>
