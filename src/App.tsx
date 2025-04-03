@@ -791,16 +791,11 @@ Return your response in this JSON format:
                               <div className="ml-2 flex flex-col">
                                 <span className="text-sm font-medium">
                                   {testResult.matched === true
-                                    ? 'Condition matched! Notification would trigger.'
+                                    ? 'Notification would trigger'
                                     : testResult.matched === false
-                                      ? 'Condition not matched. No notification would be sent.'
+                                      ? 'Notification would not send'
                                       : 'Error running test'}
                                 </span>
-                                {testResult.timestamp && (
-                                  <span className="text-xs text-muted-foreground">
-                                    Tested: {testResult.timestamp.toLocaleString()}
-                                  </span>
-                                )}
                               </div>
                             </div>
                             <div className="text-xs whitespace-pre-wrap leading-relaxed max-h-32 overflow-y-auto rounded-md bg-background/50 p-3 font-mono border border-input/50">

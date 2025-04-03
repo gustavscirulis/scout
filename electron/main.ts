@@ -72,28 +72,42 @@ function createTray() {
 }
 
 function createWindow() {
-  // Force dark mode
+  // Set theme to follow system
   nativeTheme.themeSource = 'system'
 
   // Create window
   mainWindow = new BrowserWindow({
     width: 400,
-    height: 700,
+    height: 650,
     show: false,
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
     },
-    backgroundColor: '#f5f5f5',
+    backgroundColor: nativeTheme.shouldUseDarkColors ? '#1a1a1a' : '#ffffff',
     vibrancy: 'under-window',
     visualEffectState: 'active',
-    transparent: true,
+    transparent: false,
     frame: false,
     roundedCorners: true,
     hasShadow: true,
     skipTaskbar: true,
     resizable: false,
     fullscreenable: false
+  })
+
+  // Update window appearance when system theme changes
+  nativeTheme.on('updated', () => {
+    if (mainWindow) {
+      mainWindow.setBackgroundColor(nativeTheme.shouldUseDarkColors ? '#1a1a1a' : '#ffffff')
+    }
+  })
+
+  // Send theme info to renderer
+  mainWindow.webContents.on('did-finish-load', () => {
+    mainWindow?.webContents.send('system-theme', {
+      isDark: nativeTheme.shouldUseDarkColors
+    })
   })
 
   // Hide dock icon
