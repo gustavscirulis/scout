@@ -3,6 +3,7 @@ import { Button } from './components/ui/button'
 import { Input } from './components/ui/input'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './components/ui/card'
 import { Separator } from './components/ui/separator'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './components/ui/dialog'
 import './App.css'
 
 type RecurringFrequency = 'hourly' | 'daily' | 'weekly'
@@ -513,37 +514,43 @@ Return your response in this JSON format:
         <Button
           variant="outline"
           size="sm"
-          onClick={() => setShowSettings(!showSettings)}
+          onClick={() => setShowSettings(true)}
           className="no-drag"
         >
-          {showSettings ? "Hide Settings" : "Settings"}
+          Settings
         </Button>
       </div>
+
+      {/* Settings Dialog */}
+      <Dialog open={showSettings} onOpenChange={setShowSettings}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Settings</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">
+                OpenAI API Key
+              </label>
+              <Input
+                type="password"
+                value={apiKey}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => setApiKey(e.target.value)}
+                placeholder="sk-..."
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setShowSettings(false)}>
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Main content */}
       <div className="mac-content">
         <div className="w-full max-w-3xl mx-auto p-6 space-y-6">
-          {/* Settings Panel - only shown when not in edit mode */}
-          {showSettings && !editingJobId && (
-            <Card className="mac-animate-in">
-              <CardHeader>
-                <CardTitle>Settings</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">
-                    OpenAI API Key
-                  </label>
-                  <Input
-                    type="password"
-                    value={apiKey}
-                    onChange={(e: ChangeEvent<HTMLInputElement>) => setApiKey(e.target.value)}
-                    placeholder="sk-..."
-                  />
-                </div>
-              </CardContent>
-            </Card>
-          )}
 
           {/* Jobs List */}
           <div className="space-y-4">
