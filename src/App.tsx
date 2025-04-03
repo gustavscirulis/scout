@@ -43,6 +43,7 @@ function App() {
   const [error, setError] = useState('')
   const [notificationPermission, setNotificationPermission] = useState(Notification.permission)
   const [testResult, setTestResult] = useState<{result: string, matched?: boolean} | null>(null)
+  const [editingJobId, setEditingJobId] = useState<string | null>(null)
   const [newJob, setNewJob] = useState<NewJobFormData>(() => ({
     websiteUrl: '',
     analysisPrompt: '',
@@ -178,15 +179,90 @@ function App() {
       notificationCriteria: ''
     });
     setTestResult(null);
+    setEditingJobId(null);
+  };
+  
+  const startEditingJob = (jobId: string) => {
+    const job = jobs.find(j => j.id === jobId);
+    if (!job) return;
+    
+    // Set form data from the existing job
+    setNewJob({
+      websiteUrl: job.websiteUrl,
+      analysisPrompt: job.analysisPrompt,
+      frequency: job.frequency,
+      scheduledTime: job.scheduledTime,
+      notificationCriteria: job.notificationCriteria || ''
+    });
+    
+    // Set editing mode, but make sure showNewJobForm is false
+    // to prevent both forms from being visible
+    setEditingJobId(jobId);
+    setShowNewJobForm(false);
+    
+    // Clear any previous test results
+    setTestResult(null);
+  };
+  
+  const updateJob = (updatedJob: NewJobFormData) => {
+    if (!editingJobId) return;
+    
+    // Find the job being edited
+    const job = jobs.find(j => j.id === editingJobId);
+    if (!job) return;
+    
+    // Check if the job is currently running
+    const wasRunning = job.isRunning;
+    
+    // If it was running, stop it first
+    if (wasRunning) {
+      stopJob(editingJobId);
+    }
+    
+    // Update the job with new data
+    const updatedJobs = jobs.map(j => 
+      j.id === editingJobId 
+        ? { 
+            ...j, 
+            websiteUrl: updatedJob.websiteUrl,
+            analysisPrompt: updatedJob.analysisPrompt,
+            frequency: updatedJob.frequency,
+            scheduledTime: updatedJob.scheduledTime,
+            notificationCriteria: updatedJob.notificationCriteria 
+          } 
+        : j
+    );
+    
+    setJobs(updatedJobs);
+    
+    // If it was running, restart it with the new settings
+    if (wasRunning) {
+      const updatedJob = updatedJobs.find(j => j.id === editingJobId);
+      if (updatedJob) {
+        scheduleJob(updatedJob);
+      }
+    }
+    
+    // Clear form and editing mode
+    setEditingJobId(null);
+    resetNewJobForm();
   };
   
   const addJob = (job: Omit<AnalysisJob, 'id' | 'isRunning' | 'lastResult' | 'lastRun'>) => {
     const newJob: AnalysisJob = {
       ...job,
       id: crypto.randomUUID(),
-      isRunning: false
+      isRunning: true // Set to true by default
     }
-    setJobs([...jobs, newJob])
+    
+    // Add job to state
+    const updatedJobs = [...jobs, newJob];
+    setJobs(updatedJobs)
+    
+    // Schedule the job to run
+    scheduleJob(newJob)
+    
+    // Close form and reset
     setShowNewJobForm(false)
     resetNewJobForm()
   }
@@ -452,8 +528,8 @@ Return your response in this JSON format:
       {/* Main content */}
       <div className="mac-content">
         <div className="w-full max-w-3xl mx-auto p-6 space-y-6">
-          {/* Settings Panel */}
-          {showSettings && (
+          {/* Settings Panel - only shown when not in edit mode */}
+          {showSettings && !editingJobId && (
             <Card className="mac-animate-in">
               <CardHeader>
                 <CardTitle>Settings</CardTitle>
@@ -478,15 +554,17 @@ Return your response in this JSON format:
           <div className="space-y-4">
             <div className="flex justify-between items-center">
               <h2 className="text-lg font-semibold">Website Monitors</h2>
-              <Button
-                onClick={() => setShowNewJobForm(true)}
-                size="sm"
-              >
-                + New Monitor
-              </Button>
+              {!editingJobId && (
+                <Button
+                  onClick={() => setShowNewJobForm(true)}
+                  size="sm"
+                >
+                  + New Monitor
+                </Button>
+              )}
             </div>
 
-            {jobs.length === 0 && !showNewJobForm && (
+            {jobs.length === 0 && !showNewJobForm && !editingJobId && (
               <Card className="mac-animate-in text-center py-8">
                 <CardContent>
                   <div className="text-4xl mb-4">🔍</div>
@@ -505,65 +583,221 @@ Return your response in this JSON format:
               </Card>
             )}
 
-            {jobs.map(job => (
-              <Card key={job.id} className="mac-animate-in">
-                <CardContent className="pt-6">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <div className="flex items-center">
-                        <h3 className="font-semibold text-base">{job.websiteUrl}</h3>
-                        {job.isRunning && (
-                          <span className="ml-2 inline-flex h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>
-                        )}
+            {jobs.map(job => 
+              // If this job is being edited, show the edit form instead of the card
+              editingJobId === job.id ? (
+                <Card key={job.id} className="mac-animate-in">
+                  <CardHeader>
+                    <CardTitle>Edit Monitor</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Website URL</label>
+                      <Input
+                        type="url"
+                        value={newJob.websiteUrl}
+                        placeholder="https://example.com"
+                        onChange={(e: ChangeEvent<HTMLInputElement>) => setNewJob(prev => ({ ...prev, websiteUrl: e.target.value }))}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Notify me when...</label>
+                      <textarea
+                        value={newJob.notificationCriteria || ''}
+                        className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none min-h-[100px]"
+                        placeholder="e.g., 'price of iPhone 15 drops below $899' or 'PS5 is back in stock'"
+                        onChange={(e: ChangeEvent<HTMLTextAreaElement>) => {
+                          // Store the notification criteria directly
+                          const criteria = e.target.value;
+                          // Generate an analysis prompt behind the scenes
+                          const analysisPrompt = criteria ? 
+                            `Analyze this webpage to determine if the following is true: "${criteria}". Check elements like prices, availability, text content, and other visible information.` : 
+                            '';
+                          
+                          setNewJob(prev => ({ 
+                            ...prev, 
+                            notificationCriteria: criteria,
+                            analysisPrompt: analysisPrompt
+                          }));
+                        }}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Describe what needs to be true for you to get notified. Try to be specific about what you're looking for.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Check Frequency</label>
+                        <select
+                          value={newJob.frequency}
+                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                          onChange={(e: ChangeEvent<HTMLSelectElement>) => setNewJob(prev => ({ ...prev, frequency: e.target.value as RecurringFrequency }))}
+                        >
+                          <option value="hourly">Every Hour</option>
+                          <option value="daily">Every Day</option>
+                          <option value="weekly">Every Week</option>
+                        </select>
                       </div>
-                      
-                      <div className="mt-4">
-                        <div className="flex items-start">
-                          <span className="flex-shrink-0 mt-0.5">
-                            <svg className="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                            </svg>
-                          </span>
-                          <div className="ml-2.5">
-                            <div className="text-sm text-muted-foreground font-medium mb-1">Notify when:</div>
-                            <div className="text-sm">{job.notificationCriteria}</div>
-                            {job.lastMatchedCriteria !== undefined && (
-                              <div className={`mt-2 flex items-center ${job.lastMatchedCriteria ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`}>
-                                {job.lastMatchedCriteria ? (
-                                  <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                  </svg>
-                                ) : (
-                                  <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                  </svg>
-                                )}
-                                <span className="text-sm font-medium">
-                                  {job.lastMatchedCriteria ? 'Condition matched on last check' : 'Condition not matched on last check'}
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
+
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Start Time</label>
+                        <Input
+                          type="time"
+                          value={newJob.scheduledTime}
+                          onChange={(e: ChangeEvent<HTMLInputElement>) => setNewJob(prev => ({ ...prev, scheduledTime: e.target.value }))}
+                        />
+                      </div>
+                    </div>
+                  </CardContent>
+                  <CardFooter className="flex flex-col space-y-4">
+                    <div className="flex w-full justify-between">
+                      <div className="flex space-x-2">
+                        <Button
+                          onClick={() => toggleJob(job.id)}
+                          variant={job.isRunning ? "destructive" : "default"}
+                          size="sm"
+                        >
+                          {job.isRunning ? 'Stop' : 'Start'}
+                        </Button>
+                        <Button
+                          onClick={() => deleteJob(job.id)}
+                          variant="outline"
+                          size="sm"
+                          className="text-destructive"
+                        >
+                          Delete
+                        </Button>
+                      </div>
+                      <div className="flex space-x-2">
+                        <Button
+                          variant="outline"
+                          onClick={() => resetNewJobForm()}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          onClick={() => {
+                            if (newJob.websiteUrl && newJob.notificationCriteria) {
+                              updateJob(newJob);
+                              setTestResult(null);
+                            }
+                          }}
+                          disabled={!newJob.websiteUrl || !newJob.notificationCriteria || loading}
+                        >
+                          Save Changes
+                        </Button>
                       </div>
                     </div>
                     
-                    <div className="flex space-x-2">
+                    <div className="w-full space-y-4">
                       <Button
-                        onClick={() => toggleJob(job.id)}
-                        variant={job.isRunning ? "destructive" : "default"}
-                        size="sm"
-                      >
-                        {job.isRunning ? 'Stop' : 'Start'}
-                      </Button>
-                      <Button
-                        onClick={() => deleteJob(job.id)}
                         variant="outline"
-                        size="sm"
-                        className="text-destructive"
+                        onClick={() => testJob(newJob)}
+                        disabled={!newJob.websiteUrl || !newJob.notificationCriteria || loading}
+                        className="w-full"
                       >
-                        Delete
+                        {loading ? 'Running Test...' : 'Test Now'}
                       </Button>
+                      
+                      {/* Test Results */}
+                      {testResult && (
+                        <div className={`rounded-md border p-4 w-full ${
+                          testResult.matched === true 
+                            ? 'bg-green-50 border-green-200 dark:bg-green-900/30 dark:border-green-800'
+                            : testResult.matched === false
+                              ? 'bg-muted border-muted-foreground/20'
+                              : 'bg-destructive/10 border-destructive/30'
+                        } mac-animate-in`}>
+                          <div className="flex items-center mb-2">
+                            <span className="flex-shrink-0">
+                              {testResult.matched === true ? (
+                                <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                              ) : testResult.matched === false ? (
+                                <svg className="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                              ) : (
+                                <svg className="w-5 h-5 text-destructive" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                              )}
+                            </span>
+                            <span className="ml-2 text-sm font-medium">
+                              {testResult.matched === true
+                                ? 'Condition matched! You would be notified.'
+                                : testResult.matched === false
+                                  ? 'Condition not matched. No notification would be sent.'
+                                  : 'Error running test'}
+                            </span>
+                          </div>
+                          <div className="text-xs whitespace-pre-wrap leading-relaxed max-h-32 overflow-y-auto rounded-md bg-background/50 p-3 font-mono border border-input/50">
+                            {testResult.result}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {loading && (
+                        <div className="p-4 bg-muted border border-input rounded-md flex items-center justify-center mac-animate-in">
+                          <div className="animate-spin rounded-full h-5 w-5 border-2 border-primary border-t-transparent mr-2"></div>
+                          <span className="text-sm">Running test...</span>
+                        </div>
+                      )}
+                    </div>
+                  </CardFooter>
+                </Card>
+              ) : (
+                // Regular job card view
+                <Card 
+                  key={job.id} 
+                  className="mac-animate-in cursor-pointer hover:shadow-md transition-all"
+                  onClick={(e) => {
+                    // Only trigger if not clicking on buttons
+                    if (!(e.target as HTMLElement).closest('button')) {
+                      startEditingJob(job.id);
+                    }
+                  }}
+                >
+                  <CardContent className="pt-6">
+                  <div className="space-y-4">
+                    <div className="flex items-center">
+                      <h3 className="font-semibold text-base">{job.websiteUrl}</h3>
+                      {job.isRunning && (
+                        <span className="ml-2 inline-flex h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>
+                      )}
+                    </div>
+                    
+                    <div>
+                      <div className="flex items-start">
+                        <span className="flex-shrink-0 mt-0.5">
+                          <svg className="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                          </svg>
+                        </span>
+                        <div className="ml-2.5">
+                          <div className="text-sm text-muted-foreground font-medium mb-1">Notify when:</div>
+                          <div className="text-sm">{job.notificationCriteria}</div>
+                          {job.lastMatchedCriteria !== undefined && (
+                            <div className={`mt-2 flex items-center ${job.lastMatchedCriteria ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`}>
+                              {job.lastMatchedCriteria ? (
+                                <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                              ) : (
+                                <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                              )}
+                              <span className="text-sm font-medium">
+                                {job.lastMatchedCriteria ? 'Condition matched on last check' : 'Condition not matched on last check'}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </div>
 
@@ -596,8 +830,8 @@ Return your response in this JSON format:
               </Card>
             ))}
 
-            {/* New Job Form */}
-            {showNewJobForm && (
+            {/* New Job Form (only shown when not editing any job) */}
+            {showNewJobForm && !editingJobId && (
               <Card className="mac-animate-in">
                 <CardHeader>
                   <CardTitle>Create New Monitor</CardTitle>
@@ -681,13 +915,17 @@ Return your response in this JSON format:
                   <Button
                     onClick={() => {
                       if (newJob.websiteUrl && newJob.notificationCriteria) {
-                        addJob(newJob)
+                        if (editingJobId) {
+                          updateJob(newJob)
+                        } else {
+                          addJob(newJob)
+                        }
                         setTestResult(null)
                       }
                     }}
                     disabled={!newJob.websiteUrl || !newJob.notificationCriteria || loading}
                   >
-                    Create Monitor
+                    {editingJobId ? 'Save Changes' : 'Create Monitor'}
                   </Button>
                 </CardFooter>
               </Card>
