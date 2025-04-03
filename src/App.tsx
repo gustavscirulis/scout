@@ -367,13 +367,9 @@ Return your response in this JSON format:
         parsedResult = JSON.parse(resultContent);
         criteriaMatched = parsedResult.criteriaMatched;
         
-        // Format the result to display relevant information
+        // Format the result to display simplified information
         const formattedResult = [
           `${parsedResult.analysis}`,
-          '',
-          `Relevant Data: ${parsedResult.relevantData || 'None'}`,
-          '',
-          `Evaluation: ${parsedResult.criteriaEvaluation}`,
           '',
           criteriaMatched ? '✅ Condition matched!' : '❌ Condition not matched'
         ].join('\n');
@@ -728,7 +724,7 @@ Return your response in this JSON format:
                             </span>
                             <span className="ml-2 text-sm font-medium">
                               {testResult.matched === true
-                                ? 'Condition matched! You would be notified.'
+                                ? 'Condition matched! Notification would trigger.'
                                 : testResult.matched === false
                                   ? 'Condition not matched. No notification would be sent.'
                                   : 'Error running test'}
@@ -931,46 +927,6 @@ Return your response in this JSON format:
               </Card>
             )}
 
-            {/* Test Results */}
-            {testResult && (
-              <Card className={`mac-animate-in ${
-                testResult.matched === true 
-                  ? 'bg-green-50/50 dark:bg-green-900/20'
-                  : testResult.matched === false
-                    ? 'bg-muted/50'
-                    : 'bg-destructive/10'
-              }`}>
-                <CardContent className="pt-6">
-                  <div className="flex items-center mb-3">
-                    <span className="flex-shrink-0">
-                      {testResult.matched === true ? (
-                        <svg className="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                      ) : testResult.matched === false ? (
-                        <svg className="w-6 h-6 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                      ) : (
-                        <svg className="w-6 h-6 text-destructive" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                      )}
-                    </span>
-                    <span className="ml-2 text-base font-medium">
-                      {testResult.matched === true
-                        ? 'Condition matched! You would be notified.'
-                        : testResult.matched === false
-                          ? 'Condition not matched. No notification would be sent.'
-                          : 'Error running test'}
-                    </span>
-                  </div>
-                  <div className="mt-2 text-sm whitespace-pre-wrap max-h-48 overflow-y-auto rounded-md bg-background/50 p-4 font-mono text-muted-foreground">
-                    {testResult.result}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
           </div>
 
           {/* Error message */}
