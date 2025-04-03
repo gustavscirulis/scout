@@ -267,16 +267,12 @@ function App() {
     resetNewJobForm()
   }
 
-  const sendNotification = (job: AnalysisJob, analysis: string, relevantData?: string) => {
+  const sendNotification = (job: AnalysisJob, analysis: string) => {
     if (notificationPermission === 'granted') {
       const title = `Alert: ${job.websiteUrl}`;
       
-      // Create a notification body that includes the condition and relevant data
+      // Create a notification body that includes the condition and analysis
       let body = `Condition met: "${job.notificationCriteria}"`;
-      
-      if (relevantData) {
-        body += `\n\nData: ${relevantData}`;
-      }
       
       if (analysis) {
         const briefAnalysis = analysis.length > 100 ? analysis.slice(0, 100) + '...' : analysis;
@@ -317,10 +313,8 @@ function App() {
 
 Return your response in this JSON format:
 {
-  "analysis": "A brief analysis of what you see on the page related to the condition...",
-  "criteriaMatched": true/false,
-  "criteriaEvaluation": "Explanation of how you evaluated the criteria and why it matched or didn't match",
-  "relevantData": "Any specific data points that are relevant (e.g., prices, availability status, etc.)"
+  "analysis": "A clear, concise summary of what you see on the page related to the condition",
+  "criteriaMatched": true/false
 }`;
       
       const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -387,7 +381,7 @@ Return your response in this JSON format:
         
         // Only send notification if criteria matched
         if (criteriaMatched === true) {
-          sendNotification(job, parsedResult.analysis, parsedResult.relevantData);
+          sendNotification(job, parsedResult.analysis);
         }
       } catch (error) {
         console.error("Failed to parse response:", error);
@@ -428,10 +422,8 @@ Return your response in this JSON format:
 
 Return your response in this JSON format:
 {
-  "analysis": "A brief analysis of what you see on the page related to the condition...",
-  "criteriaMatched": true/false,
-  "criteriaEvaluation": "Explanation of how you evaluated the criteria and why it matched or didn't match",
-  "relevantData": "Any specific data points that are relevant (e.g., prices, availability status, etc.)"
+  "analysis": "A clear, concise summary of what you see on the page related to the condition",
+  "criteriaMatched": true/false
 }`;
       
       const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -475,13 +467,9 @@ Return your response in this JSON format:
         const parsedResult = JSON.parse(resultContent);
         const criteriaMatched = parsedResult.criteriaMatched;
         
-        // Format the result to display relevant information
+        // Format the result to display simplified information
         const formattedResult = [
           `${parsedResult.analysis}`,
-          '',
-          `Relevant Data: ${parsedResult.relevantData || 'None'}`,
-          '',
-          `Evaluation: ${parsedResult.criteriaEvaluation}`,
           '',
           criteriaMatched ? '✅ Condition matched!' : '❌ Condition not matched'
         ].join('\n');
