@@ -4,6 +4,21 @@ import { Input } from './components/ui/input'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './components/ui/card'
 import { Separator } from './components/ui/separator'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './components/ui/dialog'
+import { 
+  Gear, 
+  Plus, 
+  ChartLineUp, 
+  ShoppingBag, 
+  Ticket, 
+  Briefcase, 
+  Bell, 
+  CheckCircle, 
+  XCircle, 
+  WarningCircle,
+  Trash,
+  SpinnerGap,
+  CaretLeft
+} from '@phosphor-icons/react'
 import './App.css'
 
 // Function to format time in a simple "ago" format
@@ -536,31 +551,42 @@ Return your response in this JSON format:
     <div className="mac-window">
       {/* Titlebar */}
       <div className="mac-toolbar w-full flex items-center justify-between py-2 border-b">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setShowSettings(true)}
-          className="no-drag ml-2"
-          title="Settings"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
-            <circle cx="12" cy="12" r="3"/>
-          </svg>
-        </Button>
+        {(showNewJobForm || editingJobId) ? (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => {
+              setShowNewJobForm(false);
+              resetNewJobForm();
+            }}
+            className="no-drag ml-2"
+            title="Back"
+          >
+            <CaretLeft size={18} />
+          </Button>
+        ) : (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setShowSettings(true)}
+            className="no-drag ml-2"
+            title="Settings"
+          >
+            <Gear size={18} />
+          </Button>
+        )}
         <div className="flex-1"></div>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setShowNewJobForm(true)}
-          className="no-drag mr-2"
-          title="New Monitor"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 5v14"/>
-            <path d="M5 12h14"/>
-          </svg>
-        </Button>
+        {!showNewJobForm && !editingJobId && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setShowNewJobForm(true)}
+            className="no-drag mr-2"
+            title="New Monitor"
+          >
+            <Plus size={18} />
+          </Button>
+        )}
       </div>
 
       {/* Settings Dialog */}
@@ -592,52 +618,97 @@ Return your response in this JSON format:
 
       {/* Main content */}
       <div className="mac-content">
-        <div className="w-full max-w-3xl mx-auto p-6 space-y-6">
+        <div className="w-full space-y-6">
 
           {/* Jobs List */}
           <div className="space-y-4">
             {jobs.length === 0 && !showNewJobForm && !editingJobId && (
-              <div className="flex flex-col items-center justify-center py-16 text-center">
-                <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center mb-4">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground">
-                    <path d="M12 20V10"></path>
-                    <path d="M18 20V4"></path>
-                    <path d="M6 20v-4"></path>
-                  </svg>
+              <div className="flex flex-col items-center justify-center py-16 text-center px-6">
+                <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-4">
+                  <ChartLineUp size={24} className="text-primary" />
                 </div>
-                <h3 className="text-lg font-medium mb-1">No monitors yet</h3>
-                <p className="text-muted-foreground text-sm max-w-md mb-4">
+                <h3 className="text-lg font-medium mb-2">No monitors yet</h3>
+                <p className="text-muted-foreground text-sm max-w-md mb-5">
                   Create a monitor to get notified when something changes on a website.
                 </p>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-left mb-6 max-w-xl">
+                  <button 
+                    onClick={() => {
+                      setNewJob(prev => ({
+                        ...prev,
+                        notificationCriteria: 'iPhone 15 price drops below $799',
+                        analysisPrompt: 'Analyze this webpage to determine if the iPhone 15 price is below $799.'
+                      }));
+                      setShowNewJobForm(true);
+                    }}
+                    className="bg-muted/30 p-4 rounded-md hover:bg-muted/50 transition-colors text-left flex items-start no-drag"
+                  >
+                    <ShoppingBag size={20} className="text-primary mr-2 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <div className="font-medium text-sm">Price Tracking</div>
+                      <div className="text-xs text-muted-foreground">
+                        If iPhone 15 price drops below $799
+                      </div>
+                    </div>
+                  </button>
+                  
+                  <button 
+                    onClick={() => {
+                      setNewJob(prev => ({
+                        ...prev,
+                        notificationCriteria: 'Concert tickets are available for purchase',
+                        analysisPrompt: 'Analyze this webpage to determine if concert tickets are available for purchase.'
+                      }));
+                      setShowNewJobForm(true);
+                    }}
+                    className="bg-muted/30 p-4 rounded-md hover:bg-muted/50 transition-colors text-left flex items-start no-drag"
+                  >
+                    <Ticket size={20} className="text-primary mr-2 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <div className="font-medium text-sm">Availability</div>
+                      <div className="text-xs text-muted-foreground">
+                        If concert tickets become available
+                      </div>
+                    </div>
+                  </button>
+                  
+                  <button 
+                    onClick={() => {
+                      setNewJob(prev => ({
+                        ...prev,
+                        notificationCriteria: 'New job listings appear on the careers page',
+                        analysisPrompt: 'Analyze this webpage to determine if new job listings have appeared.'
+                      }));
+                      setShowNewJobForm(true);
+                    }}
+                    className="bg-muted/30 p-4 rounded-md hover:bg-muted/50 transition-colors text-left flex items-start no-drag"
+                  >
+                    <Briefcase size={20} className="text-primary mr-2 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <div className="font-medium text-sm">Content Updates</div>
+                      <div className="text-xs text-muted-foreground">
+                        If new job listings appear on the careers page
+                      </div>
+                    </div>
+                  </button>
+                </div>
+                
                 <Button 
                   onClick={() => setShowNewJobForm(true)}
-                  variant="outline"
+                  size="lg"
                 >
+                  <Plus className="mr-2 h-4 w-4" />
                   Create your first monitor
                 </Button>
               </div>
             )}
 
             {/* When in edit mode or creating a new job, only show that form */}
-            {editingJobId ? (
-              // Find and display only the job being edited
-              jobs.filter(job => job.id === editingJobId).map(job => (
-                <Card key={job.id} className="mac-animate-in relative">
-                  <button 
-                    onClick={() => deleteJob(job.id)}
-                    className="absolute top-3 right-4 w-6 h-6 rounded-full hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-destructive no-drag"
-                    title="Delete Monitor"
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M3 6h18"></path>
-                      <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
-                      <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
-                    </svg>
-                  </button>
-                  <CardHeader className="px-4 py-3">
-                    <CardTitle className="text-lg">Edit Monitor</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-5 px-4 pt-0">
+            {editingJobId && jobs.find(job => job.id === editingJobId) ? (
+              <div className="flex flex-col h-full relative">
+                <div className="flex-1 overflow-auto">
+                  <div className="space-y-5 px-6 pt-4">
                     <div>
                       <label className="text-sm font-medium mb-1.5 block">Website URL</label>
                       <Input
@@ -655,9 +726,7 @@ Return your response in this JSON format:
                         className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none min-h-[100px]"
                         placeholder="e.g., 'price of iPhone 15 drops below $899' or 'PS5 is back in stock'"
                         onChange={(e: ChangeEvent<HTMLTextAreaElement>) => {
-                          // Store the notification criteria directly
                           const criteria = e.target.value;
-                          // Generate an analysis prompt behind the scenes
                           const analysisPrompt = criteria ? 
                             `Analyze this webpage to determine if the following is true: "${criteria}". Check elements like prices, availability, text content, and other visible information.` : 
                             '';
@@ -698,96 +767,88 @@ Return your response in this JSON format:
                       </div>
                     </div>
                     
-                  </CardContent>
-                  <CardFooter className="flex justify-between p-4 pt-4">
-                    <div>
-                      <Button
-                        variant="outline"
-                        onClick={() => resetNewJobForm()}
-                      >
-                        Cancel
-                      </Button>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        onClick={() => testJob(newJob)}
-                        disabled={!newJob.websiteUrl || !newJob.notificationCriteria || loading}
-                      >
-                        {loading ? 'Testing...' : 'Test'}
-                      </Button>
-                      <Button
-                        onClick={() => {
-                          if (newJob.websiteUrl && newJob.notificationCriteria) {
-                            updateJob(newJob);
-                            setTestResult(null);
-                          }
-                        }}
-                        disabled={!newJob.websiteUrl || !newJob.notificationCriteria || loading}
-                      >
-                        Save
-                      </Button>
-                    </div>
-                  </CardFooter>
-                  
-                  {/* Test Results */}
-                  {(testResult || loading) && (
-                    <div className="p-4">
-                      {testResult && (
-                        <div className={`rounded-md border p-4 w-full ${
-                          testResult.matched === true 
-                            ? 'bg-green-50 border-green-200 dark:bg-green-900/30 dark:border-green-800'
-                            : testResult.matched === false
-                              ? 'bg-muted border-muted-foreground/20'
-                              : 'bg-destructive/10 border-destructive/30'
-                        } mac-animate-in`}>
-                          <div className="flex items-center mb-2">
-                            <span className="flex-shrink-0">
-                              {testResult.matched === true ? (
-                                <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                              ) : testResult.matched === false ? (
-                                <svg className="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                              ) : (
-                                <svg className="w-5 h-5 text-destructive" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                              )}
-                            </span>
-                            <div className="ml-2 flex flex-col">
-                              <span className="text-sm font-medium">
-                                {testResult.matched === true
-                                  ? 'Condition matched! Notification would trigger.'
-                                  : testResult.matched === false
-                                    ? 'Condition not matched. No notification would be sent.'
-                                    : 'Error running test'}
+                    {/* Test Results */}
+                    {(testResult || loading) && (
+                      <div className="py-4">
+                        {testResult && (
+                          <div className={`rounded-md border p-4 w-full ${
+                            testResult.matched === true 
+                              ? 'bg-green-50 border-green-200 dark:bg-green-900/30 dark:border-green-800'
+                              : testResult.matched === false
+                                ? 'bg-muted border-muted-foreground/20'
+                                : 'bg-destructive/10 border-destructive/30'
+                          } mac-animate-in`}>
+                            <div className="flex items-center mb-2">
+                              <span className="flex-shrink-0">
+                                {testResult.matched === true ? (
+                                  <CheckCircle className="w-5 h-5 text-green-600" weight="fill" />
+                                ) : testResult.matched === false ? (
+                                  <XCircle className="w-5 h-5 text-muted-foreground" weight="fill" />
+                                ) : (
+                                  <WarningCircle className="w-5 h-5 text-destructive" weight="fill" />
+                                )}
                               </span>
-                              {testResult.timestamp && (
-                                <span className="text-xs text-muted-foreground">
-                                  Tested: {testResult.timestamp.toLocaleString()}
+                              <div className="ml-2 flex flex-col">
+                                <span className="text-sm font-medium">
+                                  {testResult.matched === true
+                                    ? 'Condition matched! Notification would trigger.'
+                                    : testResult.matched === false
+                                      ? 'Condition not matched. No notification would be sent.'
+                                      : 'Error running test'}
                                 </span>
-                              )}
+                                {testResult.timestamp && (
+                                  <span className="text-xs text-muted-foreground">
+                                    Tested: {testResult.timestamp.toLocaleString()}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="text-xs whitespace-pre-wrap leading-relaxed max-h-32 overflow-y-auto rounded-md bg-background/50 p-3 font-mono border border-input/50">
+                              {testResult.result}
                             </div>
                           </div>
-                          <div className="text-xs whitespace-pre-wrap leading-relaxed max-h-32 overflow-y-auto rounded-md bg-background/50 p-3 font-mono border border-input/50">
-                            {testResult.result}
+                        )}
+                        
+                        {loading && (
+                          <div className="p-4 bg-muted border border-input rounded-md flex items-center justify-center mac-animate-in">
+                            <SpinnerGap className="animate-spin h-5 w-5 border-2 border-primary border-t-transparent" />
+                            <span className="text-sm">Running test...</span>
                           </div>
-                        </div>
-                      )}
-                      
-                      {loading && (
-                        <div className="p-4 bg-muted border border-input rounded-md flex items-center justify-center mac-animate-in">
-                          <div className="animate-spin rounded-full h-5 w-5 border-2 border-primary border-t-transparent mr-2"></div>
-                          <span className="text-sm">Running test...</span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </Card>
-              ))
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="flex justify-between px-6 py-4 border-t bg-background">
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => deleteJob(editingJobId)}
+                      className="text-destructive hover:text-destructive"
+                    >
+                      <Trash size={16} className="mr-2" />
+                      Delete
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => testJob(newJob)}
+                      disabled={!newJob.websiteUrl || !newJob.notificationCriteria || loading}
+                    >
+                      {loading ? 'Testing...' : 'Test'}
+                    </Button>
+                  </div>
+                  <Button
+                    onClick={() => {
+                      if (newJob.websiteUrl && newJob.notificationCriteria) {
+                        updateJob(newJob)
+                      }
+                    }}
+                    disabled={!newJob.websiteUrl || !newJob.notificationCriteria || loading}
+                  >
+                    Save
+                  </Button>
+                </div>
+              </div>
             ) : !showNewJobForm ? (
               // When not in edit mode and not creating new job, show all job cards
               jobs.map(job => (
@@ -840,13 +901,9 @@ Return your response in this JSON format:
                       {job.lastMatchedCriteria !== undefined && (
                         <div className={`flex items-center ${job.lastMatchedCriteria ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`}>
                           {job.lastMatchedCriteria ? (
-                            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
+                            <CheckCircle className="w-4 h-4 mr-1" weight="fill" />
                           ) : (
-                            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
+                            <XCircle className="w-4 h-4 mr-1" weight="fill" />
                           )}
                           <span className="text-xs font-medium">
                             {job.lastMatchedCriteria ? 'Matched' : 'Not matched'}
@@ -867,165 +924,144 @@ Return your response in this JSON format:
 
             {/* New Job Form (only shown when not editing any job) */}
             {showNewJobForm && !editingJobId && (
-              <Card className="mac-animate-in">
-                <CardHeader className="px-4 py-3">
-                  <CardTitle className="text-lg">Create New Monitor</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-5 px-4 pt-0">
-                  <div>
-                    <label className="text-sm font-medium mb-1.5 block">Website URL</label>
-                    <Input
-                      type="url"
-                      value={newJob.websiteUrl}
-                      placeholder="https://example.com"
-                      onChange={(e: ChangeEvent<HTMLInputElement>) => setNewJob(prev => ({ ...prev, websiteUrl: e.target.value }))}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-sm font-medium mb-1.5 block">Notify me when...</label>
-                    <textarea
-                      value={newJob.notificationCriteria || ''}
-                      className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none min-h-[100px]"
-                      placeholder="e.g., 'price of iPhone 15 drops below $899' or 'PS5 is back in stock'"
-                      onChange={(e: ChangeEvent<HTMLTextAreaElement>) => {
-                        const criteria = e.target.value;
-                        const analysisPrompt = criteria ? 
-                          `Analyze this webpage to determine if the following is true: "${criteria}". Check elements like prices, availability, text content, and other visible information.` : 
-                          '';
-                        
-                        setNewJob(prev => ({ 
-                          ...prev, 
-                          notificationCriteria: criteria,
-                          analysisPrompt: analysisPrompt
-                        }));
-                      }}
-                    />
-                    <p className="text-xs text-muted-foreground mt-1.5">
-                      Describe what needs to be true for you to get notified. Try to be specific about what you're looking for.
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col h-full">
+                <div className="flex-1 overflow-auto">
+                  <div className="space-y-5 px-6 pt-4">
                     <div>
-                      <label className="text-sm font-medium mb-1.5 block">Check Frequency</label>
-                      <select
-                        value={newJob.frequency}
-                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                        onChange={(e: ChangeEvent<HTMLSelectElement>) => setNewJob(prev => ({ ...prev, frequency: e.target.value as RecurringFrequency }))}
-                      >
-                        <option value="hourly">Every Hour</option>
-                        <option value="daily">Every Day</option>
-                        <option value="weekly">Every Week</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="text-sm font-medium mb-1.5 block">Start Time</label>
+                      <label className="text-sm font-medium mb-1.5 block">Website URL</label>
                       <Input
-                        type="time"
-                        value={newJob.scheduledTime}
-                        onChange={(e: ChangeEvent<HTMLInputElement>) => setNewJob(prev => ({ ...prev, scheduledTime: e.target.value }))}
+                        type="url"
+                        value={newJob.websiteUrl}
+                        placeholder="https://example.com"
+                        onChange={(e: ChangeEvent<HTMLInputElement>) => setNewJob(prev => ({ ...prev, websiteUrl: e.target.value }))}
                       />
                     </div>
-                  </div>
-                  
-                </CardContent>
-                <CardFooter className="flex justify-between p-4 pt-4">
-                  <div>
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        setShowNewJobForm(false);
-                        resetNewJobForm();
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      onClick={() => testJob(newJob)}
-                      disabled={!newJob.websiteUrl || !newJob.notificationCriteria || loading}
-                    >
-                      {loading ? 'Testing...' : 'Test'}
-                    </Button>
-                    <Button
-                      onClick={() => {
-                        if (newJob.websiteUrl && newJob.notificationCriteria) {
-                          if (editingJobId) {
-                            updateJob(newJob)
-                          } else {
-                            addJob(newJob)
-                          }
-                          setTestResult(null)
-                        }
-                      }}
-                      disabled={!newJob.websiteUrl || !newJob.notificationCriteria || loading}
-                    >
-                      Create Monitor
-                    </Button>
-                  </div>
-                </CardFooter>
-                
-                {/* Test Results */}
-                {(testResult || loading) && (
-                  <div className="p-4">
-                    {testResult && (
-                      <div className={`rounded-md border p-4 w-full ${
-                        testResult.matched === true 
-                          ? 'bg-green-50 border-green-200 dark:bg-green-900/30 dark:border-green-800'
-                          : testResult.matched === false
-                            ? 'bg-muted border-muted-foreground/20'
-                            : 'bg-destructive/10 border-destructive/30'
-                      } mac-animate-in`}>
-                        <div className="flex items-center mb-2">
-                          <span className="flex-shrink-0">
-                            {testResult.matched === true ? (
-                              <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                              </svg>
-                            ) : testResult.matched === false ? (
-                              <svg className="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                              </svg>
-                            ) : (
-                              <svg className="w-5 h-5 text-destructive" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                              </svg>
-                            )}
-                          </span>
-                          <div className="ml-2 flex flex-col">
-                            <span className="text-sm font-medium">
-                              {testResult.matched === true
-                                ? 'Condition matched! Notification would trigger.'
-                                : testResult.matched === false
-                                  ? 'Condition not matched. No notification would be sent.'
-                                  : 'Error running test'}
-                            </span>
-                            {testResult.timestamp && (
-                              <span className="text-xs text-muted-foreground">
-                                Tested: {testResult.timestamp.toLocaleString()}
+
+                    <div>
+                      <label className="text-sm font-medium mb-1.5 block">Notify me when...</label>
+                      <textarea
+                        value={newJob.notificationCriteria || ''}
+                        className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none min-h-[100px]"
+                        placeholder="e.g., 'price of iPhone 15 drops below $899' or 'PS5 is back in stock'"
+                        onChange={(e: ChangeEvent<HTMLTextAreaElement>) => {
+                          const criteria = e.target.value;
+                          const analysisPrompt = criteria ? 
+                            `Analyze this webpage to determine if the following is true: "${criteria}". Check elements like prices, availability, text content, and other visible information.` : 
+                            '';
+                          
+                          setNewJob(prev => ({ 
+                            ...prev, 
+                            notificationCriteria: criteria,
+                            analysisPrompt: analysisPrompt
+                          }));
+                        }}
+                      />
+                      <p className="text-xs text-muted-foreground mt-1.5">
+                        Describe what needs to be true for you to get notified. Try to be specific about what you're looking for.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-sm font-medium mb-1.5 block">Check Frequency</label>
+                        <select
+                          value={newJob.frequency}
+                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                          onChange={(e: ChangeEvent<HTMLSelectElement>) => setNewJob(prev => ({ ...prev, frequency: e.target.value as RecurringFrequency }))}
+                        >
+                          <option value="hourly">Every Hour</option>
+                          <option value="daily">Every Day</option>
+                          <option value="weekly">Every Week</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="text-sm font-medium mb-1.5 block">Start Time</label>
+                        <Input
+                          type="time"
+                          value={newJob.scheduledTime}
+                          onChange={(e: ChangeEvent<HTMLInputElement>) => setNewJob(prev => ({ ...prev, scheduledTime: e.target.value }))}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Test Results */}
+                    {(testResult || loading) && (
+                      <div className="py-4">
+                        {testResult && (
+                          <div className={`rounded-md border p-4 w-full ${
+                            testResult.matched === true 
+                              ? 'bg-green-50 border-green-200 dark:bg-green-900/30 dark:border-green-800'
+                              : testResult.matched === false
+                                ? 'bg-muted border-muted-foreground/20'
+                                : 'bg-destructive/10 border-destructive/30'
+                          } mac-animate-in`}>
+                            <div className="flex items-center mb-2">
+                              <span className="flex-shrink-0">
+                                {testResult.matched === true ? (
+                                  <CheckCircle className="w-5 h-5 text-green-600" weight="fill" />
+                                ) : testResult.matched === false ? (
+                                  <XCircle className="w-5 h-5 text-muted-foreground" weight="fill" />
+                                ) : (
+                                  <WarningCircle className="w-5 h-5 text-destructive" weight="fill" />
+                                )}
                               </span>
-                            )}
+                              <div className="ml-2 flex flex-col">
+                                <span className="text-sm font-medium">
+                                  {testResult.matched === true
+                                    ? 'Condition matched! Notification would trigger.'
+                                    : testResult.matched === false
+                                      ? 'Condition not matched. No notification would be sent.'
+                                      : 'Error running test'}
+                                </span>
+                                {testResult.timestamp && (
+                                  <span className="text-xs text-muted-foreground">
+                                    Tested: {testResult.timestamp.toLocaleString()}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="text-xs whitespace-pre-wrap leading-relaxed max-h-32 overflow-y-auto rounded-md bg-background/50 p-3 font-mono border border-input/50">
+                              {testResult.result}
+                            </div>
                           </div>
-                        </div>
-                        <div className="text-xs whitespace-pre-wrap leading-relaxed max-h-32 overflow-y-auto rounded-md bg-background/50 p-3 font-mono border border-input/50">
-                          {testResult.result}
-                        </div>
-                      </div>
-                    )}
-                    
-                    {loading && (
-                      <div className="p-4 bg-muted border border-input rounded-md flex items-center justify-center mac-animate-in">
-                        <div className="animate-spin rounded-full h-5 w-5 border-2 border-primary border-t-transparent mr-2"></div>
-                        <span className="text-sm">Running test...</span>
+                        )}
+                        
+                        {loading && (
+                          <div className="p-4 bg-muted border border-input rounded-md flex items-center justify-center mac-animate-in">
+                            <SpinnerGap className="animate-spin h-5 w-5 border-2 border-primary border-t-transparent" />
+                            <span className="text-sm">Running test...</span>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
-                )}
-              </Card>
+                </div>
+                <div className="flex justify-between px-6 py-4 border-t bg-background">
+                  <Button
+                    variant="outline"
+                    onClick={() => testJob(newJob)}
+                    disabled={!newJob.websiteUrl || !newJob.notificationCriteria || loading}
+                  >
+                    {loading ? 'Testing...' : 'Test'}
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      if (newJob.websiteUrl && newJob.notificationCriteria) {
+                        if (editingJobId) {
+                          updateJob(newJob)
+                        } else {
+                          addJob(newJob)
+                        }
+                        setTestResult(null)
+                      }
+                    }}
+                    disabled={!newJob.websiteUrl || !newJob.notificationCriteria || loading}
+                  >
+                    {editingJobId ? 'Save' : 'Create Monitor'}
+                  </Button>
+                </div>
+              </div>
             )}
 
           </div>
@@ -1034,9 +1070,7 @@ Return your response in this JSON format:
           {error && (
             <Card className="mac-animate-in bg-destructive/10">
               <CardContent className="p-4 text-sm text-destructive flex items-center">
-                <svg className="w-4 h-4 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+                <WarningCircle className="w-4 h-4 mr-2 flex-shrink-0" />
                 {error}
               </CardContent>
             </Card>
