@@ -55,7 +55,7 @@
 }
 
 .mac-toolbar {
-  @apply h-10 pl-20 -webkit-app-region-drag;
+  @apply h-10 -webkit-app-region-drag w-full;
 }
 
 .mac-content {

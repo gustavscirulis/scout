@@ -6,6 +6,23 @@ import { Separator } from './components/ui/separator'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './components/ui/dialog'
 import './App.css'
 
+// Function to format time in a simple "ago" format
+const formatTimeAgo = (date: Date): string => {
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffSec = Math.floor(diffMs / 1000);
+  const diffMin = Math.floor(diffSec / 60);
+  const diffHour = Math.floor(diffMin / 60);
+  const diffDays = Math.floor(diffHour / 24);
+
+  if (diffSec < 60) return `${diffSec}s ago`;
+  if (diffMin < 60) return `${diffMin}m ago`;
+  if (diffHour < 24) return `${diffHour}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
 type RecurringFrequency = 'hourly' | 'daily' | 'weekly'
 
 interface AnalysisJob {
@@ -509,15 +526,31 @@ Return your response in this JSON format:
   return (
     <div className="mac-window">
       {/* Titlebar */}
-      <div className="mac-toolbar flex items-center justify-between px-4 border-b">
-        <div className="text-sm font-bold">Vision Tasks</div>
+      <div className="mac-toolbar w-full flex items-center justify-between py-2 border-b">
         <Button
-          variant="outline"
-          size="sm"
+          variant="ghost"
+          size="icon"
           onClick={() => setShowSettings(true)}
-          className="no-drag"
+          className="no-drag ml-2"
+          title="Settings"
         >
-          Settings
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
+            <circle cx="12" cy="12" r="3"/>
+          </svg>
+        </Button>
+        <div className="flex-1"></div>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setShowNewJobForm(true)}
+          className="no-drag mr-2"
+          title="New Monitor"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 5v14"/>
+            <path d="M5 12h14"/>
+          </svg>
         </Button>
       </div>
 
@@ -554,47 +587,50 @@ Return your response in this JSON format:
 
           {/* Jobs List */}
           <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h2 className="text-lg font-semibold">Website Monitors</h2>
-              {!editingJobId && (
-                <Button
-                  onClick={() => setShowNewJobForm(true)}
-                  size="sm"
-                >
-                  + New Monitor
-                </Button>
-              )}
-            </div>
-
             {jobs.length === 0 && !showNewJobForm && !editingJobId && (
-              <Card className="mac-animate-in text-center py-8">
-                <CardContent>
-                  <div className="text-4xl mb-4">🔍</div>
-                  <CardTitle className="mb-3">Get notified when something changes on a website</CardTitle>
-                  <CardDescription className="max-w-md mx-auto mb-6">
-                    Monitor product prices, stock availability, content changes, or anything else visible on a website. 
-                    We'll alert you when your specified conditions are met.
-                  </CardDescription>
-                  <Button
-                    onClick={() => setShowNewJobForm(true)}
-                    size="lg"
-                  >
-                    + Create Your First Monitor
-                  </Button>
-                </CardContent>
-              </Card>
+              <div className="flex flex-col items-center justify-center py-16 text-center">
+                <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center mb-4">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground">
+                    <path d="M12 20V10"></path>
+                    <path d="M18 20V4"></path>
+                    <path d="M6 20v-4"></path>
+                  </svg>
+                </div>
+                <h3 className="text-lg font-medium mb-1">No monitors yet</h3>
+                <p className="text-muted-foreground text-sm max-w-md mb-4">
+                  Create a monitor to get notified when something changes on a website.
+                </p>
+                <Button 
+                  onClick={() => setShowNewJobForm(true)}
+                  variant="outline"
+                >
+                  Create your first monitor
+                </Button>
+              </div>
             )}
 
-            {jobs.map(job => 
-              // If this job is being edited, show the edit form instead of the card
-              editingJobId === job.id ? (
-                <Card key={job.id} className="mac-animate-in">
-                  <CardHeader>
-                    <CardTitle>Edit Monitor</CardTitle>
+            {/* When in edit mode, only show the job being edited */}
+            {editingJobId ? (
+              // Find and display only the job being edited
+              jobs.filter(job => job.id === editingJobId).map(job => (
+                <Card key={job.id} className="mac-animate-in relative">
+                  <button 
+                    onClick={() => deleteJob(job.id)}
+                    className="absolute top-3 right-4 w-6 h-6 rounded-full hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-destructive no-drag"
+                    title="Delete Monitor"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3 6h18"></path>
+                      <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                      <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                    </svg>
+                  </button>
+                  <CardHeader className="px-4 py-3">
+                    <CardTitle className="text-lg">Edit Monitor</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Website URL</label>
+                  <CardContent className="space-y-5 px-4 pt-0">
+                    <div>
+                      <label className="text-sm font-medium mb-1.5 block">Website URL</label>
                       <Input
                         type="url"
                         value={newJob.websiteUrl}
@@ -603,8 +639,8 @@ Return your response in this JSON format:
                       />
                     </div>
 
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Notify me when...</label>
+                    <div>
+                      <label className="text-sm font-medium mb-1.5 block">Notify me when...</label>
                       <textarea
                         value={newJob.notificationCriteria || ''}
                         className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none min-h-[100px]"
@@ -624,14 +660,14 @@ Return your response in this JSON format:
                           }));
                         }}
                       />
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-xs text-muted-foreground mt-1.5">
                         Describe what needs to be true for you to get notified. Try to be specific about what you're looking for.
                       </p>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Check Frequency</label>
+                      <div>
+                        <label className="text-sm font-medium mb-1.5 block">Check Frequency</label>
                         <select
                           value={newJob.frequency}
                           className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
@@ -643,8 +679,8 @@ Return your response in this JSON format:
                         </select>
                       </div>
 
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Start Time</label>
+                      <div>
+                        <label className="text-sm font-medium mb-1.5 block">Start Time</label>
                         <Input
                           type="time"
                           value={newJob.scheduledTime}
@@ -652,58 +688,42 @@ Return your response in this JSON format:
                         />
                       </div>
                     </div>
-                  </CardContent>
-                  <CardFooter className="flex flex-col space-y-4">
-                    <div className="flex w-full justify-between">
-                      <div className="flex space-x-2">
-                        <Button
-                          onClick={() => toggleJob(job.id)}
-                          variant={job.isRunning ? "destructive" : "default"}
-                          size="sm"
-                        >
-                          {job.isRunning ? 'Stop' : 'Start'}
-                        </Button>
-                        <Button
-                          onClick={() => deleteJob(job.id)}
-                          variant="outline"
-                          size="sm"
-                          className="text-destructive"
-                        >
-                          Delete
-                        </Button>
-                      </div>
-                      <div className="flex space-x-2">
-                        <Button
-                          variant="outline"
-                          onClick={() => resetNewJobForm()}
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          onClick={() => {
-                            if (newJob.websiteUrl && newJob.notificationCriteria) {
-                              updateJob(newJob);
-                              setTestResult(null);
-                            }
-                          }}
-                          disabled={!newJob.websiteUrl || !newJob.notificationCriteria || loading}
-                        >
-                          Save Changes
-                        </Button>
-                      </div>
-                    </div>
                     
-                    <div className="w-full space-y-4">
+                  </CardContent>
+                  <CardFooter className="flex justify-between p-4 pt-4">
+                    <div>
+                      <Button
+                        variant="outline"
+                        onClick={() => resetNewJobForm()}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                    <div className="flex gap-2">
                       <Button
                         variant="outline"
                         onClick={() => testJob(newJob)}
                         disabled={!newJob.websiteUrl || !newJob.notificationCriteria || loading}
-                        className="w-full"
                       >
-                        {loading ? 'Running Test...' : 'Test Now'}
+                        {loading ? 'Testing...' : 'Test'}
                       </Button>
-                      
-                      {/* Test Results */}
+                      <Button
+                        onClick={() => {
+                          if (newJob.websiteUrl && newJob.notificationCriteria) {
+                            updateJob(newJob);
+                            setTestResult(null);
+                          }
+                        }}
+                        disabled={!newJob.websiteUrl || !newJob.notificationCriteria || loading}
+                      >
+                        Save
+                      </Button>
+                    </div>
+                  </CardFooter>
+                  
+                  {/* Test Results */}
+                  {(testResult || loading) && (
+                    <div className="p-4">
                       {testResult && (
                         <div className={`rounded-md border p-4 w-full ${
                           testResult.matched === true 
@@ -712,36 +732,36 @@ Return your response in this JSON format:
                               ? 'bg-muted border-muted-foreground/20'
                               : 'bg-destructive/10 border-destructive/30'
                         } mac-animate-in`}>
-                          <div className="flex flex-col gap-2 mb-2">
-                            <div className="flex items-center">
-                              <span className="flex-shrink-0">
-                                {testResult.matched === true ? (
-                                  <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                  </svg>
-                                ) : testResult.matched === false ? (
-                                  <svg className="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                  </svg>
-                                ) : (
-                                  <svg className="w-5 h-5 text-destructive" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                  </svg>
-                                )}
-                              </span>
-                              <span className="ml-2 text-sm font-medium">
+                          <div className="flex items-center mb-2">
+                            <span className="flex-shrink-0">
+                              {testResult.matched === true ? (
+                                <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                              ) : testResult.matched === false ? (
+                                <svg className="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                              ) : (
+                                <svg className="w-5 h-5 text-destructive" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                              )}
+                            </span>
+                            <div className="ml-2 flex flex-col">
+                              <span className="text-sm font-medium">
                                 {testResult.matched === true
                                   ? 'Condition matched! Notification would trigger.'
                                   : testResult.matched === false
                                     ? 'Condition not matched. No notification would be sent.'
                                     : 'Error running test'}
                               </span>
+                              {testResult.timestamp && (
+                                <span className="text-xs text-muted-foreground">
+                                  Tested: {testResult.timestamp.toLocaleString()}
+                                </span>
+                              )}
                             </div>
-                            {testResult.timestamp && (
-                              <div className="text-xs text-muted-foreground ml-7">
-                                Tested: {testResult.timestamp.toLocaleString()}
-                              </div>
-                            )}
                           </div>
                           <div className="text-xs whitespace-pre-wrap leading-relaxed max-h-32 overflow-y-auto rounded-md bg-background/50 p-3 font-mono border border-input/50">
                             {testResult.result}
@@ -756,13 +776,15 @@ Return your response in this JSON format:
                         </div>
                       )}
                     </div>
-                  </CardFooter>
+                  )}
                 </Card>
-              ) : (
-                // Regular job card view
+              ))
+            ) : (
+              // When not in edit mode, show all job cards
+              jobs.map(job => (
                 <Card 
                   key={job.id} 
-                  className="mac-animate-in cursor-pointer hover:shadow-md transition-all"
+                  className="mac-animate-in cursor-pointer hover:shadow-md transition-all relative"
                   onClick={(e) => {
                     // Only trigger if not clicking on buttons
                     if (!(e.target as HTMLElement).closest('button')) {
@@ -770,88 +792,79 @@ Return your response in this JSON format:
                     }
                   }}
                 >
-                  <CardContent className="pt-6">
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center">
+                  <CardContent className="p-4">
+                    <div className="mb-3">
                       <div className="flex items-center">
-                        <h3 className="font-semibold text-base truncate max-w-[220px]" title={job.websiteUrl}>
+                        {job.isRunning && (
+                          <span className="mr-2 inline-block h-2.5 w-2.5 rounded-full bg-green-500 animate-pulse flex-shrink-0"></span>
+                        )}
+                        <h3 className="font-semibold text-base truncate max-w-[300px]" title={job.websiteUrl}>
                           {job.websiteUrl}
                         </h3>
-                        {job.isRunning && (
-                          <span className="ml-2 inline-flex h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        Every {job.frequency} at {job.scheduledTime}
+                        {job.lastRun && (
+                          <>
+                            <span className="mx-1.5">•</span>
+                            Last check: {formatTimeAgo(new Date(job.lastRun))}
+                          </>
                         )}
                       </div>
                     </div>
                     
-                    <div>
+                    <div className="bg-muted/40 rounded-md p-3 mb-3">
                       <div className="flex items-start">
                         <span className="flex-shrink-0 mt-0.5">
                           <svg className="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                           </svg>
                         </span>
-                        <div className="ml-2.5">
-                          <div className="text-sm text-muted-foreground font-medium mb-1">Notify when:</div>
-                          <div className="text-sm">{job.notificationCriteria}</div>
-                          {job.lastMatchedCriteria !== undefined && (
-                            <div className={`mt-2 flex items-center ${job.lastMatchedCriteria ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`}>
-                              {job.lastMatchedCriteria ? (
-                                <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                              ) : (
-                                <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                              )}
-                              <span className="text-sm font-medium">
-                                {job.lastMatchedCriteria ? 'Condition matched on last check' : 'Condition not matched on last check'}
-                              </span>
-                            </div>
-                          )}
+                        <div className="ml-2.5 w-full">
+                          <div className="text-xs text-muted-foreground font-medium mb-1">Notify when:</div>
+                          <div className="text-sm font-medium">{job.notificationCriteria}</div>
                         </div>
                       </div>
                     </div>
-                  </div>
-
-                  <Separator className="my-4" />
-
-                  <div className="flex flex-wrap justify-between items-center text-sm text-muted-foreground">
-                    <span className="flex items-center">
-                      <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      Every {job.frequency} at {job.scheduledTime}
-                    </span>
-                    {job.lastRun && (
-                      <span className="flex items-center text-xs">
-                        <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        Last ran: {new Date(job.lastRun).toLocaleString()}
-                      </span>
-                    )}
-                  </div>
-
-                  {job.lastResult && (
-                    <div className="mt-4 p-4 bg-muted rounded-md">
-                      <div className="font-medium text-sm mb-2">Last Result</div>
-                      <p className="text-sm text-muted-foreground whitespace-pre-wrap">{job.lastResult}</p>
+                    
+                    <div className="flex justify-end items-center">
+                      {job.lastMatchedCriteria !== undefined && (
+                        <div className={`flex items-center ${job.lastMatchedCriteria ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`}>
+                          {job.lastMatchedCriteria ? (
+                            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                          ) : (
+                            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                          )}
+                          <span className="text-xs font-medium">
+                            {job.lastMatchedCriteria ? 'Matched' : 'Not matched'}
+                          </span>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
+
+                    {job.lastResult && (
+                      <div className="mt-3 p-4 bg-background rounded-md border border-input text-xs text-muted-foreground whitespace-pre-wrap max-h-20 overflow-y-auto">
+                        {job.lastResult}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))
+            )}
 
             {/* New Job Form (only shown when not editing any job) */}
             {showNewJobForm && !editingJobId && (
               <Card className="mac-animate-in">
-                <CardHeader>
-                  <CardTitle>Create New Monitor</CardTitle>
+                <CardHeader className="px-4 py-3">
+                  <CardTitle className="text-lg">Create New Monitor</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Website URL</label>
+                <CardContent className="space-y-5 px-4 pt-0">
+                  <div>
+                    <label className="text-sm font-medium mb-1.5 block">Website URL</label>
                     <Input
                       type="url"
                       value={newJob.websiteUrl}
@@ -860,8 +873,8 @@ Return your response in this JSON format:
                     />
                   </div>
 
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Notify me when...</label>
+                  <div>
+                    <label className="text-sm font-medium mb-1.5 block">Notify me when...</label>
                     <textarea
                       value={newJob.notificationCriteria || ''}
                       className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none min-h-[100px]"
@@ -879,14 +892,14 @@ Return your response in this JSON format:
                         }));
                       }}
                     />
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-xs text-muted-foreground mt-1.5">
                       Describe what needs to be true for you to get notified. Try to be specific about what you're looking for.
                     </p>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Check Frequency</label>
+                    <div>
+                      <label className="text-sm font-medium mb-1.5 block">Check Frequency</label>
                       <select
                         value={newJob.frequency}
                         className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
@@ -898,8 +911,8 @@ Return your response in this JSON format:
                       </select>
                     </div>
 
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Start Time</label>
+                    <div>
+                      <label className="text-sm font-medium mb-1.5 block">Start Time</label>
                       <Input
                         type="time"
                         value={newJob.scheduledTime}
@@ -907,40 +920,102 @@ Return your response in this JSON format:
                       />
                     </div>
                   </div>
+                  
                 </CardContent>
-                <CardFooter className="flex justify-end space-x-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setShowNewJobForm(false);
-                      resetNewJobForm();
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => testJob(newJob)}
-                    disabled={!newJob.websiteUrl || !newJob.notificationCriteria || loading}
-                  >
-                    {loading ? 'Running Test...' : 'Test Now'}
-                  </Button>
-                  <Button
-                    onClick={() => {
-                      if (newJob.websiteUrl && newJob.notificationCriteria) {
-                        if (editingJobId) {
-                          updateJob(newJob)
-                        } else {
-                          addJob(newJob)
+                <CardFooter className="flex justify-between p-4 pt-4">
+                  <div>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setShowNewJobForm(false);
+                        resetNewJobForm();
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => testJob(newJob)}
+                      disabled={!newJob.websiteUrl || !newJob.notificationCriteria || loading}
+                    >
+                      {loading ? 'Testing...' : 'Test'}
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        if (newJob.websiteUrl && newJob.notificationCriteria) {
+                          if (editingJobId) {
+                            updateJob(newJob)
+                          } else {
+                            addJob(newJob)
+                          }
+                          setTestResult(null)
                         }
-                        setTestResult(null)
-                      }
-                    }}
-                    disabled={!newJob.websiteUrl || !newJob.notificationCriteria || loading}
-                  >
-                    {editingJobId ? 'Save Changes' : 'Create Monitor'}
-                  </Button>
+                      }}
+                      disabled={!newJob.websiteUrl || !newJob.notificationCriteria || loading}
+                    >
+                      Create Monitor
+                    </Button>
+                  </div>
                 </CardFooter>
+                
+                {/* Test Results */}
+                {(testResult || loading) && (
+                  <div className="p-4">
+                    {testResult && (
+                      <div className={`rounded-md border p-4 w-full ${
+                        testResult.matched === true 
+                          ? 'bg-green-50 border-green-200 dark:bg-green-900/30 dark:border-green-800'
+                          : testResult.matched === false
+                            ? 'bg-muted border-muted-foreground/20'
+                            : 'bg-destructive/10 border-destructive/30'
+                      } mac-animate-in`}>
+                        <div className="flex items-center mb-2">
+                          <span className="flex-shrink-0">
+                            {testResult.matched === true ? (
+                              <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                            ) : testResult.matched === false ? (
+                              <svg className="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                            ) : (
+                              <svg className="w-5 h-5 text-destructive" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                            )}
+                          </span>
+                          <div className="ml-2 flex flex-col">
+                            <span className="text-sm font-medium">
+                              {testResult.matched === true
+                                ? 'Condition matched! Notification would trigger.'
+                                : testResult.matched === false
+                                  ? 'Condition not matched. No notification would be sent.'
+                                  : 'Error running test'}
+                            </span>
+                            {testResult.timestamp && (
+                              <span className="text-xs text-muted-foreground">
+                                Tested: {testResult.timestamp.toLocaleString()}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-xs whitespace-pre-wrap leading-relaxed max-h-32 overflow-y-auto rounded-md bg-background/50 p-3 font-mono border border-input/50">
+                          {testResult.result}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {loading && (
+                      <div className="p-4 bg-muted border border-input rounded-md flex items-center justify-center mac-animate-in">
+                        <div className="animate-spin rounded-full h-5 w-5 border-2 border-primary border-t-transparent mr-2"></div>
+                        <span className="text-sm">Running test...</span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </Card>
             )}
 
@@ -949,7 +1024,7 @@ Return your response in this JSON format:
           {/* Error message */}
           {error && (
             <Card className="mac-animate-in bg-destructive/10">
-              <CardContent className="py-3 text-sm text-destructive flex items-center">
+              <CardContent className="p-4 text-sm text-destructive flex items-center">
                 <svg className="w-4 h-4 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>

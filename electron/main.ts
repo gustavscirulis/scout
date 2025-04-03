@@ -78,7 +78,7 @@ function createWindow() {
   // Create window
   mainWindow = new BrowserWindow({
     width: 400,
-    height: 500,
+    height: 700,
     show: false,
     webPreferences: {
       nodeIntegration: true,
@@ -147,6 +147,7 @@ ipcMain.handle('take-screenshot', async (_event, url: string) => {
   offscreenWindow.close()
   return screenshot
 })
+
 
 app.whenReady().then(createWindow)
 
