@@ -715,22 +715,24 @@ Return your response in this JSON format:
           {/* Jobs List */}
           <div className="space-y-4">
             {jobs.length === 0 && !showNewJobForm && !editingJobId && (
-              <div className="flex flex-col items-center justify-center py-16 text-center px-6 mac-animate-in">
+              <div className="flex flex-col items-center justify-center py-8 text-center px-8 mac-animate-in">
                 <div className="w-20 h-20 bg-primary/5 rounded-full flex items-center justify-center mb-6">
                   <ChartLineUp size={36} className="text-primary/60" />
                 </div>
-                <h3 className="text-lg font-medium mb-2">No Monitors Yet</h3>
-                <p className="text-muted-foreground text-sm max-w-md mb-8">
-                  Create a monitor to get notified when something changes on a website.
-                </p>
+                <h3 className="text-lg font-medium mb-2">Set Up a Monitor</h3>
+                <div className="max-w-xl mx-auto mb-8">
+                  <p className="text-muted-foreground text-sm text-center">
+                    Get notified when something changes on a website you care about.
+                  </p>
+                </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-left mb-8 max-w-xl">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-left mb-8 w-full">
                   <button 
                     onClick={() => {
                       setNewJob(prev => ({
                         ...prev,
-                        notificationCriteria: 'iPhone 15 price drops below $799',
-                        analysisPrompt: 'Analyze this webpage to determine if the iPhone 15 price is below $799.'
+                        notificationCriteria: 'product price drops below target price',
+                        analysisPrompt: 'Analyze this webpage to determine if the product price has dropped below the target price.'
                       }));
                       setShowNewJobForm(true);
                     }}
@@ -738,9 +740,9 @@ Return your response in this JSON format:
                   >
                     <ShoppingBag size={18} className="text-primary mr-3 mt-0.5 flex-shrink-0" />
                     <div>
-                      <div className="font-medium text-sm">Price Tracking</div>
+                      <div className="font-medium text-sm">Price Drops</div>
                       <div className="text-xs text-muted-foreground mt-0.5">
-                        If iPhone 15 price drops below $799
+                        e.g. price goes below certain target
                       </div>
                     </div>
                   </button>
@@ -758,9 +760,9 @@ Return your response in this JSON format:
                   >
                     <Ticket size={18} className="text-primary mr-3 mt-0.5 flex-shrink-0" />
                     <div>
-                      <div className="font-medium text-sm">Availability</div>
+                      <div className="font-medium text-sm">Back in Stock</div>
                       <div className="text-xs text-muted-foreground mt-0.5">
-                        If concert tickets become available
+                        e.g. concernt tickets become available
                       </div>
                     </div>
                   </button>
@@ -769,7 +771,7 @@ Return your response in this JSON format:
                     onClick={() => {
                       setNewJob(prev => ({
                         ...prev,
-                        notificationCriteria: 'New job listings appear on the careers page',
+                        notificationCriteria: '[job] posting is available',
                         analysisPrompt: 'Analyze this webpage to determine if new job listings have appeared.'
                       }));
                       setShowNewJobForm(true);
@@ -778,22 +780,24 @@ Return your response in this JSON format:
                   >
                     <Briefcase size={18} className="text-primary mr-3 mt-0.5 flex-shrink-0" />
                     <div>
-                      <div className="font-medium text-sm">Content Updates</div>
+                      <div className="font-medium text-sm">New Content</div>
                       <div className="text-xs text-muted-foreground mt-0.5">
-                        If new job listings appear on the careers page
+                        e.g. certain job listing is posted
                       </div>
                     </div>
                   </button>
                 </div>
                 
-                <Button 
-                  onClick={() => setShowNewJobForm(true)}
-                  className="rounded-full px-6"
-                  size="lg"
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Create Your First Monitor
-                </Button>
+                <div className="max-w-xl mx-auto">
+                  <Button 
+                    onClick={() => setShowNewJobForm(true)}
+                    className="rounded-full px-6"
+                    size="lg"
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Create Your First Monitor
+                  </Button>
+                </div>
               </div>
             )}
 
@@ -818,7 +822,7 @@ Return your response in this JSON format:
                       <textarea
                         value={newJob.notificationCriteria || ''}
                         className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none min-h-[100px]"
-                        placeholder="e.g., 'price of iPhone 15 drops below $899' or 'PS5 is back in stock'"
+                        placeholder="e.g., 'product price drops below target price' or 'PS5 is back in stock'"
                         onChange={(e: ChangeEvent<HTMLTextAreaElement>) => {
                           const criteria = e.target.value;
                           const analysisPrompt = criteria ? 
@@ -943,71 +947,73 @@ Return your response in this JSON format:
               </div>
             ) : !showNewJobForm ? (
               // When not in edit mode and not creating new job, show a Mac-style list
-              <div className="pt-0.5 pb-6">
-                <div className="mac-list mac-animate-in border-x-0 rounded-none">
-                  {jobs.map((job, index) => (
-                    <div 
-                      key={job.id}
-                      className="mac-list-row"
-                      onClick={(e) => {
-                        // Only trigger if not clicking on buttons
-                        if (!(e.target as HTMLElement).closest('button')) {
-                          startEditingJob(job.id);
-                        }
-                      }}
-                    >
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center">
-                          {job.isRunning && (
-                            <span className="mr-2 inline-block h-2 w-2 rounded-full bg-green-500 animate-pulse flex-shrink-0"></span>
-                          )}
-                          <h3 className="font-medium text-sm truncate" title={job.websiteUrl}>
-                            {job.websiteUrl}
-                          </h3>
+              jobs.length > 0 && (
+                <div className="pb-6">
+                  <div className="mac-list mac-animate-in border-x-0 rounded-none">
+                    {jobs.map((job, index) => (
+                      <div 
+                        key={job.id}
+                        className={`mac-list-row ${index === 0 ? 'border-t-0' : ''}`}
+                        onClick={(e) => {
+                          // Only trigger if not clicking on buttons
+                          if (!(e.target as HTMLElement).closest('button')) {
+                            startEditingJob(job.id);
+                          }
+                        }}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center">
+                            {job.isRunning && (
+                              <span className="mr-2 inline-block h-2 w-2 rounded-full bg-green-500 animate-pulse flex-shrink-0"></span>
+                            )}
+                            <h3 className="font-medium text-sm truncate" title={job.websiteUrl}>
+                              {job.websiteUrl}
+                            </h3>
+                          </div>
+                          
+                          <div className="flex items-center mt-1 text-xs text-muted-foreground">
+                            {job.lastRun && (
+                              <span className="flex-shrink-0">
+                                Checked {formatTimeAgo(new Date(job.lastRun))}
+                              </span>
+                            )}
+                            
+                            {job.lastRun && (
+                              <span className="mx-1.5 text-muted-foreground/40">•</span>
+                            )}
+                            
+                            <span className="truncate" title={job.notificationCriteria}>
+                              {job.notificationCriteria}
+                            </span>
+                            
+                            {job.lastMatchedCriteria !== undefined && (
+                              <span className="ml-auto flex-shrink-0">
+                                <span className={job.lastMatchedCriteria ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}>
+                                  {job.lastMatchedCriteria ? (
+                                    <span className="flex items-center">
+                                      <CheckCircle className="w-3 h-3 mr-0.5" weight="fill" />
+                                      <span>Matched</span>
+                                    </span>
+                                  ) : (
+                                    <span className="flex items-center">
+                                      <XCircle className="w-3 h-3 mr-0.5" weight="fill" />
+                                      <span>Not matched</span>
+                                    </span>
+                                  )}
+                                </span>
+                              </span>
+                            )}
+                          </div>
                         </div>
                         
-                        <div className="flex items-center mt-1 text-xs text-muted-foreground">
-                          {job.lastRun && (
-                            <span className="flex-shrink-0">
-                              Checked {formatTimeAgo(new Date(job.lastRun))}
-                            </span>
-                          )}
-                          
-                          {job.lastRun && (
-                            <span className="mx-1.5 text-muted-foreground/40">•</span>
-                          )}
-                          
-                          <span className="truncate" title={job.notificationCriteria}>
-                            {job.notificationCriteria}
-                          </span>
-                          
-                          {job.lastMatchedCriteria !== undefined && (
-                            <span className="ml-auto flex-shrink-0">
-                              <span className={job.lastMatchedCriteria ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}>
-                                {job.lastMatchedCriteria ? (
-                                  <span className="flex items-center">
-                                    <CheckCircle className="w-3 h-3 mr-0.5" weight="fill" />
-                                    <span>Matched</span>
-                                  </span>
-                                ) : (
-                                  <span className="flex items-center">
-                                    <XCircle className="w-3 h-3 mr-0.5" weight="fill" />
-                                    <span>Not matched</span>
-                                  </span>
-                                )}
-                              </span>
-                            </span>
-                          )}
+                        <div className="flex items-center ml-4">
+                          <CaretRight className="text-muted-foreground/40 flex-shrink-0" size={16} />
                         </div>
                       </div>
-                      
-                      <div className="flex items-center ml-4">
-                        <CaretRight className="text-muted-foreground/40 flex-shrink-0" size={16} />
-                      </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )
             ) : null }
 
             {/* New Job Form (only shown when not editing any job) */}
@@ -1031,7 +1037,7 @@ Return your response in this JSON format:
                       <textarea
                         value={newJob.notificationCriteria || ''}
                         className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none min-h-[100px]"
-                        placeholder="e.g., 'price of iPhone 15 drops below $899' or 'PS5 is back in stock'"
+                        placeholder="e.g., 'product price drops below target price' or 'PS5 is back in stock'"
                         onChange={(e: ChangeEvent<HTMLTextAreaElement>) => {
                           const criteria = e.target.value;
                           const analysisPrompt = criteria ? 
