@@ -8,7 +8,7 @@ import { Checkbox } from './components/ui/checkbox'
 import { 
   Gear, 
   Plus, 
-  ChartLineUp, 
+  Pulse, 
   ShoppingBag, 
   Ticket, 
   Briefcase, 
@@ -603,7 +603,7 @@ Return your response in this JSON format:
           )}
         </div>
         
-        <div className="mac-toolbar-title">
+        <div className="mac-toolbar-title text-muted-foreground/60">
           {(showNewJobForm || editingJobId) ? 
             (editingJobId ? 'Edit Monitor' : 'New Monitor') : 
             'Vision Tasks'}
@@ -717,7 +717,7 @@ Return your response in this JSON format:
             {jobs.length === 0 && !showNewJobForm && !editingJobId && (
               <div className="flex flex-col items-center justify-center py-8 text-center px-8 mac-animate-in">
                 <div className="w-20 h-20 bg-primary/5 rounded-full flex items-center justify-center mb-6">
-                  <ChartLineUp size={36} className="text-primary/60" />
+                  <Pulse size={36} className="text-primary/60" />
                 </div>
                 <h3 className="text-lg font-medium mb-2">Set Up a Monitor</h3>
                 <div className="max-w-xl mx-auto mb-8">
