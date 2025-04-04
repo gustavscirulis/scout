@@ -869,6 +869,7 @@ Return your response in this JSON format:
                         value={newJob.websiteUrl}
                         placeholder="https://example.com"
                         className="h-9"
+                        autoFocus
                         onChange={(e: ChangeEvent<HTMLInputElement>) => setNewJob(prev => ({ ...prev, websiteUrl: e.target.value }))}
                       />
                     </div>
@@ -1231,6 +1232,7 @@ Return your response in this JSON format:
                         value={newJob.websiteUrl}
                         placeholder="https://example.com"
                         className="h-9"
+                        autoFocus
                         onChange={(e: ChangeEvent<HTMLInputElement>) => setNewJob(prev => ({ ...prev, websiteUrl: e.target.value }))}
                       />
                     </div>
