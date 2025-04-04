@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, ChangeEvent } from 'react'
+import confetti from 'canvas-confetti'
 import { Button } from './components/ui/button'
 import { Input } from './components/ui/input'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './components/ui/card'
@@ -9,7 +10,7 @@ import { TimeInput } from './components/ui/time-input'
 import { 
   Gear, 
   Plus, 
-  Pulse, 
+  Robot,
   ShoppingBag, 
   Ticket, 
   Briefcase, 
@@ -143,10 +144,47 @@ function App() {
   // Save API key to localStorage
   useEffect(() => {
     localStorage.setItem('apiKey', apiKey)
+    
+    // Just save API key, confetti is handled by the save button
+    localStorage.setItem('lastSavedApiKey', apiKey)
   }, [apiKey])
   
   // Handle view transitions by managing the mac-transitioning class
   const [isTransitioning, setIsTransitioning] = useState(false)
+  
+  // Track if user just added an API key for celebration
+  const [showConfetti, setShowConfetti] = useState(false)
+  
+  // Launch confetti when showConfetti state changes
+  useEffect(() => {
+    if (showConfetti) {
+      const end = Date.now() + 800; // Very brief celebration
+      
+      // Create a confetti celebration
+      const frame = () => {
+        // Position at the bottom center of the screen
+        const origin = { x: 0.5, y: 0.9 };
+          
+        confetti({
+          particleCount: 12,
+          angle: 90, // Straight up
+          spread: 60,
+          origin,
+          colors: ['#4285F4', '#34A853', '#FBBC05', '#EA4335'], // Colorful confetti
+          gravity: 0.8,
+          scalar: 0.9 // Slightly smaller particles
+        });
+        
+        if (Date.now() < end) {
+          requestAnimationFrame(frame);
+        } else {
+          setShowConfetti(false);
+        }
+      };
+      
+      frame();
+    }
+  }, [showConfetti])
   
   useEffect(() => {
     // Always trigger the transition state when any view changes
@@ -629,10 +667,10 @@ Return your response in this JSON format:
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => setShowNewJobForm(true)}
-              title="New Task"
+              onClick={() => apiKey ? setShowNewJobForm(true) : setSettingsView(true)}
+              title={apiKey ? "New Task" : "Add API Key"}
             >
-              <Plus size={16} />
+              {apiKey ? <Plus size={16} /> : <Plus size={16} />}
             </Button>
           ) : settingsView ? (
             <div></div> // Empty div to maintain layout
@@ -650,87 +688,149 @@ Return your response in this JSON format:
             {jobs.length === 0 && !showNewJobForm && !editingJobId && !settingsView && (
               <div className="flex flex-col items-center justify-center py-8 text-center px-8 mac-animate-in">
                 <div className="w-20 h-20 bg-primary/5 rounded-full flex items-center justify-center mb-6">
-                  <Pulse size={36} className="text-primary/60" />
+                  <Robot size={36} className="text-primary/60" />
                 </div>
-                <h3 className="text-lg font-medium mb-2">Set Up a Task</h3>
-                <div className="max-w-xl mx-auto mb-8">
-                  <p className="text-muted-foreground text-sm text-center">
-                    Get notified when something changes on a website you care about.
-                  </p>
-                </div>
+                {!apiKey ? (
+                  <>
+                    <h3 className="text-lg font-medium mb-2">Welcome to Scout!</h3>
+                    <div className="max-w-xl mx-auto mb-6">
+                      <p className="text-muted-foreground text-sm text-center">
+                        Scout uses AI vision to analyze websites and notify you of changes. Add your OpenAI API key to get started.
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <h3 className="text-lg font-medium mb-2">Set Up a Task</h3>
+                    <div className="max-w-xl mx-auto mb-8">
+                      <p className="text-muted-foreground text-sm text-center">
+                        Get notified when something changes on a website you care about.
+                      </p>
+                    </div>
+                  </>
+                )}
                 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-left mb-8 w-full">
-                  <button 
-                    onClick={() => {
-                      setNewJob(prev => ({
-                        ...prev,
-                        notificationCriteria: 'product price drops below target price',
-                        analysisPrompt: 'Analyze this webpage to determine if the product price has dropped below the target price.'
-                      }));
-                      setShowNewJobForm(true);
-                    }}
-                    className="bg-background border p-4 rounded-lg hover:bg-muted/30 transition-colors text-left flex items-start -webkit-app-region-no-drag shadow-sm"
-                  >
-                    <ShoppingBag size={18} className="text-primary mr-3 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <div className="font-medium text-sm">Price Drops</div>
-                      <div className="text-xs text-muted-foreground mt-0.5">
-                        e.g. price goes below certain target
+                {!apiKey ? (
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-left mb-8 w-full">
+                      <div className="bg-background border p-4 rounded-lg opacity-70 text-left flex items-start -webkit-app-region-no-drag shadow-sm">
+                        <ShoppingBag size={18} className="text-primary mr-3 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <div className="font-medium text-sm">Price Drops</div>
+                          <div className="text-xs text-muted-foreground mt-0.5">
+                            e.g. price goes below certain target
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="bg-background border p-4 rounded-lg opacity-70 text-left flex items-start -webkit-app-region-no-drag shadow-sm">
+                        <Ticket size={18} className="text-primary mr-3 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <div className="font-medium text-sm">Back in Stock</div>
+                          <div className="text-xs text-muted-foreground mt-0.5">
+                            e.g. concert tickets become available
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="bg-background border p-4 rounded-lg opacity-70 text-left flex items-start -webkit-app-region-no-drag shadow-sm">
+                        <Briefcase size={18} className="text-primary mr-3 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <div className="font-medium text-sm">New Content</div>
+                          <div className="text-xs text-muted-foreground mt-0.5">
+                            e.g. certain job listing is posted
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  </button>
-                  
-                  <button 
-                    onClick={() => {
-                      setNewJob(prev => ({
-                        ...prev,
-                        notificationCriteria: 'Concert tickets are available for purchase',
-                        analysisPrompt: 'Analyze this webpage to determine if concert tickets are available for purchase.'
-                      }));
-                      setShowNewJobForm(true);
-                    }}
-                    className="bg-background border p-4 rounded-lg hover:bg-muted/30 transition-colors text-left flex items-start -webkit-app-region-no-drag shadow-sm"
-                  >
-                    <Ticket size={18} className="text-primary mr-3 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <div className="font-medium text-sm">Back in Stock</div>
-                      <div className="text-xs text-muted-foreground mt-0.5">
-                        e.g. concernt tickets become available
-                      </div>
+                    
+                    <div className="max-w-xl mx-auto">
+                      <Button 
+                        onClick={() => setSettingsView(true)}
+                        className="rounded-full px-6"
+                        size="lg"
+                      >
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add API Key
+                      </Button>
                     </div>
-                  </button>
-                  
-                  <button 
-                    onClick={() => {
-                      setNewJob(prev => ({
-                        ...prev,
-                        notificationCriteria: '[job] posting is available',
-                        analysisPrompt: 'Analyze this webpage to determine if new job listings have appeared.'
-                      }));
-                      setShowNewJobForm(true);
-                    }}
-                    className="bg-background border p-4 rounded-lg hover:bg-muted/30 transition-colors text-left flex items-start -webkit-app-region-no-drag shadow-sm"
-                  >
-                    <Briefcase size={18} className="text-primary mr-3 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <div className="font-medium text-sm">New Content</div>
-                      <div className="text-xs text-muted-foreground mt-0.5">
-                        e.g. certain job listing is posted
-                      </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-left mb-8 w-full">
+                      <button 
+                        onClick={() => {
+                          setNewJob(prev => ({
+                            ...prev,
+                            notificationCriteria: 'product price drops below target price',
+                            analysisPrompt: 'Analyze this webpage to determine if the product price has dropped below the target price.'
+                          }));
+                          setShowNewJobForm(true);
+                        }}
+                        className="bg-background border p-4 rounded-lg hover:bg-muted/30 transition-colors text-left flex items-start -webkit-app-region-no-drag shadow-sm"
+                      >
+                        <ShoppingBag size={18} className="text-primary mr-3 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <div className="font-medium text-sm">Price Drops</div>
+                          <div className="text-xs text-muted-foreground mt-0.5">
+                            e.g. price goes below certain target
+                          </div>
+                        </div>
+                      </button>
+                      
+                      <button 
+                        onClick={() => {
+                          setNewJob(prev => ({
+                            ...prev,
+                            notificationCriteria: 'Concert tickets are available for purchase',
+                            analysisPrompt: 'Analyze this webpage to determine if concert tickets are available for purchase.'
+                          }));
+                          setShowNewJobForm(true);
+                        }}
+                        className="bg-background border p-4 rounded-lg hover:bg-muted/30 transition-colors text-left flex items-start -webkit-app-region-no-drag shadow-sm"
+                      >
+                        <Ticket size={18} className="text-primary mr-3 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <div className="font-medium text-sm">Back in Stock</div>
+                          <div className="text-xs text-muted-foreground mt-0.5">
+                            e.g. concert tickets become available
+                          </div>
+                        </div>
+                      </button>
+                      
+                      <button 
+                        onClick={() => {
+                          setNewJob(prev => ({
+                            ...prev,
+                            notificationCriteria: '[job] posting is available',
+                            analysisPrompt: 'Analyze this webpage to determine if new job listings have appeared.'
+                          }));
+                          setShowNewJobForm(true);
+                        }}
+                        className="bg-background border p-4 rounded-lg hover:bg-muted/30 transition-colors text-left flex items-start -webkit-app-region-no-drag shadow-sm"
+                      >
+                        <Briefcase size={18} className="text-primary mr-3 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <div className="font-medium text-sm">New Content</div>
+                          <div className="text-xs text-muted-foreground mt-0.5">
+                            e.g. certain job listing is posted
+                          </div>
+                        </div>
+                      </button>
                     </div>
-                  </button>
-                </div>
-                
-                <div className="max-w-xl mx-auto">
-                  <Button 
-                    onClick={() => setShowNewJobForm(true)}
-                    className="rounded-full px-6"
-                    size="lg"
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Create Task
-                  </Button>
-                </div>
+                    
+                    <div className="max-w-xl mx-auto">
+                      <Button 
+                        onClick={() => setShowNewJobForm(true)}
+                        className="rounded-full px-6"
+                        size="lg"
+                      >
+                        <Plus className="mr-2 h-4 w-4" />
+                        Create Task
+                      </Button>
+                    </div>
+                  </>
+                )}
               </div>
             )}
 
@@ -900,7 +1000,19 @@ Return your response in this JSON format:
                           autoComplete="off"
                         />
                         <p className="text-[0.8rem] text-muted-foreground">
-                          Required for image analysis. Stored locally only.
+                          Get your API key from <a 
+                            href="#" 
+                            onClick={(e) => {
+                              e.preventDefault();
+                              try {
+                                const { shell } = window.require('electron');
+                                shell.openExternal('https://platform.openai.com/api-keys');
+                              } catch (error) {
+                                window.open('https://platform.openai.com/api-keys', '_blank');
+                              }
+                            }}
+                            className="text-primary hover:underline"
+                          >here</a>. Stored locally only.
                         </p>
                       </div>
                     </fieldset>
@@ -955,7 +1067,16 @@ Return your response in this JSON format:
                   </div>
                 </div>
                 <div className="sticky bottom-0 left-0 right-0 bg-background border-t border-border/60 px-8 py-4 flex justify-end">
-                  <Button type="button" onClick={() => setSettingsView(false)}>
+                  <Button 
+                    type="button" 
+                    onClick={() => {
+                      // Trigger confetti whenever they save with a valid API key
+                      if (apiKey) {
+                        setShowConfetti(true)
+                      }
+                      setSettingsView(false)
+                    }}
+                  >
                     Save
                   </Button>
                 </div>
