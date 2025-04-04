@@ -21,3 +21,24 @@ export function validateApiKey(apiKey: string): { isValid: boolean; message?: st
   
   return { isValid: true }
 }
+
+export function validateUrl(url: string): { isValid: boolean; message?: string } {
+  if (!url) {
+    return { isValid: false, message: 'URL is required' }
+  }
+
+  try {
+    const urlObj = new URL(url)
+    // Check for http or https protocol
+    if (urlObj.protocol !== 'http:' && urlObj.protocol !== 'https:') {
+      return { isValid: false, message: 'URL must use http or https protocol' }
+    }
+    // Check that we have a valid hostname
+    if (!urlObj.hostname || urlObj.hostname.length < 3) {
+      return { isValid: false, message: 'Invalid hostname in URL' }
+    }
+    return { isValid: true }
+  } catch (error) {
+    return { isValid: false, message: 'Invalid URL format' }
+  }
+}

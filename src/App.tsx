@@ -5,7 +5,7 @@ import { Input } from './components/ui/input'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './components/ui/card'
 import { Separator } from './components/ui/separator'
 import { Checkbox } from './components/ui/checkbox'
-import { validateApiKey } from './lib/utils'
+import { validateApiKey, validateUrl } from './lib/utils'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './components/ui/select'
 import { TimeInput } from './components/ui/time-input'
 import { 
@@ -95,6 +95,7 @@ function App() {
     })(),
     notificationCriteria: ''
   }))
+  const [urlError, setUrlError] = useState<string | null>(null)
   
   // Store job intervals
   const intervals = useRef<Record<string, { interval: NodeJS.Timeout | null, timeout: NodeJS.Timeout | null }>>({})
@@ -302,6 +303,7 @@ function App() {
     });
     setTestResult(null);
     setEditingJobId(null);
+    setUrlError(null);
   };
   
   const startEditingJob = (jobId: string) => {
@@ -328,6 +330,13 @@ function App() {
   
   const updateJob = (updatedJob: NewJobFormData) => {
     if (!editingJobId) return;
+    
+    // Validate URL before updating the job
+    const urlValidation = validateUrl(updatedJob.websiteUrl);
+    if (!urlValidation.isValid) {
+      setUrlError(urlValidation.message || 'Invalid URL');
+      return;
+    }
     
     // Find the job being edited
     const job = jobs.find(j => j.id === editingJobId);
@@ -371,6 +380,13 @@ function App() {
   };
   
   const addJob = (job: Omit<AnalysisJob, 'id' | 'isRunning' | 'lastResult' | 'lastRun'>) => {
+    // Validate URL before adding the job
+    const urlValidation = validateUrl(job.websiteUrl);
+    if (!urlValidation.isValid) {
+      setUrlError(urlValidation.message || 'Invalid URL');
+      return;
+    }
+    
     const newJob: AnalysisJob = {
       ...job,
       id: crypto.randomUUID(),
@@ -535,6 +551,14 @@ Return your response in this JSON format:
   const testJob = async (job: NewJobFormData) => {
     setLoading(true)
     setTestResult(null)
+    
+    // Validate URL before testing
+    const urlValidation = validateUrl(job.websiteUrl);
+    if (!urlValidation.isValid) {
+      setUrlError(urlValidation.message || 'Invalid URL');
+      setLoading(false);
+      return;
+    }
     
     // Validate API key before testing
     if (!apiKey) {
@@ -877,14 +901,38 @@ Return your response in this JSON format:
                         type="url"
                         value={newJob.websiteUrl}
                         placeholder="https://example.com"
-                        className="h-9"
+                        className={`h-9 ${urlError ? 'border-destructive' : ''}`}
                         autoFocus
-                        onChange={(e: ChangeEvent<HTMLInputElement>) => setNewJob(prev => ({ ...prev, websiteUrl: e.target.value }))}
+                        onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                          const url = e.target.value;
+                          setNewJob(prev => ({ ...prev, websiteUrl: url }));
+                          
+                          // Clear error when user is typing
+                          if (urlError) setUrlError(null);
+                        }}
+                        onBlur={() => {
+                          if (newJob.websiteUrl) {
+                            const validation = validateUrl(newJob.websiteUrl);
+                            if (!validation.isValid) {
+                              setUrlError(validation.message || 'Invalid URL');
+                            } else {
+                              setUrlError(null);
+                            }
+                          }
+                        }}
                       />
+                      {urlError && (
+                        <div className="mt-2 rounded-md px-3 py-1.5 bg-destructive/10 border border-destructive/20 dark:bg-destructive/20">
+                          <p className="text-[0.8rem] font-medium text-destructive dark:text-destructive-foreground flex items-center">
+                            <WarningCircle className="w-3.5 h-3.5 mr-1.5 flex-shrink-0" weight="fill" />
+                            {urlError}
+                          </p>
+                        </div>
+                      )}
                     </div>
 
                     <div>
-                      <label className="text-sm font-medium mb-2 block">Notify me when...</label>
+                      <label className="text-sm font-medium mb-2 block">Notify Me When...</label>
                       <textarea
                         value={newJob.notificationCriteria || ''}
                         className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none min-h-[100px]"
@@ -982,7 +1030,7 @@ Return your response in this JSON format:
                     )}
                   </div>
                 </div>
-                <div className="sticky bottom-0 left-0 right-0 bg-background border-t border-border/60 px-8 py-4 flex justify-between items-center">
+                <div className="sticky bottom-0 left-0 right-0 border-t border-border/60 px-8 py-4 flex justify-between items-center">
                   <div className="flex gap-2">
                     <Button
                       variant="destructive"
@@ -1120,7 +1168,7 @@ Return your response in this JSON format:
                     </fieldset>
                   </div>
                 </div>
-                <div className="sticky bottom-0 left-0 right-0 bg-background border-t border-border/60 px-8 py-4 flex justify-end">
+                <div className="sticky bottom-0 left-0 right-0 border-t border-border/60 px-8 py-4 flex justify-end">
                   <Button 
                     type="button" 
                     onClick={() => {
@@ -1240,10 +1288,34 @@ Return your response in this JSON format:
                         type="url"
                         value={newJob.websiteUrl}
                         placeholder="https://example.com"
-                        className="h-9"
+                        className={`h-9 ${urlError ? 'border-destructive' : ''}`}
                         autoFocus
-                        onChange={(e: ChangeEvent<HTMLInputElement>) => setNewJob(prev => ({ ...prev, websiteUrl: e.target.value }))}
+                        onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                          const url = e.target.value;
+                          setNewJob(prev => ({ ...prev, websiteUrl: url }));
+                          
+                          // Clear error when user is typing
+                          if (urlError) setUrlError(null);
+                        }}
+                        onBlur={() => {
+                          if (newJob.websiteUrl) {
+                            const validation = validateUrl(newJob.websiteUrl);
+                            if (!validation.isValid) {
+                              setUrlError(validation.message || 'Invalid URL');
+                            } else {
+                              setUrlError(null);
+                            }
+                          }
+                        }}
                       />
+                      {urlError && (
+                        <div className="mt-2 rounded-md px-3 py-1.5 bg-destructive/10 border border-destructive/20 dark:bg-destructive/20">
+                          <p className="text-[0.8rem] font-medium text-destructive dark:text-destructive-foreground flex items-center">
+                            <WarningCircle className="w-3.5 h-3.5 mr-1.5 flex-shrink-0" weight="fill" />
+                            {urlError}
+                          </p>
+                        </div>
+                      )}
                     </div>
 
                     <div>
@@ -1251,7 +1323,7 @@ Return your response in this JSON format:
                       <textarea
                         value={newJob.notificationCriteria || ''}
                         className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none min-h-[100px]"
-                        placeholder="e.g., 'product price drops below target price' or 'PS5 is back in stock'"
+                        placeholder="e.g., 'Dyson V15 drops below $650' or 'Coldplay tickets are in stock'"
                         onChange={(e: ChangeEvent<HTMLTextAreaElement>) => {
                           const criteria = e.target.value;
                           const analysisPrompt = criteria ? 
@@ -1350,7 +1422,7 @@ Return your response in this JSON format:
                     )}
                   </div>
                 </div>
-                <div className="sticky bottom-0 left-0 right-0 bg-background border-t border-border/60 px-8 py-4 flex justify-between items-center">
+                <div className="sticky bottom-0 left-0 right-0 border-t border-border/60 px-8 py-4 flex justify-between items-center">
                   <Button
                     variant="outline"
                     onClick={() => testJob(newJob)}
