@@ -8,6 +8,7 @@ const __dirname = dirname(__filename)
 
 let mainWindow: electron.BrowserWindow | null = null
 let tray: electron.Tray | null = null
+let windowFloating: boolean = false
 
 function getWindowPosition() {
   if (!tray) return { x: 0, y: 0 }
@@ -115,9 +116,32 @@ function createWindow() {
   // Create the tray icon
   createTray()
 
-  // Hide window when it loses focus
+  // Check local storage setting in renderer and request initial value
+  mainWindow.webContents.once('did-finish-load', () => {
+    mainWindow?.webContents.executeJavaScript(`
+      // Get window floating preference from localStorage
+      const isFloating = !!localStorage.getItem('windowFloating');
+      
+      // Send the value back to main process
+      const { ipcRenderer } = require('electron');
+      ipcRenderer.send('init-window-floating', isFloating);
+      
+      // Return a placeholder value for the executeJavaScript promise
+      true;
+    `).catch(() => {});
+  });
+  
+  // Initialize window floating state as a variable accessible in the module scope
+  windowFloating = false;
+  
+  // Hide window when it loses focus (unless in floating mode)
   mainWindow.on('blur', () => {
-    mainWindow?.hide()
+    // Force a small delay to ensure the windowFloating state is properly initialized
+    setTimeout(() => {
+      if (!windowFloating) {
+        mainWindow?.hide();
+      }
+    }, 50);
   })
 
   // Load the content
@@ -137,6 +161,27 @@ ipcMain.on('focus-window', () => {
     }
     mainWindow.show()
     mainWindow.focus()
+  }
+})
+
+// Handle initial window floating setting from renderer
+ipcMain.on('init-window-floating', (_event, floating: boolean) => {
+  windowFloating = floating;
+})
+
+// Handle toggling window floating mode
+ipcMain.on('toggle-window-floating', (_event, floating: boolean) => {
+  // Update the global state
+  windowFloating = floating;
+  
+  // If the window is currently hidden and we're enabling floating, show it
+  if (floating && mainWindow && !mainWindow.isVisible()) {
+    mainWindow.show();
+  }
+  
+  // Provide feedback to the renderer process
+  if (mainWindow && mainWindow.webContents) {
+    mainWindow.webContents.send('window-floating-updated', windowFloating);
   }
 })
 

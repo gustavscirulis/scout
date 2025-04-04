@@ -4,6 +4,7 @@ import { Input } from './components/ui/input'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './components/ui/card'
 import { Separator } from './components/ui/separator'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './components/ui/dialog'
+import { Checkbox } from './components/ui/checkbox'
 import { 
   Gear, 
   Plus, 
@@ -78,6 +79,9 @@ function App() {
   const [notificationPermission, setNotificationPermission] = useState(Notification.permission)
   const [testResult, setTestResult] = useState<{result: string, matched?: boolean, timestamp?: Date} | null>(null)
   const [editingJobId, setEditingJobId] = useState<string | null>(null)
+  const [windowIsFloating, setWindowIsFloating] = useState<boolean>(() => 
+    !!localStorage.getItem('windowFloating')
+  )
   const [newJob, setNewJob] = useState<NewJobFormData>(() => ({
     websiteUrl: '',
     analysisPrompt: '',
@@ -106,6 +110,28 @@ function App() {
       }
     }
     requestNotificationPermission()
+    
+    // Set up electron IPC event listeners
+    try {
+      const electron = window.require('electron');
+      
+      // Set up an event listener for floating window updates from main process
+      electron.ipcRenderer.on('window-floating-updated', (_event: any, value: boolean) => {
+        setWindowIsFloating(value);
+      });
+      
+      // Set window floating preference on startup
+      if (windowIsFloating) {
+        electron.ipcRenderer.send('toggle-window-floating', true);
+      }
+      
+      return () => {
+        // Clean up listeners when component unmounts
+        electron.ipcRenderer.removeAllListeners('window-floating-updated');
+      };
+    } catch (error) {
+      // Silent fail if electron is not available in dev mode
+    }
   }, [])
 
   // Save jobs to localStorage
@@ -599,26 +625,84 @@ Return your response in this JSON format:
 
       {/* Settings Dialog */}
       <Dialog open={showSettings} onOpenChange={setShowSettings}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Settings</DialogTitle>
+            <DialogHeader />
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">
-                OpenAI API Key
-              </label>
-              <Input
-                type="password"
-                value={apiKey}
-                onChange={(e: ChangeEvent<HTMLInputElement>) => setApiKey(e.target.value)}
-                placeholder="sk-..."
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button onClick={() => setShowSettings(false)}>
-              Save
+          
+          <form className="grid gap-5 py-4">
+            <fieldset className="space-y-3">
+              <div className="flex flex-col space-y-1.5">
+                <label htmlFor="apiKey" className="text-sm font-medium">
+                  OpenAI API Key
+                </label>
+                <Input
+                  id="apiKey"
+                  type="password"
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  placeholder="sk-..."
+                  autoComplete="off"
+                />
+                <p className="text-[0.8rem] text-muted-foreground">
+                  Required for image analysis. Stored locally only.
+                </p>
+              </div>
+            </fieldset>
+            
+            <Separator />
+            
+            <fieldset className="space-y-3">
+              <legend className="text-sm font-medium">Window Options</legend>
+              
+              <div className="items-top flex space-x-2">
+                <Checkbox
+                  id="windowFloating"
+                  checked={windowIsFloating}
+                  onCheckedChange={(checked) => {
+                    const isChecked = !!checked;
+                    
+                    // Update state for immediate UI feedback
+                    setWindowIsFloating(isChecked);
+                    
+                    // Update localStorage
+                    if (isChecked) {
+                      localStorage.setItem('windowFloating', 'true');
+                    } else {
+                      localStorage.removeItem('windowFloating');
+                    }
+                    
+                    // Send IPC message to main process
+                    try {
+                      const electron = window.require('electron');
+                      electron.ipcRenderer.send('toggle-window-floating', isChecked);
+                    } catch (error) {
+                      setError('Could not update window settings');
+                      
+                      // Revert state on error
+                      setWindowIsFloating(!isChecked);
+                    }
+                  }}
+                />
+                <div className="grid gap-1.5 leading-none">
+                  <label
+                    htmlFor="windowFloating"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  >
+                    Keep window floating
+                  </label>
+                  <p className="text-sm text-muted-foreground">
+                    Window will stay open when clicking elsewhere
+                  </p>
+                </div>
+              </div>
+            </fieldset>
+          </form>
+          
+          <DialogFooter className="sm:justify-end">
+            <Button type="button" onClick={() => setShowSettings(false)}>
+              Done
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -1,11 +1,5 @@
 # Vision Tasks - Development Guide
 
-## Build/Development Commands
-- `npm run dev` - Run dev server + Electron (development mode)
-- `npm run build` - Build and package with electron-builder
-- `npm run lint` - Run ESLint on TS/TSX files
-- `npm test` - Run tests (add test id for single test: `npm test -- -t "test name"`)
-
 ## Code Style Guidelines
 - **TypeScript**: Use strict typing. Avoid `any` and `as` casts where possible
 - **Components**: Functional components with hooks. Use named exports
