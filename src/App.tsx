@@ -734,7 +734,7 @@ Return your response in this JSON format:
                       }));
                       setShowNewJobForm(true);
                     }}
-                    className="bg-card border border-border/60 p-4 rounded-lg hover:bg-muted/30 transition-colors text-left flex items-start -webkit-app-region-no-drag shadow-sm"
+                    className="bg-background border p-4 rounded-lg hover:bg-muted/30 transition-colors text-left flex items-start -webkit-app-region-no-drag shadow-sm"
                   >
                     <ShoppingBag size={18} className="text-primary mr-3 mt-0.5 flex-shrink-0" />
                     <div>
@@ -754,7 +754,7 @@ Return your response in this JSON format:
                       }));
                       setShowNewJobForm(true);
                     }}
-                    className="bg-card border border-border/60 p-4 rounded-lg hover:bg-muted/30 transition-colors text-left flex items-start -webkit-app-region-no-drag shadow-sm"
+                    className="bg-background border p-4 rounded-lg hover:bg-muted/30 transition-colors text-left flex items-start -webkit-app-region-no-drag shadow-sm"
                   >
                     <Ticket size={18} className="text-primary mr-3 mt-0.5 flex-shrink-0" />
                     <div>
@@ -774,7 +774,7 @@ Return your response in this JSON format:
                       }));
                       setShowNewJobForm(true);
                     }}
-                    className="bg-card border border-border/60 p-4 rounded-lg hover:bg-muted/30 transition-colors text-left flex items-start -webkit-app-region-no-drag shadow-sm"
+                    className="bg-background border p-4 rounded-lg hover:bg-muted/30 transition-colors text-left flex items-start -webkit-app-region-no-drag shadow-sm"
                   >
                     <Briefcase size={18} className="text-primary mr-3 mt-0.5 flex-shrink-0" />
                     <div>
@@ -808,7 +808,7 @@ Return your response in this JSON format:
                         type="url"
                         value={newJob.websiteUrl}
                         placeholder="https://example.com"
-                        className="h-9 bg-card/60 border-border/60"
+                        className="h-9"
                         onChange={(e: ChangeEvent<HTMLInputElement>) => setNewJob(prev => ({ ...prev, websiteUrl: e.target.value }))}
                       />
                     </div>
@@ -817,7 +817,7 @@ Return your response in this JSON format:
                       <label className="text-sm font-medium mb-2 block">Notify me when...</label>
                       <textarea
                         value={newJob.notificationCriteria || ''}
-                        className="flex w-full rounded-md border border-border/60 bg-card/60 px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 resize-none min-h-[100px]"
+                        className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none min-h-[100px]"
                         placeholder="e.g., 'price of iPhone 15 drops below $899' or 'PS5 is back in stock'"
                         onChange={(e: ChangeEvent<HTMLTextAreaElement>) => {
                           const criteria = e.target.value;
@@ -842,7 +842,7 @@ Return your response in this JSON format:
                         <label className="text-sm font-medium mb-2 block">Check Frequency</label>
                         <select
                           value={newJob.frequency}
-                          className="flex h-9 w-full rounded-md border border-border/60 bg-card/60 px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
+                          className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                           onChange={(e: ChangeEvent<HTMLSelectElement>) => setNewJob(prev => ({ ...prev, frequency: e.target.value as RecurringFrequency }))}
                         >
                           <option value="hourly">Every Hour</option>
@@ -856,7 +856,7 @@ Return your response in this JSON format:
                         <Input
                           type="time"
                           value={newJob.scheduledTime}
-                          className="h-9 bg-card/60 border-border/60"
+                          className="h-9"
                           onChange={(e: ChangeEvent<HTMLInputElement>) => setNewJob(prev => ({ ...prev, scheduledTime: e.target.value }))}
                         />
                       </div>
@@ -893,14 +893,14 @@ Return your response in this JSON format:
                                 </span>
                               </div>
                             </div>
-                            <div className="text-xs whitespace-pre-wrap leading-relaxed max-h-32 overflow-y-auto rounded-md bg-background/50 p-3 font-mono border border-input/50">
+                            <div className="text-xs whitespace-pre-wrap leading-relaxed max-h-32 overflow-y-auto rounded-md bg-background p-3 font-mono border border-input">
                               {testResult.result}
                             </div>
                           </div>
                         )}
                         
                         {loading && (
-                          <div className="p-4 bg-muted border border-input rounded-md flex items-center justify-center mac-animate-in">
+                          <div className="p-4 bg-muted border rounded-md flex items-center justify-center mac-animate-in">
                             <SpinnerGap className="animate-spin h-5 w-5 border-2 border-primary border-t-transparent" />
                             <span className="text-sm">Running test...</span>
                           </div>
@@ -912,9 +912,8 @@ Return your response in this JSON format:
                 <div className="sticky bottom-0 left-0 right-0 bg-background border-t border-border/60 px-8 py-4 flex justify-between items-center">
                   <div className="flex gap-2">
                     <Button
-                      variant="outline"
+                      variant="destructive"
                       onClick={() => deleteJob(editingJobId)}
-                      className="text-destructive hover:text-destructive border-border/60 bg-card/60"
                       size="sm"
                     >
                       <Trash size={14} className="mr-1.5" />
@@ -924,7 +923,6 @@ Return your response in this JSON format:
                       variant="outline"
                       onClick={() => testJob(newJob)}
                       disabled={!newJob.websiteUrl || !newJob.notificationCriteria || loading}
-                      className="border-border/60 bg-card/60"
                       size="sm"
                     >
                       {loading ? 'Testing...' : 'Test'}
@@ -1023,7 +1021,7 @@ Return your response in this JSON format:
                         type="url"
                         value={newJob.websiteUrl}
                         placeholder="https://example.com"
-                        className="h-9 bg-card/60 border-border/60"
+                        className="h-9"
                         onChange={(e: ChangeEvent<HTMLInputElement>) => setNewJob(prev => ({ ...prev, websiteUrl: e.target.value }))}
                       />
                     </div>
@@ -1032,7 +1030,7 @@ Return your response in this JSON format:
                       <label className="text-sm font-medium mb-2 block">Notify me when...</label>
                       <textarea
                         value={newJob.notificationCriteria || ''}
-                        className="flex w-full rounded-md border border-border/60 bg-card/60 px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 resize-none min-h-[100px]"
+                        className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none min-h-[100px]"
                         placeholder="e.g., 'price of iPhone 15 drops below $899' or 'PS5 is back in stock'"
                         onChange={(e: ChangeEvent<HTMLTextAreaElement>) => {
                           const criteria = e.target.value;
@@ -1057,7 +1055,7 @@ Return your response in this JSON format:
                         <label className="text-sm font-medium mb-2 block">Check Frequency</label>
                         <select
                           value={newJob.frequency}
-                          className="flex h-9 w-full rounded-md border border-border/60 bg-card/60 px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
+                          className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                           onChange={(e: ChangeEvent<HTMLSelectElement>) => setNewJob(prev => ({ ...prev, frequency: e.target.value as RecurringFrequency }))}
                         >
                           <option value="hourly">Every Hour</option>
@@ -1071,7 +1069,7 @@ Return your response in this JSON format:
                         <Input
                           type="time"
                           value={newJob.scheduledTime}
-                          className="h-9 bg-card/60 border-border/60"
+                          className="h-9"
                           onChange={(e: ChangeEvent<HTMLInputElement>) => setNewJob(prev => ({ ...prev, scheduledTime: e.target.value }))}
                         />
                       </div>
@@ -1113,14 +1111,14 @@ Return your response in this JSON format:
                                 )}
                               </div>
                             </div>
-                            <div className="text-xs whitespace-pre-wrap leading-relaxed max-h-32 overflow-y-auto rounded-md bg-background/50 p-3 font-mono border border-input/50">
+                            <div className="text-xs whitespace-pre-wrap leading-relaxed max-h-32 overflow-y-auto rounded-md bg-background p-3 font-mono border border-input">
                               {testResult.result}
                             </div>
                           </div>
                         )}
                         
                         {loading && (
-                          <div className="p-4 bg-muted border border-input rounded-md flex items-center justify-center mac-animate-in">
+                          <div className="p-4 bg-muted border rounded-md flex items-center justify-center mac-animate-in">
                             <SpinnerGap className="animate-spin h-5 w-5 border-2 border-primary border-t-transparent" />
                             <span className="text-sm">Running test...</span>
                           </div>
@@ -1134,7 +1132,7 @@ Return your response in this JSON format:
                     variant="outline"
                     onClick={() => testJob(newJob)}
                     disabled={!newJob.websiteUrl || !newJob.notificationCriteria || loading}
-                    className="border-border/60 bg-card/60"
+                    className=""
                     size="sm"
                   >
                     {loading ? 'Testing...' : 'Test'}
