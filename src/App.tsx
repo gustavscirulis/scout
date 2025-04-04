@@ -17,7 +17,8 @@ import {
   WarningCircle,
   Trash,
   SpinnerGap,
-  CaretLeft
+  CaretLeft,
+  CaretRight
 } from '@phosphor-icons/react'
 import './App.css'
 
@@ -549,44 +550,51 @@ Return your response in this JSON format:
 
   return (
     <div className="mac-window">
-      {/* Titlebar */}
-      <div className="mac-toolbar w-full flex items-center justify-between py-2 border-b">
-        {(showNewJobForm || editingJobId) ? (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => {
-              setShowNewJobForm(false);
-              resetNewJobForm();
-            }}
-            className="no-drag ml-2"
-            title="Back"
-          >
-            <CaretLeft size={18} />
-          </Button>
-        ) : (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setShowSettings(true)}
-            className="no-drag ml-2"
-            title="Settings"
-          >
-            <Gear size={18} />
-          </Button>
-        )}
-        <div className="flex-1"></div>
-        {!showNewJobForm && !editingJobId && (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setShowNewJobForm(true)}
-            className="no-drag mr-2"
-            title="New Monitor"
-          >
-            <Plus size={18} />
-          </Button>
-        )}
+      {/* Titlebar - macOS style */}
+      <div className="mac-toolbar">
+        <div style={{ width: "40px", height: "100%" }}>
+          {(showNewJobForm || editingJobId) ? (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => {
+                setShowNewJobForm(false);
+                resetNewJobForm();
+              }}
+              title="Back"
+            >
+              <CaretLeft size={16} />
+            </Button>
+          ) : (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setShowSettings(true)}
+              title="Settings"
+            >
+              <Gear size={16} />
+            </Button>
+          )}
+        </div>
+        
+        <div className="mac-toolbar-title">
+          {(showNewJobForm || editingJobId) ? 
+            (editingJobId ? 'Edit Monitor' : 'New Monitor') : 
+            'Vision Tasks'}
+        </div>
+        
+        <div style={{ width: "40px", height: "100%" }}>
+          {!showNewJobForm && !editingJobId ? (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setShowNewJobForm(true)}
+              title="New Monitor"
+            >
+              <Plus size={16} />
+            </Button>
+          ) : null}
+        </div>
       </div>
 
       {/* Settings Dialog */}
@@ -623,16 +631,16 @@ Return your response in this JSON format:
           {/* Jobs List */}
           <div className="space-y-4">
             {jobs.length === 0 && !showNewJobForm && !editingJobId && (
-              <div className="flex flex-col items-center justify-center py-16 text-center px-6">
-                <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-4">
-                  <ChartLineUp size={24} className="text-primary" />
+              <div className="flex flex-col items-center justify-center py-16 text-center px-6 mac-animate-in">
+                <div className="w-20 h-20 bg-primary/5 rounded-full flex items-center justify-center mb-6">
+                  <ChartLineUp size={36} className="text-primary/60" />
                 </div>
-                <h3 className="text-lg font-medium mb-2">No monitors yet</h3>
-                <p className="text-muted-foreground text-sm max-w-md mb-5">
+                <h3 className="text-lg font-medium mb-2">No Monitors Yet</h3>
+                <p className="text-muted-foreground text-sm max-w-md mb-8">
                   Create a monitor to get notified when something changes on a website.
                 </p>
                 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-left mb-6 max-w-xl">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-left mb-8 max-w-xl">
                   <button 
                     onClick={() => {
                       setNewJob(prev => ({
@@ -642,12 +650,12 @@ Return your response in this JSON format:
                       }));
                       setShowNewJobForm(true);
                     }}
-                    className="bg-muted/30 p-4 rounded-md hover:bg-muted/50 transition-colors text-left flex items-start no-drag"
+                    className="bg-card border border-border/60 p-4 rounded-lg hover:bg-muted/30 transition-colors text-left flex items-start -webkit-app-region-no-drag shadow-sm"
                   >
-                    <ShoppingBag size={20} className="text-primary mr-2 mt-0.5 flex-shrink-0" />
+                    <ShoppingBag size={18} className="text-primary mr-3 mt-0.5 flex-shrink-0" />
                     <div>
                       <div className="font-medium text-sm">Price Tracking</div>
-                      <div className="text-xs text-muted-foreground">
+                      <div className="text-xs text-muted-foreground mt-0.5">
                         If iPhone 15 price drops below $799
                       </div>
                     </div>
@@ -662,12 +670,12 @@ Return your response in this JSON format:
                       }));
                       setShowNewJobForm(true);
                     }}
-                    className="bg-muted/30 p-4 rounded-md hover:bg-muted/50 transition-colors text-left flex items-start no-drag"
+                    className="bg-card border border-border/60 p-4 rounded-lg hover:bg-muted/30 transition-colors text-left flex items-start -webkit-app-region-no-drag shadow-sm"
                   >
-                    <Ticket size={20} className="text-primary mr-2 mt-0.5 flex-shrink-0" />
+                    <Ticket size={18} className="text-primary mr-3 mt-0.5 flex-shrink-0" />
                     <div>
                       <div className="font-medium text-sm">Availability</div>
-                      <div className="text-xs text-muted-foreground">
+                      <div className="text-xs text-muted-foreground mt-0.5">
                         If concert tickets become available
                       </div>
                     </div>
@@ -682,12 +690,12 @@ Return your response in this JSON format:
                       }));
                       setShowNewJobForm(true);
                     }}
-                    className="bg-muted/30 p-4 rounded-md hover:bg-muted/50 transition-colors text-left flex items-start no-drag"
+                    className="bg-card border border-border/60 p-4 rounded-lg hover:bg-muted/30 transition-colors text-left flex items-start -webkit-app-region-no-drag shadow-sm"
                   >
-                    <Briefcase size={20} className="text-primary mr-2 mt-0.5 flex-shrink-0" />
+                    <Briefcase size={18} className="text-primary mr-3 mt-0.5 flex-shrink-0" />
                     <div>
                       <div className="font-medium text-sm">Content Updates</div>
-                      <div className="text-xs text-muted-foreground">
+                      <div className="text-xs text-muted-foreground mt-0.5">
                         If new job listings appear on the careers page
                       </div>
                     </div>
@@ -696,10 +704,11 @@ Return your response in this JSON format:
                 
                 <Button 
                   onClick={() => setShowNewJobForm(true)}
+                  className="rounded-full px-6"
                   size="lg"
                 >
                   <Plus className="mr-2 h-4 w-4" />
-                  Create your first monitor
+                  Create Your First Monitor
                 </Button>
               </div>
             )}
@@ -708,22 +717,23 @@ Return your response in this JSON format:
             {editingJobId && jobs.find(job => job.id === editingJobId) ? (
               <div className="flex flex-col h-full relative">
                 <div className="flex-1 overflow-auto">
-                  <div className="space-y-5 px-6 pt-4">
+                  <div className="space-y-6 px-8 pt-6">
                     <div>
-                      <label className="text-sm font-medium mb-1.5 block">Website URL</label>
+                      <label className="text-sm font-medium mb-2 block">Website URL</label>
                       <Input
                         type="url"
                         value={newJob.websiteUrl}
                         placeholder="https://example.com"
+                        className="h-9 bg-card/60 border-border/60"
                         onChange={(e: ChangeEvent<HTMLInputElement>) => setNewJob(prev => ({ ...prev, websiteUrl: e.target.value }))}
                       />
                     </div>
 
                     <div>
-                      <label className="text-sm font-medium mb-1.5 block">Notify me when...</label>
+                      <label className="text-sm font-medium mb-2 block">Notify me when...</label>
                       <textarea
                         value={newJob.notificationCriteria || ''}
-                        className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none min-h-[100px]"
+                        className="flex w-full rounded-md border border-border/60 bg-card/60 px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 resize-none min-h-[100px]"
                         placeholder="e.g., 'price of iPhone 15 drops below $899' or 'PS5 is back in stock'"
                         onChange={(e: ChangeEvent<HTMLTextAreaElement>) => {
                           const criteria = e.target.value;
@@ -738,17 +748,17 @@ Return your response in this JSON format:
                           }));
                         }}
                       />
-                      <p className="text-xs text-muted-foreground mt-1.5">
+                      <p className="text-xs text-muted-foreground mt-2">
                         Describe what needs to be true for you to get notified. Try to be specific about what you're looking for.
                       </p>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-2 gap-6">
                       <div>
-                        <label className="text-sm font-medium mb-1.5 block">Check Frequency</label>
+                        <label className="text-sm font-medium mb-2 block">Check Frequency</label>
                         <select
                           value={newJob.frequency}
-                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                          className="flex h-9 w-full rounded-md border border-border/60 bg-card/60 px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
                           onChange={(e: ChangeEvent<HTMLSelectElement>) => setNewJob(prev => ({ ...prev, frequency: e.target.value as RecurringFrequency }))}
                         >
                           <option value="hourly">Every Hour</option>
@@ -758,10 +768,11 @@ Return your response in this JSON format:
                       </div>
 
                       <div>
-                        <label className="text-sm font-medium mb-1.5 block">Start Time</label>
+                        <label className="text-sm font-medium mb-2 block">Start Time</label>
                         <Input
                           type="time"
                           value={newJob.scheduledTime}
+                          className="h-9 bg-card/60 border-border/60"
                           onChange={(e: ChangeEvent<HTMLInputElement>) => setNewJob(prev => ({ ...prev, scheduledTime: e.target.value }))}
                         />
                       </div>
@@ -814,20 +825,23 @@ Return your response in this JSON format:
                     )}
                   </div>
                 </div>
-                <div className="flex justify-between px-6 py-4 border-t bg-background">
-                  <div className="flex gap-2">
+                <div className="flex justify-between px-8 py-4 border-t bg-card/75 backdrop-blur-sm">
+                  <div className="flex gap-3">
                     <Button
                       variant="outline"
                       onClick={() => deleteJob(editingJobId)}
-                      className="text-destructive hover:text-destructive"
+                      className="text-destructive hover:text-destructive border-border/60 bg-card/60"
+                      size="sm"
                     >
-                      <Trash size={16} className="mr-2" />
+                      <Trash size={14} className="mr-1.5" />
                       Delete
                     </Button>
                     <Button
                       variant="outline"
                       onClick={() => testJob(newJob)}
                       disabled={!newJob.websiteUrl || !newJob.notificationCriteria || loading}
+                      className="border-border/60 bg-card/60"
+                      size="sm"
                     >
                       {loading ? 'Testing...' : 'Test'}
                     </Button>
@@ -839,104 +853,102 @@ Return your response in this JSON format:
                       }
                     }}
                     disabled={!newJob.websiteUrl || !newJob.notificationCriteria || loading}
+                    size="sm"
                   >
                     Save
                   </Button>
                 </div>
               </div>
             ) : !showNewJobForm ? (
-              // When not in edit mode and not creating new job, show all job cards
-              jobs.map(job => (
-                <Card 
-                  key={job.id} 
-                  className="mac-animate-in cursor-pointer hover:shadow-md transition-all relative"
-                  onClick={(e) => {
-                    // Only trigger if not clicking on buttons
-                    if (!(e.target as HTMLElement).closest('button')) {
-                      startEditingJob(job.id);
-                    }
-                  }}
-                >
-                  <CardContent className="p-4">
-                    <div className="mb-3">
-                      <div className="flex items-center">
-                        {job.isRunning && (
-                          <span className="mr-2 inline-block h-2.5 w-2.5 rounded-full bg-green-500 animate-pulse flex-shrink-0"></span>
-                        )}
-                        <h3 className="font-semibold text-base truncate max-w-[300px]" title={job.websiteUrl}>
-                          {job.websiteUrl}
-                        </h3>
-                      </div>
-                      <div className="text-xs text-muted-foreground mt-1">
-                        Every {job.frequency} at {job.scheduledTime}
-                        {job.lastRun && (
-                          <>
-                            <span className="mx-1.5">•</span>
-                            Last check: {formatTimeAgo(new Date(job.lastRun))}
-                          </>
-                        )}
-                      </div>
-                    </div>
-                    
-                    <div className="bg-muted/40 rounded-md p-3 mb-3">
-                      <div className="flex items-start">
-                        <span className="flex-shrink-0 mt-0.5">
-                          <svg className="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                          </svg>
-                        </span>
-                        <div className="ml-2.5 w-full">
-                          <div className="text-xs text-muted-foreground font-medium mb-1">Notify when:</div>
-                          <div className="text-sm font-medium">{job.notificationCriteria}</div>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="flex justify-end items-center">
-                      {job.lastMatchedCriteria !== undefined && (
-                        <div className={`flex items-center ${job.lastMatchedCriteria ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`}>
-                          {job.lastMatchedCriteria ? (
-                            <CheckCircle className="w-4 h-4 mr-1" weight="fill" />
-                          ) : (
-                            <XCircle className="w-4 h-4 mr-1" weight="fill" />
+              // When not in edit mode and not creating new job, show a Mac-style list
+              <div className="pt-0.5 pb-6">
+                <div className="mac-list mac-animate-in border-x-0 rounded-none">
+                  {jobs.map((job, index) => (
+                    <div 
+                      key={job.id}
+                      className="mac-list-row"
+                      onClick={(e) => {
+                        // Only trigger if not clicking on buttons
+                        if (!(e.target as HTMLElement).closest('button')) {
+                          startEditingJob(job.id);
+                        }
+                      }}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center">
+                          {job.isRunning && (
+                            <span className="mr-2 inline-block h-2 w-2 rounded-full bg-green-500 animate-pulse flex-shrink-0"></span>
                           )}
-                          <span className="text-xs font-medium">
-                            {job.lastMatchedCriteria ? 'Matched' : 'Not matched'}
-                          </span>
+                          <h3 className="font-medium text-sm truncate" title={job.websiteUrl}>
+                            {job.websiteUrl}
+                          </h3>
                         </div>
-                      )}
-                    </div>
-
-                    {job.lastResult && (
-                      <div className="mt-3 p-4 bg-background rounded-md border border-input text-xs text-muted-foreground whitespace-pre-wrap max-h-20 overflow-y-auto">
-                        {job.lastResult}
+                        
+                        <div className="flex items-center mt-1 text-xs text-muted-foreground">
+                          {job.lastRun && (
+                            <span className="flex-shrink-0">
+                              Checked {formatTimeAgo(new Date(job.lastRun))}
+                            </span>
+                          )}
+                          
+                          {job.lastRun && (
+                            <span className="mx-1.5 text-muted-foreground/40">•</span>
+                          )}
+                          
+                          <span className="truncate" title={job.notificationCriteria}>
+                            {job.notificationCriteria}
+                          </span>
+                          
+                          {job.lastMatchedCriteria !== undefined && (
+                            <span className="ml-auto flex-shrink-0">
+                              <span className={job.lastMatchedCriteria ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}>
+                                {job.lastMatchedCriteria ? (
+                                  <span className="flex items-center">
+                                    <CheckCircle className="w-3 h-3 mr-0.5" weight="fill" />
+                                    <span>Matched</span>
+                                  </span>
+                                ) : (
+                                  <span className="flex items-center">
+                                    <XCircle className="w-3 h-3 mr-0.5" weight="fill" />
+                                    <span>Not matched</span>
+                                  </span>
+                                )}
+                              </span>
+                            </span>
+                          )}
+                        </div>
                       </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))
+                      
+                      <div className="flex items-center ml-4">
+                        <CaretRight className="text-muted-foreground/40 flex-shrink-0" size={16} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             ) : null }
 
             {/* New Job Form (only shown when not editing any job) */}
             {showNewJobForm && !editingJobId && (
               <div className="flex flex-col h-full">
                 <div className="flex-1 overflow-auto">
-                  <div className="space-y-5 px-6 pt-4">
+                  <div className="space-y-6 px-8 pt-6">
                     <div>
-                      <label className="text-sm font-medium mb-1.5 block">Website URL</label>
+                      <label className="text-sm font-medium mb-2 block">Website URL</label>
                       <Input
                         type="url"
                         value={newJob.websiteUrl}
                         placeholder="https://example.com"
+                        className="h-9 bg-card/60 border-border/60"
                         onChange={(e: ChangeEvent<HTMLInputElement>) => setNewJob(prev => ({ ...prev, websiteUrl: e.target.value }))}
                       />
                     </div>
 
                     <div>
-                      <label className="text-sm font-medium mb-1.5 block">Notify me when...</label>
+                      <label className="text-sm font-medium mb-2 block">Notify me when...</label>
                       <textarea
                         value={newJob.notificationCriteria || ''}
-                        className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none min-h-[100px]"
+                        className="flex w-full rounded-md border border-border/60 bg-card/60 px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 resize-none min-h-[100px]"
                         placeholder="e.g., 'price of iPhone 15 drops below $899' or 'PS5 is back in stock'"
                         onChange={(e: ChangeEvent<HTMLTextAreaElement>) => {
                           const criteria = e.target.value;
@@ -951,17 +963,17 @@ Return your response in this JSON format:
                           }));
                         }}
                       />
-                      <p className="text-xs text-muted-foreground mt-1.5">
+                      <p className="text-xs text-muted-foreground mt-2">
                         Describe what needs to be true for you to get notified. Try to be specific about what you're looking for.
                       </p>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-2 gap-6">
                       <div>
-                        <label className="text-sm font-medium mb-1.5 block">Check Frequency</label>
+                        <label className="text-sm font-medium mb-2 block">Check Frequency</label>
                         <select
                           value={newJob.frequency}
-                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                          className="flex h-9 w-full rounded-md border border-border/60 bg-card/60 px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
                           onChange={(e: ChangeEvent<HTMLSelectElement>) => setNewJob(prev => ({ ...prev, frequency: e.target.value as RecurringFrequency }))}
                         >
                           <option value="hourly">Every Hour</option>
@@ -971,10 +983,11 @@ Return your response in this JSON format:
                       </div>
 
                       <div>
-                        <label className="text-sm font-medium mb-1.5 block">Start Time</label>
+                        <label className="text-sm font-medium mb-2 block">Start Time</label>
                         <Input
                           type="time"
                           value={newJob.scheduledTime}
+                          className="h-9 bg-card/60 border-border/60"
                           onChange={(e: ChangeEvent<HTMLInputElement>) => setNewJob(prev => ({ ...prev, scheduledTime: e.target.value }))}
                         />
                       </div>
@@ -1032,11 +1045,13 @@ Return your response in this JSON format:
                     )}
                   </div>
                 </div>
-                <div className="flex justify-between px-6 py-4 border-t bg-background">
+                <div className="flex justify-between px-8 py-4 border-t bg-card/75 backdrop-blur-sm">
                   <Button
                     variant="outline"
                     onClick={() => testJob(newJob)}
                     disabled={!newJob.websiteUrl || !newJob.notificationCriteria || loading}
+                    className="border-border/60 bg-card/60"
+                    size="sm"
                   >
                     {loading ? 'Testing...' : 'Test'}
                   </Button>
@@ -1052,6 +1067,7 @@ Return your response in this JSON format:
                       }
                     }}
                     disabled={!newJob.websiteUrl || !newJob.notificationCriteria || loading}
+                    size="sm"
                   >
                     {editingJobId ? 'Save' : 'Create Monitor'}
                   </Button>
@@ -1063,12 +1079,12 @@ Return your response in this JSON format:
 
           {/* Error message */}
           {error && (
-            <Card className="mac-animate-in bg-destructive/10">
-              <CardContent className="p-4 text-sm text-destructive flex items-center">
-                <WarningCircle className="w-4 h-4 mr-2 flex-shrink-0" />
+            <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 mac-animate-in">
+              <div className="bg-background/80 backdrop-blur-md border border-destructive/20 rounded-lg shadow-lg px-4 py-3 text-sm text-destructive flex items-center">
+                <WarningCircle className="w-4 h-4 mr-2 flex-shrink-0" weight="fill" />
                 {error}
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           )}
         </div>
       </div>

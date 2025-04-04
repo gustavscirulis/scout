@@ -51,15 +51,49 @@
 
 /* macOS UI Specifics */
 .mac-window {
-  @apply w-full h-full bg-transparent rounded-lg overflow-hidden flex flex-col;
+  @apply w-full h-full bg-background flex flex-col border-none;
 }
 
 .mac-toolbar {
-  @apply h-10 -webkit-app-region-drag w-full;
+  @apply h-12 -webkit-app-region-drag w-full flex items-center justify-between border-b border-border/60 bg-card/75 backdrop-blur-md;
+  padding: 0 8px;
+}
+
+.mac-toolbar-title {
+  @apply font-semibold text-sm -webkit-app-region-drag;
+}
+
+.mac-toolbar-button {
+  @apply bg-transparent hover:bg-transparent border-0 shadow-none -webkit-app-region-no-drag text-foreground/80 hover:text-foreground transition-colors;
 }
 
 .mac-content {
-  @apply flex-1 overflow-y-auto overflow-x-hidden rounded-b-lg bg-background/80 backdrop-blur-xl;
+  @apply flex-1 overflow-y-auto overflow-x-hidden bg-card/50 backdrop-blur-sm;
+}
+
+/* Native MacOS list style */
+.mac-list {
+  @apply rounded-lg border-t border-b border-border/60 overflow-hidden;
+}
+
+.mac-list-row {
+  @apply flex items-center px-6 py-3 border-b border-border/60 hover:bg-muted/40 cursor-pointer transition-colors;
+}
+
+.mac-list-row:last-child {
+  @apply border-b-0;
+}
+
+.mac-sidebar {
+  @apply w-60 border-r border-border/60 bg-muted/20 py-4 flex-shrink-0 overflow-y-auto;
+}
+
+.mac-sidebar-item {
+  @apply flex items-center gap-2 px-3 py-1.5 mx-2 text-sm rounded-md hover:bg-muted/60 cursor-pointer transition-colors;
+}
+
+.mac-sidebar-item.active {
+  @apply bg-primary text-primary-foreground;
 }
 
 /* Ensure inputs and buttons are not draggable */
@@ -67,9 +101,49 @@ input, textarea, button {
   @apply -webkit-app-region-no-drag;
 }
 
+/* Override default button styles for Mac look */
+.mac-toolbar button {
+  background-color: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+  height: 100% !important;
+  width: 40px !important;
+  border-radius: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.mac-toolbar button:hover,
+.mac-toolbar button:focus,
+.mac-toolbar button:active {
+  background-color: transparent !important;
+  box-shadow: none !important;
+}
+
+/* Improved scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-muted/70 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-muted-foreground/30;
+}
+
 /* macOS animations */
 @keyframes mac-fade-in {
-  from { opacity: 0; transform: translateY(10px); }
+  from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
