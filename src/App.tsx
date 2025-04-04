@@ -3,7 +3,6 @@ import { Button } from './components/ui/button'
 import { Input } from './components/ui/input'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './components/ui/card'
 import { Separator } from './components/ui/separator'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './components/ui/dialog'
 import { Checkbox } from './components/ui/checkbox'
 import { 
   Gear, 
@@ -72,7 +71,7 @@ function App() {
     return savedJobs ? JSON.parse(savedJobs) : []
   })
   const [apiKey, setApiKey] = useState(() => localStorage.getItem('apiKey') || '')
-  const [showSettings, setShowSettings] = useState(false)
+  const [settingsView, setSettingsView] = useState(false)
   const [showNewJobForm, setShowNewJobForm] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -579,13 +578,14 @@ Return your response in this JSON format:
       {/* Titlebar - macOS style */}
       <div className="mac-toolbar">
         <div style={{ width: "40px", height: "100%" }}>
-          {(showNewJobForm || editingJobId) ? (
+          {(showNewJobForm || editingJobId || settingsView) ? (
             <Button
               variant="ghost"
               size="icon"
               onClick={() => {
                 setShowNewJobForm(false);
                 resetNewJobForm();
+                setSettingsView(false);
               }}
               title="Back"
             >
@@ -595,7 +595,7 @@ Return your response in this JSON format:
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => setShowSettings(true)}
+              onClick={() => setSettingsView(true)}
               title="Settings"
             >
               <Gear size={16} />
@@ -606,11 +606,11 @@ Return your response in this JSON format:
         <div className="mac-toolbar-title text-muted-foreground/60">
           {(showNewJobForm || editingJobId) ? 
             (editingJobId ? 'Edit Monitor' : 'New Monitor') : 
-            'Vision Tasks'}
+            (settingsView ? 'Settings' : 'Vision Tasks')}
         </div>
         
         <div style={{ width: "40px", height: "100%" }}>
-          {!showNewJobForm && !editingJobId ? (
+          {!showNewJobForm && !editingJobId && !settingsView ? (
             <Button
               variant="ghost"
               size="icon"
@@ -619,94 +619,12 @@ Return your response in this JSON format:
             >
               <Plus size={16} />
             </Button>
+          ) : settingsView ? (
+            <div></div> // Empty div to maintain layout
           ) : null}
         </div>
       </div>
 
-      {/* Settings Dialog */}
-      <Dialog open={showSettings} onOpenChange={setShowSettings}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Settings</DialogTitle>
-            <DialogHeader />
-          </DialogHeader>
-          
-          <form className="grid gap-5 py-4">
-            <fieldset className="space-y-3">
-              <div className="flex flex-col space-y-1.5">
-                <label htmlFor="apiKey" className="text-sm font-medium">
-                  OpenAI API Key
-                </label>
-                <Input
-                  id="apiKey"
-                  type="password"
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  placeholder="sk-..."
-                  autoComplete="off"
-                />
-                <p className="text-[0.8rem] text-muted-foreground">
-                  Required for image analysis. Stored locally only.
-                </p>
-              </div>
-            </fieldset>
-            
-            <Separator />
-            
-            <fieldset className="space-y-3">
-              <legend className="text-sm font-medium">Window Options</legend>
-              
-              <div className="items-top flex space-x-2">
-                <Checkbox
-                  id="windowFloating"
-                  checked={windowIsFloating}
-                  onCheckedChange={(checked) => {
-                    const isChecked = !!checked;
-                    
-                    // Update state for immediate UI feedback
-                    setWindowIsFloating(isChecked);
-                    
-                    // Update localStorage
-                    if (isChecked) {
-                      localStorage.setItem('windowFloating', 'true');
-                    } else {
-                      localStorage.removeItem('windowFloating');
-                    }
-                    
-                    // Send IPC message to main process
-                    try {
-                      const electron = window.require('electron');
-                      electron.ipcRenderer.send('toggle-window-floating', isChecked);
-                    } catch (error) {
-                      setError('Could not update window settings');
-                      
-                      // Revert state on error
-                      setWindowIsFloating(!isChecked);
-                    }
-                  }}
-                />
-                <div className="grid gap-1.5 leading-none">
-                  <label
-                    htmlFor="windowFloating"
-                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                  >
-                    Keep window floating
-                  </label>
-                  <p className="text-sm text-muted-foreground">
-                    Window will stay open when clicking elsewhere
-                  </p>
-                </div>
-              </div>
-            </fieldset>
-          </form>
-          
-          <DialogFooter className="sm:justify-end">
-            <Button type="button" onClick={() => setShowSettings(false)}>
-              Done
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Main content */}
       <div className="mac-content">
@@ -714,7 +632,7 @@ Return your response in this JSON format:
 
           {/* Jobs List */}
           <div className="space-y-4">
-            {jobs.length === 0 && !showNewJobForm && !editingJobId && (
+            {jobs.length === 0 && !showNewJobForm && !editingJobId && !settingsView && (
               <div className="flex flex-col items-center justify-center py-8 text-center px-8 mac-animate-in">
                 <div className="w-20 h-20 bg-primary/5 rounded-full flex items-center justify-center mb-6">
                   <Pulse size={36} className="text-primary/60" />
@@ -945,8 +863,87 @@ Return your response in this JSON format:
                   </Button>
                 </div>
               </div>
+            ) : !showNewJobForm && settingsView ? (
+              // Settings view (shown in place of task list)
+              <div className="flex flex-col h-full min-h-[calc(100vh-3rem)] mac-animate-in">
+                <div className="flex-1 overflow-auto">
+                  <div className="px-8 pt-6 space-y-6">
+                    <fieldset className="space-y-3">
+                      <div className="flex flex-col space-y-1.5">
+                        <label htmlFor="apiKey" className="text-sm font-medium">
+                          OpenAI API Key
+                        </label>
+                        <Input
+                          id="apiKey"
+                          type="password"
+                          value={apiKey}
+                          onChange={(e) => setApiKey(e.target.value)}
+                          placeholder="sk-..."
+                          autoComplete="off"
+                        />
+                        <p className="text-[0.8rem] text-muted-foreground">
+                          Required for image analysis. Stored locally only.
+                        </p>
+                      </div>
+                    </fieldset>
+                    
+                    <Separator />
+                    
+                    <fieldset className="space-y-3">
+                      <legend className="text-sm font-medium">Window Options</legend>
+                      
+                      <div className="items-top flex space-x-2">
+                        <Checkbox
+                          id="windowFloating"
+                          checked={windowIsFloating}
+                          onCheckedChange={(checked) => {
+                            const isChecked = !!checked;
+                            
+                            // Update state for immediate UI feedback
+                            setWindowIsFloating(isChecked);
+                            
+                            // Update localStorage
+                            if (isChecked) {
+                              localStorage.setItem('windowFloating', 'true');
+                            } else {
+                              localStorage.removeItem('windowFloating');
+                            }
+                            
+                            // Send IPC message to main process
+                            try {
+                              const electron = window.require('electron');
+                              electron.ipcRenderer.send('toggle-window-floating', isChecked);
+                            } catch (error) {
+                              setError('Could not update window settings');
+                              
+                              // Revert state on error
+                              setWindowIsFloating(!isChecked);
+                            }
+                          }}
+                        />
+                        <div className="grid gap-1.5 leading-none">
+                          <label
+                            htmlFor="windowFloating"
+                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                          >
+                            Keep window floating
+                          </label>
+                          <p className="text-sm text-muted-foreground">
+                            Window will stay open when clicking elsewhere
+                          </p>
+                        </div>
+                      </div>
+                    </fieldset>
+                  </div>
+                </div>
+                <div className="sticky bottom-0 left-0 right-0 bg-background border-t border-border/60 px-8 py-4 flex justify-end">
+                  <Button type="button" onClick={() => setSettingsView(false)}>
+                    Save
+                  </Button>
+                </div>
+              </div>
             ) : !showNewJobForm ? (
-              // When not in edit mode and not creating new job, show a Mac-style list
+              // When not in edit mode, settings, or creating new job, show a Mac-style list
               jobs.length > 0 && (
                 <div className="pb-6">
                   <div className="mac-list mac-animate-in border-x-0 rounded-none">
