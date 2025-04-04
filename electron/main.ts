@@ -124,7 +124,8 @@ function createWindow() {
   if (!app.isPackaged) {
     mainWindow.loadURL('http://localhost:5173')
   } else {
-    mainWindow.loadFile(join(__dirname, '../dist/index.html'))
+    const indexPath = join(__dirname, '../dist/index.html')
+    mainWindow.loadFile(indexPath)
   }
 }
 

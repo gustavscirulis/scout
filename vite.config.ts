@@ -5,7 +5,7 @@ import path from 'path'
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
-  base: process.env.ELECTRON=="true" ? './' : ".",
+  base: './',
   build: {
     sourcemap: false,
     rollupOptions: {
