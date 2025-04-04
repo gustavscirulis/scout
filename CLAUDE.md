@@ -1,4 +1,4 @@
-# Vision Tasks - Development Guide
+# Scout - Development Guide
 
 ## Code Style Guidelines
 - **TypeScript**: Use strict typing. Avoid `any` and `as` casts where possible

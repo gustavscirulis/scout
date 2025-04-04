@@ -64,10 +64,10 @@ function createTray() {
     console.error('Failed to create tray icon with image:', error)
     // Create a fallback tray icon with just text
     tray = new Tray(electron.nativeImage.createEmpty())
-    tray.setTitle('👁️')
+    tray.setTitle('🔍')
   }
 
-  tray.setToolTip('Vision Tasks')
+  tray.setToolTip('Scout')
   tray.on('click', toggleWindow)
 }
 

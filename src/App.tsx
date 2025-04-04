@@ -618,8 +618,8 @@ Return your response in this JSON format:
         
         <div className="mac-toolbar-title text-muted-foreground/60">
           {(showNewJobForm || editingJobId) ? 
-            (editingJobId ? 'Edit Monitor' : 'New Monitor') : 
-            (settingsView ? 'Settings' : 'Vision Tasks')}
+            (editingJobId ? 'Edit Task' : 'New Task') : 
+            (settingsView ? 'Settings' : 'Scout')}
         </div>
         
         <div style={{ width: "40px", height: "100%" }}>
@@ -628,7 +628,7 @@ Return your response in this JSON format:
               variant="ghost"
               size="icon"
               onClick={() => setShowNewJobForm(true)}
-              title="New Monitor"
+              title="New Task"
             >
               <Plus size={16} />
             </Button>
@@ -650,7 +650,7 @@ Return your response in this JSON format:
                 <div className="w-20 h-20 bg-primary/5 rounded-full flex items-center justify-center mb-6">
                   <Pulse size={36} className="text-primary/60" />
                 </div>
-                <h3 className="text-lg font-medium mb-2">Set Up a Monitor</h3>
+                <h3 className="text-lg font-medium mb-2">Set Up a Task</h3>
                 <div className="max-w-xl mx-auto mb-8">
                   <p className="text-muted-foreground text-sm text-center">
                     Get notified when something changes on a website you care about.
@@ -726,7 +726,7 @@ Return your response in this JSON format:
                     size="lg"
                   >
                     <Plus className="mr-2 h-4 w-4" />
-                    Create Your First Monitor
+                    Create Task
                   </Button>
                 </div>
               </div>
@@ -738,7 +738,7 @@ Return your response in this JSON format:
                 <div className="flex-1 overflow-auto">
                   <div className="space-y-6 px-8 pt-6">
                     <div>
-                      <label className="text-sm font-medium mb-2 block">Website URL</label>
+                      <label className="text-sm font-medium mb-2 block">URL to Monitor</label>
                       <Input
                         type="url"
                         value={newJob.websiteUrl}
@@ -768,7 +768,7 @@ Return your response in this JSON format:
                         }}
                       />
                       <p className="text-xs text-muted-foreground mt-2">
-                        Describe what needs to be true for you to get notified. Try to be specific about what you're looking for.
+                        Describe what about the webpage needs to be true for you to get notified.
                       </p>
                     </div>
 
@@ -1032,7 +1032,7 @@ Return your response in this JSON format:
                 <div className="flex-1 overflow-auto">
                   <div className="space-y-6 px-8 pt-6">
                     <div>
-                      <label className="text-sm font-medium mb-2 block">Website URL</label>
+                      <label className="text-sm font-medium mb-2 block">URL to Monitor</label>
                       <Input
                         type="url"
                         value={newJob.websiteUrl}
@@ -1062,7 +1062,7 @@ Return your response in this JSON format:
                         }}
                       />
                       <p className="text-xs text-muted-foreground mt-2">
-                        Describe what needs to be true for you to get notified. Try to be specific about what you're looking for.
+                      Describe what about the webpage needs to be true for you to get notified.
                       </p>
                     </div>
 
@@ -1167,7 +1167,7 @@ Return your response in this JSON format:
                     disabled={!newJob.websiteUrl || !newJob.notificationCriteria || loading}
                     size="sm"
                   >
-                    {editingJobId ? 'Save' : 'Create Monitor'}
+                    {editingJobId ? 'Save' : 'Create Task'}
                   </Button>
                 </div>
               </div>

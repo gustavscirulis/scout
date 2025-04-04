@@ -1,5 +1,5 @@
 {
-  "name": "vision-tasks",
+  "name": "scout",
   "private": true,
   "version": "0.1.0",
   "main": "dist-electron/main.js",
@@ -59,7 +59,7 @@
     "electron-builder": "^24.9.0"
   },
   "build": {
-    "appId": "com.electron.vision-tasks",
+    "appId": "com.electron.scout",
     "mac": {
       "category": "public.app-category.productivity"
     },
