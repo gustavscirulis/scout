@@ -769,7 +769,16 @@ Return your response in this JSON format:
                     
                     <div className="max-w-xl mx-auto">
                       <Button 
-                        onClick={() => setSettingsView(true)}
+                        onClick={() => {
+                          setSettingsView(true);
+                          // Focus on API key input after component renders
+                          setTimeout(() => {
+                            const apiKeyInput = document.getElementById("apiKey");
+                            if (apiKeyInput) {
+                              apiKeyInput.focus();
+                            }
+                          }, 0);
+                        }}
                         className="rounded-full px-6"
                         size="lg"
                       >
