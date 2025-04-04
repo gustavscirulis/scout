@@ -86,23 +86,16 @@ function createWindow() {
       nodeIntegration: true,
       contextIsolation: false,
     },
-    backgroundColor: nativeTheme.shouldUseDarkColors ? '#1a1a1a' : '#ffffff',
+    backgroundColor: '#00000080', // 50% opacity black
     vibrancy: 'under-window',
     visualEffectState: 'active',
-    transparent: false,
+    transparent: true,
     frame: false,
     roundedCorners: true,
     hasShadow: true,
     skipTaskbar: true,
     resizable: false,
     fullscreenable: false
-  })
-
-  // Update window appearance when system theme changes
-  nativeTheme.on('updated', () => {
-    if (mainWindow) {
-      mainWindow.setBackgroundColor(nativeTheme.shouldUseDarkColors ? '#1a1a1a' : '#ffffff')
-    }
   })
 
   // Send theme info to renderer

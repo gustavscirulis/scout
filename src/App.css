@@ -51,11 +51,11 @@
 
 /* macOS UI Specifics */
 .mac-window {
-  @apply w-full h-full bg-background flex flex-col border-none;
+  @apply w-full h-full bg-black/30 flex flex-col border-none;
 }
 
 .mac-toolbar {
-  @apply h-12 -webkit-app-region-drag w-full flex items-center justify-between border-b border-border/60 bg-card/75 backdrop-blur-md;
+  @apply h-12 -webkit-app-region-drag w-full flex items-center justify-between border-b border-border/20 bg-black/30 backdrop-blur-xl;
   padding: 0 8px;
 }
 
@@ -68,16 +68,16 @@
 }
 
 .mac-content {
-  @apply flex-1 overflow-y-auto overflow-x-hidden bg-card/50 backdrop-blur-sm flex flex-col relative;
+  @apply flex-1 overflow-y-auto overflow-x-hidden bg-black/30 backdrop-blur-xl flex flex-col relative;
 }
 
 /* Native MacOS list style */
 .mac-list {
-  @apply rounded-lg border-t border-b border-border/60 overflow-hidden;
+  @apply rounded-lg border-t border-b border-border/20 overflow-hidden;
 }
 
 .mac-list-row {
-  @apply flex items-center px-6 py-3 border-b border-border/60 hover:bg-muted/40 cursor-pointer transition-colors;
+  @apply flex items-center px-6 py-3 border-b border-border/20 hover:bg-black/20 cursor-pointer transition-colors;
 }
 
 .mac-list-row:last-child {
@@ -85,15 +85,15 @@
 }
 
 .mac-sidebar {
-  @apply w-60 border-r border-border/60 bg-muted/20 py-4 flex-shrink-0 overflow-y-auto;
+  @apply w-60 border-r border-border/20 bg-black/30 py-4 flex-shrink-0 overflow-y-auto;
 }
 
 .mac-sidebar-item {
-  @apply flex items-center gap-2 px-3 py-1.5 mx-2 text-sm rounded-md hover:bg-muted/60 cursor-pointer transition-colors;
+  @apply flex items-center gap-2 px-3 py-1.5 mx-2 text-sm rounded-md hover:bg-black/20 cursor-pointer transition-colors;
 }
 
 .mac-sidebar-item.active {
-  @apply bg-primary text-primary-foreground;
+  @apply bg-primary/30 text-primary-foreground;
 }
 
 /* Ensure inputs and buttons are not draggable */
