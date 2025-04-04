@@ -1,8 +1,16 @@
 import electron from 'electron'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
+import Store from 'electron-store'
 
 const { app, BrowserWindow, nativeTheme, ipcMain, Tray, screen } = electron
+
+// Set up electron-store for persistent data
+const store = new Store({
+  defaults: {
+    apiKey: null
+  }
+})
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
@@ -237,6 +245,21 @@ ipcMain.handle('take-screenshot', async (_event, url: string) => {
   
   offscreenWindow.close()
   return screenshot
+})
+
+// API Key management handlers
+ipcMain.handle('get-api-key', () => {
+  return store.get('apiKey')
+})
+
+ipcMain.handle('save-api-key', (_event, apiKey) => {
+  store.set('apiKey', apiKey)
+  return true
+})
+
+ipcMain.handle('delete-api-key', () => {
+  store.delete('apiKey')
+  return true
 })
 
 

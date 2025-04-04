@@ -81,7 +81,8 @@ function App() {
     const savedJobs = localStorage.getItem('analysisJobs')
     return savedJobs ? JSON.parse(savedJobs) : []
   })
-  const [apiKey, setApiKey] = useState(() => localStorage.getItem('apiKey') || '')
+  const [apiKey, setApiKey] = useState('')
+  const [hasExistingKey, setHasExistingKey] = useState(false)
   const [settingsView, setSettingsView] = useState(false)
   const [showNewJobForm, setShowNewJobForm] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -157,9 +158,30 @@ function App() {
     localStorage.setItem('analysisJobs', JSON.stringify(jobs))
   }, [jobs])
 
-  // Save API key to localStorage - only when explicitly saved via the Save button
-  // We DON'T want to automatically save on every apiKey state change
-  // This is handled manually in the settings save button click handler
+  // Load API key from electron-store when the app starts
+  useEffect(() => {
+    try {
+      const electron = window.require('electron');
+      
+      // Load the API key on component mount
+      const loadApiKey = async () => {
+        try {
+          const storedApiKey = await electron.ipcRenderer.invoke('get-api-key');
+          if (storedApiKey) {
+            setApiKey(storedApiKey);
+            setHasExistingKey(true);
+          }
+        } catch (error) {
+          console.error('Failed to load API key:', error);
+        }
+      };
+      
+      loadApiKey();
+    } catch (error) {
+      // Silent fail if electron is not available in dev mode
+      console.log('Electron not available, API key persistence disabled');
+    }
+  }, []);
   
   // Handle view transitions by managing the mac-transitioning class
   const [isTransitioning, setIsTransitioning] = useState(false)
@@ -755,7 +777,7 @@ Return your response in this JSON format:
 
           {/* Jobs List */}
           <div className="space-y-4">
-            {jobs.length === 0 && !showNewJobForm && !editingJobId && !settingsView && (
+            {(!apiKey || jobs.length === 0) && !showNewJobForm && !editingJobId && !settingsView && (
               <div className="flex flex-col items-center justify-center py-8 text-center px-8 mac-animate-in">
                 <div className="w-20 h-20 bg-primary/5 rounded-full flex items-center justify-center mb-6">
                   <Robot size={36} className="text-primary/60" />
@@ -1123,7 +1145,7 @@ Return your response in this JSON format:
                           </div>
                         )}
                         
-                        {!apiKey && localStorage.getItem('lastSavedApiKey') && (
+                        {!apiKey && hasExistingKey && (
                           <p className="text-[0.8rem] text-muted-foreground mt-2">
                             Saving with an empty field will remove your API key.
                           </p>
@@ -1198,9 +1220,17 @@ Return your response in this JSON format:
                 <div className="sticky bottom-0 left-0 right-0 border-t border-border/60 px-8 py-4 flex justify-end">
                   <Button 
                     type="button" 
-                    onClick={() => {
-                      // Check if this is first-time setup with an empty key
-                      const hasExistingKey = !!localStorage.getItem('lastSavedApiKey');
+                    onClick={async () => {
+                      // Check if we need to refresh hasExistingKey
+                      try {
+                        const electron = window.require('electron');
+                        const existingKey = await electron.ipcRenderer.invoke('get-api-key');
+                        setHasExistingKey(!!existingKey);
+                      } catch (error) {
+                        // Fallback for dev mode
+                        console.log('Electron not available, using localStorage fallback');
+                      }
+
                       let hasError = false;
                       
                       // Allow empty API key (to delete it), but validate if one is provided
@@ -1216,13 +1246,15 @@ Return your response in this JSON format:
                       
                       // Only proceed if there are no errors
                       if (!hasError) {
-                        const lastSavedKey = localStorage.getItem('lastSavedApiKey') || '';
+                        try {
+                        const electron = window.require('electron');
+                        const lastSavedKey = await electron.ipcRenderer.invoke('get-api-key') || '';
                         
                         // If clearing the API key
                         if (!apiKey && lastSavedKey) {
-                          // Remove API key from storage
-                          localStorage.removeItem('apiKey');
-                          localStorage.removeItem('lastSavedApiKey');
+                          // Remove API key from storage using IPC
+                          await electron.ipcRenderer.invoke('delete-api-key');
+                          setHasExistingKey(false);
                           
                           // Pause all running jobs
                           const updatedJobs = jobs.map(job => {
@@ -1235,7 +1267,8 @@ Return your response in this JSON format:
                           });
                           setJobs(updatedJobs);
                           
-                          // Don't immediately close settings - keep it open to show api key is needed
+                          // Close settings and show the welcome screen
+                          setSettingsView(false);
                           return;
                         } 
                         // If updating with a new key
@@ -1243,9 +1276,9 @@ Return your response in this JSON format:
                           // Trigger confetti for new valid API key
                           setShowConfetti(true);
                           
-                          // Save new API key
-                          localStorage.setItem('apiKey', apiKey);
-                          localStorage.setItem('lastSavedApiKey', apiKey);
+                          // Save new API key using IPC
+                          await electron.ipcRenderer.invoke('save-api-key', apiKey);
+                          setHasExistingKey(true);
                           
                           // If this is adding a key after not having one, restart jobs that were running
                           if (!lastSavedKey) {
@@ -1259,6 +1292,10 @@ Return your response in this JSON format:
                             });
                           }
                         }
+                      } catch (error) {
+                        console.error('Failed to save/delete API key:', error);
+                        setError('Failed to save API key settings');
+                      }
                         
                         setSettingsView(false)
                       }
@@ -1268,8 +1305,8 @@ Return your response in this JSON format:
                   </Button>
                 </div>
               </div>
-            ) : !showNewJobForm ? (
-              // When not in edit mode, settings, or creating new job, show a Mac-style list
+            ) : !showNewJobForm && apiKey ? (
+              // When not in edit mode, settings, or creating new job, and API key exists, show a Mac-style list
               jobs.length > 0 && (
                 <div className="pb-6">
                   <div className="mac-list mac-animate-in border-x-0 rounded-none">

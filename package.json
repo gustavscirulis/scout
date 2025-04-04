@@ -28,6 +28,7 @@
     "clsx": "^2.1.1",
     "concurrently": "^8.2.0",
     "electron-is-dev": "^2.0.0",
+    "electron-store": "^10.0.1",
     "lucide-react": "^0.300.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
