@@ -157,13 +157,9 @@ function App() {
     localStorage.setItem('analysisJobs', JSON.stringify(jobs))
   }, [jobs])
 
-  // Save API key to localStorage
-  useEffect(() => {
-    localStorage.setItem('apiKey', apiKey)
-    
-    // Just save API key, confetti is handled by the save button
-    localStorage.setItem('lastSavedApiKey', apiKey)
-  }, [apiKey])
+  // Save API key to localStorage - only when explicitly saved via the Save button
+  // We DON'T want to automatically save on every apiKey state change
+  // This is handled manually in the settings save button click handler
   
   // Handle view transitions by managing the mac-transitioning class
   const [isTransitioning, setIsTransitioning] = useState(false)
@@ -1116,17 +1112,21 @@ Return your response in this JSON format:
                           autoComplete="off"
                         />
                         {((apiKey && !validateApiKey(apiKey).isValid) || 
-                          (error && (error === '_API_KEY_REQUIRED_' || error.startsWith('_API_KEY_')))) && (
+                          (error && error.startsWith('_API_KEY_'))) && (
                           <div className="mt-2 rounded-md px-3 py-1.5 bg-destructive/10 border border-destructive/20 dark:bg-destructive/20">
                             <p className="text-[0.8rem] font-medium text-destructive dark:text-destructive-foreground flex items-center">
                               <WarningCircle className="w-3.5 h-3.5 mr-1.5 flex-shrink-0" weight="fill" />
-                              {error === '_API_KEY_REQUIRED_' 
-                                ? 'Please enter an API key to continue'
-                                : error && error.startsWith('_API_KEY_') 
-                                  ? error.replace('_API_KEY_', '') 
-                                  : validateApiKey(apiKey).message}
+                              {error && error.startsWith('_API_KEY_') 
+                                ? error.replace('_API_KEY_', '') 
+                                : validateApiKey(apiKey).message}
                             </p>
                           </div>
+                        )}
+                        
+                        {!apiKey && localStorage.getItem('lastSavedApiKey') && (
+                          <p className="text-[0.8rem] text-muted-foreground mt-2">
+                            Saving with an empty field will remove your API key.
+                          </p>
                         )}
                         <p className="text-[0.8rem] text-muted-foreground mt-2">
                           Get your API key from <a 
@@ -1203,13 +1203,8 @@ Return your response in this JSON format:
                       const hasExistingKey = !!localStorage.getItem('lastSavedApiKey');
                       let hasError = false;
                       
-                      // Empty key is only allowed if user previously had one (to allow deletion)
-                      if (!apiKey && !hasExistingKey) {
-                        // Instead of showing a floating error, we'll use the inline validation display
-                        // We set error to a special value that won't trigger the floating banner
-                        setError('_API_KEY_REQUIRED_');
-                        hasError = true;
-                      } else {
+                      // Allow empty API key (to delete it), but validate if one is provided
+                      if (apiKey) {
                         // Validate API key before saving
                         const validation = validateApiKey(apiKey);
                         if (!validation.isValid) {
@@ -1221,10 +1216,50 @@ Return your response in this JSON format:
                       
                       // Only proceed if there are no errors
                       if (!hasError) {
-                        // Trigger confetti whenever they save with a valid API key
-                        if (apiKey) {
-                          setShowConfetti(true)
+                        const lastSavedKey = localStorage.getItem('lastSavedApiKey') || '';
+                        
+                        // If clearing the API key
+                        if (!apiKey && lastSavedKey) {
+                          // Remove API key from storage
+                          localStorage.removeItem('apiKey');
+                          localStorage.removeItem('lastSavedApiKey');
+                          
+                          // Pause all running jobs
+                          const updatedJobs = jobs.map(job => {
+                            // Stop any interval/timeout for this job
+                            if (job.isRunning) {
+                              stopJob(job.id);
+                            }
+                            // Mark all jobs as not running but preserve other state
+                            return { ...job, isRunning: false };
+                          });
+                          setJobs(updatedJobs);
+                          
+                          // Don't immediately close settings - keep it open to show api key is needed
+                          return;
+                        } 
+                        // If updating with a new key
+                        else if (apiKey && apiKey !== lastSavedKey) {
+                          // Trigger confetti for new valid API key
+                          setShowConfetti(true);
+                          
+                          // Save new API key
+                          localStorage.setItem('apiKey', apiKey);
+                          localStorage.setItem('lastSavedApiKey', apiKey);
+                          
+                          // If this is adding a key after not having one, restart jobs that were running
+                          if (!lastSavedKey) {
+                            // Resume all jobs that were running before
+                            jobs.forEach(job => {
+                              // Schedule each job (which will automatically set isRunning to true)
+                              // Only if it was already set up previously (had a lastRun)
+                              if (job.lastRun) {
+                                toggleJob(job.id);
+                              }
+                            });
+                          }
                         }
+                        
                         setSettingsView(false)
                       }
                     }}
