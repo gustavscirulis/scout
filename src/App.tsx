@@ -85,6 +85,7 @@ function App() {
   const [windowIsFloating, setWindowIsFloating] = useState<boolean>(() => 
     !!localStorage.getItem('windowFloating')
   )
+  const [temporaryFloating, setTemporaryFloating] = useState<boolean>(false)
   const [newJob, setNewJob] = useState<NewJobFormData>(() => ({
     websiteUrl: '',
     analysisPrompt: '',
@@ -124,6 +125,11 @@ function App() {
         setWindowIsFloating(value);
       });
       
+      // Set up an event listener for temporary floating mode
+      electron.ipcRenderer.on('temporary-floating-updated', (_event: any, value: boolean) => {
+        setTemporaryFloating(value);
+      });
+      
       // Set window floating preference on startup
       if (windowIsFloating) {
         electron.ipcRenderer.send('toggle-window-floating', true);
@@ -132,6 +138,7 @@ function App() {
       return () => {
         // Clean up listeners when component unmounts
         electron.ipcRenderer.removeAllListeners('window-floating-updated');
+        electron.ipcRenderer.removeAllListeners('temporary-floating-updated');
       };
     } catch (error) {
       // Silent fail if electron is not available in dev mode
@@ -195,6 +202,19 @@ function App() {
     const timer = setTimeout(() => {
       setIsTransitioning(false)
     }, 250) // Animation duration (200ms) + small buffer
+    
+    // Enable temporary floating mode when editing or creating a new job
+    try {
+      const electron = window.require('electron');
+      if (showNewJobForm || editingJobId) {
+        electron.ipcRenderer.send('set-temporary-floating', true);
+      } else {
+        electron.ipcRenderer.send('set-temporary-floating', false);
+      }
+    } catch (error) {
+      // Silent fail if electron is not available in dev mode
+    }
+    
     return () => clearTimeout(timer)
   }, [showNewJobForm, editingJobId, settingsView])
 

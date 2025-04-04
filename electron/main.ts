@@ -9,6 +9,7 @@ const __dirname = dirname(__filename)
 let mainWindow: electron.BrowserWindow | null = null
 let tray: electron.Tray | null = null
 let windowFloating: boolean = false
+let temporaryFloating: boolean = false
 
 function getWindowPosition() {
   if (!tray) return { x: 0, y: 0 }
@@ -135,11 +136,11 @@ function createWindow() {
   // Initialize window floating state as a variable accessible in the module scope
   windowFloating = false;
   
-  // Hide window when it loses focus (unless in floating mode)
+  // Hide window when it loses focus (unless in permanent or temporary floating mode)
   mainWindow.on('blur', () => {
     // Force a small delay to ensure the windowFloating state is properly initialized
     setTimeout(() => {
-      if (!windowFloating) {
+      if (!windowFloating && !temporaryFloating) {
         mainWindow?.hide();
       }
     }, 50);
@@ -197,6 +198,22 @@ ipcMain.on('toggle-window-floating', (_event, floating: boolean) => {
   // Provide feedback to the renderer process
   if (mainWindow && mainWindow.webContents) {
     mainWindow.webContents.send('window-floating-updated', windowFloating);
+  }
+})
+
+// Handle temporary floating mode for form editing
+ipcMain.on('set-temporary-floating', (_event, floating: boolean) => {
+  // Update the temporary floating state
+  temporaryFloating = floating;
+  
+  // Set the window to stay on top when in temporary floating mode
+  if (mainWindow) {
+    mainWindow.setAlwaysOnTop(floating, 'floating');
+  }
+  
+  // Provide feedback to the renderer process
+  if (mainWindow && mainWindow.webContents) {
+    mainWindow.webContents.send('temporary-floating-updated', temporaryFloating);
   }
 })
 
