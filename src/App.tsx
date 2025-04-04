@@ -5,6 +5,7 @@ import { Input } from './components/ui/input'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './components/ui/card'
 import { Separator } from './components/ui/separator'
 import { Checkbox } from './components/ui/checkbox'
+import { validateApiKey } from './lib/utils'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './components/ui/select'
 import { TimeInput } from './components/ui/time-input'
 import { 
@@ -421,6 +422,13 @@ function App() {
       setError('Please set your OpenAI API key in settings')
       return
     }
+    
+    // Validate API key
+    const validation = validateApiKey(apiKey);
+    if (!validation.isValid) {
+      setError(validation.message || 'Invalid API key')
+      return
+    }
 
     try {
       setLoading(true)
@@ -527,6 +535,21 @@ Return your response in this JSON format:
   const testJob = async (job: NewJobFormData) => {
     setLoading(true)
     setTestResult(null)
+    
+    // Validate API key before testing
+    if (!apiKey) {
+      setError('Please set your OpenAI API key in settings')
+      setLoading(false)
+      return
+    }
+    
+    // Validate API key format
+    const validation = validateApiKey(apiKey);
+    if (!validation.isValid) {
+      setError(validation.message || 'Invalid API key')
+      setLoading(false)
+      return
+    }
     
     const testJobData: AnalysisJob = {
       ...job,
@@ -987,19 +1010,40 @@ Return your response in this JSON format:
                 <div className="flex-1 overflow-auto">
                   <div className="px-8 pt-6 space-y-6">
                     <fieldset className="space-y-3">
-                      <div className="flex flex-col space-y-1.5">
-                        <label htmlFor="apiKey" className="text-sm font-medium">
+                      <div className="flex flex-col">
+                        <label htmlFor="apiKey" className="text-sm font-medium mb-1.5">
                           OpenAI API Key
                         </label>
                         <Input
                           id="apiKey"
                           type="password"
                           value={apiKey}
-                          onChange={(e) => setApiKey(e.target.value)}
+                          onChange={(e) => {
+                            const newApiKey = e.target.value;
+                            setApiKey(newApiKey);
+                            
+                            // Clear any previous error when user is typing
+                            if (error && error.includes('API key')) {
+                              setError('');
+                            }
+                          }}
                           placeholder="sk-..."
                           autoComplete="off"
                         />
-                        <p className="text-[0.8rem] text-muted-foreground">
+                        {((apiKey && !validateApiKey(apiKey).isValid) || 
+                          (error && (error === '_API_KEY_REQUIRED_' || error.startsWith('_API_KEY_')))) && (
+                          <div className="mt-2 rounded-md px-3 py-1.5 bg-destructive/10 border border-destructive/20 dark:bg-destructive/20">
+                            <p className="text-[0.8rem] font-medium text-destructive dark:text-destructive-foreground flex items-center">
+                              <WarningCircle className="w-3.5 h-3.5 mr-1.5 flex-shrink-0" weight="fill" />
+                              {error === '_API_KEY_REQUIRED_' 
+                                ? 'Please enter an API key to continue'
+                                : error && error.startsWith('_API_KEY_') 
+                                  ? error.replace('_API_KEY_', '') 
+                                  : validateApiKey(apiKey).message}
+                            </p>
+                          </div>
+                        )}
+                        <p className="text-[0.8rem] text-muted-foreground mt-2">
                           Get your API key from <a 
                             href="#" 
                             onClick={(e) => {
@@ -1070,11 +1114,34 @@ Return your response in this JSON format:
                   <Button 
                     type="button" 
                     onClick={() => {
-                      // Trigger confetti whenever they save with a valid API key
-                      if (apiKey) {
-                        setShowConfetti(true)
+                      // Check if this is first-time setup with an empty key
+                      const hasExistingKey = !!localStorage.getItem('lastSavedApiKey');
+                      let hasError = false;
+                      
+                      // Empty key is only allowed if user previously had one (to allow deletion)
+                      if (!apiKey && !hasExistingKey) {
+                        // Instead of showing a floating error, we'll use the inline validation display
+                        // We set error to a special value that won't trigger the floating banner
+                        setError('_API_KEY_REQUIRED_');
+                        hasError = true;
+                      } else {
+                        // Validate API key before saving
+                        const validation = validateApiKey(apiKey);
+                        if (!validation.isValid) {
+                          // Use the special prefix for API key errors to avoid floating toast
+                          setError('_API_KEY_' + (validation.message || 'Invalid API key'));
+                          hasError = true;
+                        }
                       }
-                      setSettingsView(false)
+                      
+                      // Only proceed if there are no errors
+                      if (!hasError) {
+                        // Trigger confetti whenever they save with a valid API key
+                        if (apiKey) {
+                          setShowConfetti(true)
+                        }
+                        setSettingsView(false)
+                      }
                     }}
                   >
                     Save
@@ -1304,10 +1371,10 @@ Return your response in this JSON format:
 
           </div>
 
-          {/* Error message */}
-          {error && (
+          {/* Error message - Don't show API key errors in the toast */}
+          {error && !error.startsWith('_API_KEY_') && error !== '_API_KEY_REQUIRED_' && (
             <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 mac-animate-in">
-              <div className="bg-background/80 backdrop-blur-md border border-destructive/20 rounded-lg shadow-lg px-4 py-3 text-sm text-destructive flex items-center">
+              <div className="bg-background/80 backdrop-blur-md border border-destructive/20 rounded-lg shadow-lg px-4 py-3 text-sm text-destructive dark:text-destructive-foreground flex items-center">
                 <WarningCircle className="w-4 h-4 mr-2 flex-shrink-0" weight="fill" />
                 {error}
               </div>
