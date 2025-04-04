@@ -710,7 +710,7 @@ Return your response in this JSON format:
 
       {/* Main content */}
       <div className="mac-content">
-        <div className="w-full space-y-6">
+        <div className="w-full space-y-6 flex-grow flex flex-col">
 
           {/* Jobs List */}
           <div className="space-y-4">
@@ -799,7 +799,7 @@ Return your response in this JSON format:
 
             {/* When in edit mode or creating a new job, only show that form */}
             {editingJobId && jobs.find(job => job.id === editingJobId) ? (
-              <div className="flex flex-col h-full relative">
+              <div className="flex flex-col h-full min-h-[calc(100vh-3rem)]">
                 <div className="flex-1 overflow-auto">
                   <div className="space-y-6 px-8 pt-6">
                     <div>
@@ -909,8 +909,8 @@ Return your response in this JSON format:
                     )}
                   </div>
                 </div>
-                <div className="flex justify-between px-8 py-4 border-t bg-card/75 backdrop-blur-sm">
-                  <div className="flex gap-3">
+                <div className="sticky bottom-0 left-0 right-0 bg-background border-t border-border/60 px-8 py-4 flex justify-between items-center">
+                  <div className="flex gap-2">
                     <Button
                       variant="outline"
                       onClick={() => deleteJob(editingJobId)}
@@ -1014,7 +1014,7 @@ Return your response in this JSON format:
 
             {/* New Job Form (only shown when not editing any job) */}
             {showNewJobForm && !editingJobId && (
-              <div className="flex flex-col h-full">
+              <div className="flex flex-col h-full min-h-[calc(100vh-3rem)]">
                 <div className="flex-1 overflow-auto">
                   <div className="space-y-6 px-8 pt-6">
                     <div>
@@ -1129,7 +1129,7 @@ Return your response in this JSON format:
                     )}
                   </div>
                 </div>
-                <div className="flex justify-between px-8 py-4 border-t bg-card/75 backdrop-blur-sm">
+                <div className="sticky bottom-0 left-0 right-0 bg-background border-t border-border/60 px-8 py-4 flex justify-between items-center">
                   <Button
                     variant="outline"
                     onClick={() => testJob(newJob)}

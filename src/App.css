@@ -68,7 +68,7 @@
 }
 
 .mac-content {
-  @apply flex-1 overflow-y-auto overflow-x-hidden bg-card/50 backdrop-blur-sm;
+  @apply flex-1 overflow-y-auto overflow-x-hidden bg-card/50 backdrop-blur-sm flex flex-col relative;
 }
 
 /* Native MacOS list style */
