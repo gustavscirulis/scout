@@ -4,6 +4,7 @@ import { Input } from './components/ui/input'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './components/ui/card'
 import { Separator } from './components/ui/separator'
 import { Checkbox } from './components/ui/checkbox'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './components/ui/select'
 import { 
   Gear, 
   Plus, 
@@ -775,15 +776,19 @@ Return your response in this JSON format:
                     <div className="grid grid-cols-2 gap-6">
                       <div>
                         <label className="text-sm font-medium mb-2 block">Check Frequency</label>
-                        <select
+                        <Select
                           value={newJob.frequency}
-                          className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                          onChange={(e: ChangeEvent<HTMLSelectElement>) => setNewJob(prev => ({ ...prev, frequency: e.target.value as RecurringFrequency }))}
+                          onValueChange={(value) => setNewJob(prev => ({ ...prev, frequency: value as RecurringFrequency }))}
                         >
-                          <option value="hourly">Every Hour</option>
-                          <option value="daily">Every Day</option>
-                          <option value="weekly">Every Week</option>
-                        </select>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select frequency" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="hourly">Every Hour</SelectItem>
+                            <SelectItem value="daily">Every Day</SelectItem>
+                            <SelectItem value="weekly">Every Week</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
 
                       <div>
@@ -1069,15 +1074,19 @@ Return your response in this JSON format:
                     <div className="grid grid-cols-2 gap-6">
                       <div>
                         <label className="text-sm font-medium mb-2 block">Check Frequency</label>
-                        <select
+                        <Select
                           value={newJob.frequency}
-                          className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                          onChange={(e: ChangeEvent<HTMLSelectElement>) => setNewJob(prev => ({ ...prev, frequency: e.target.value as RecurringFrequency }))}
+                          onValueChange={(value) => setNewJob(prev => ({ ...prev, frequency: value as RecurringFrequency }))}
                         >
-                          <option value="hourly">Every Hour</option>
-                          <option value="daily">Every Day</option>
-                          <option value="weekly">Every Week</option>
-                        </select>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select frequency" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="hourly">Every Hour</SelectItem>
+                            <SelectItem value="daily">Every Day</SelectItem>
+                            <SelectItem value="weekly">Every Week</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
 
                       <div>
