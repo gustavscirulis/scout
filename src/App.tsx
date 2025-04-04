@@ -142,6 +142,19 @@ function App() {
   useEffect(() => {
     localStorage.setItem('apiKey', apiKey)
   }, [apiKey])
+  
+  // Handle view transitions by managing the mac-transitioning class
+  const [isTransitioning, setIsTransitioning] = useState(false)
+  
+  useEffect(() => {
+    // Always trigger the transition state when any view changes
+    setIsTransitioning(true)
+    // Remove transitioning class after animation completes to allow normal scrolling
+    const timer = setTimeout(() => {
+      setIsTransitioning(false)
+    }, 250) // Animation duration (200ms) + small buffer
+    return () => clearTimeout(timer)
+  }, [showNewJobForm, editingJobId, settingsView])
 
   // Cleanup intervals on unmount
   useEffect(() => {
@@ -627,7 +640,7 @@ Return your response in this JSON format:
 
 
       {/* Main content */}
-      <div className="mac-content">
+      <div className={`mac-content ${isTransitioning ? 'mac-transitioning' : ''}`}>
         <div className="w-full space-y-6 flex-grow flex flex-col">
 
           {/* Jobs List */}

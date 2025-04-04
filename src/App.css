@@ -151,6 +151,11 @@ input, textarea, button {
   animation: mac-fade-in 0.2s ease-out;
 }
 
+/* Hide scrollbars during transitions */
+.mac-transitioning {
+  overflow: hidden !important;
+}
+
 @layer utilities {
   .-webkit-app-region-drag {
     -webkit-app-region: drag;
