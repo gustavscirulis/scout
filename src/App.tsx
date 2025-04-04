@@ -8,6 +8,7 @@ import { Checkbox } from './components/ui/checkbox'
 import { validateApiKey, validateUrl } from './lib/utils'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './components/ui/select'
 import { TimeInput } from './components/ui/time-input'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './components/ui/tooltip'
 import { 
   Gear, 
   Plus, 
@@ -70,6 +71,12 @@ interface JobForm {
 }
 
 function App() {
+  // Wrap with TooltipProvider at the app level for all tooltips
+  const appWithTooltips = (appContent: React.ReactNode) => (
+    <TooltipProvider delayDuration={1}>
+      {appContent}
+    </TooltipProvider>
+  )
   const [jobs, setJobs] = useState<AnalysisJob[]>(() => {
     const savedJobs = localStorage.getItem('analysisJobs')
     return savedJobs ? JSON.parse(savedJobs) : []
@@ -693,7 +700,7 @@ Return your response in this JSON format:
     }
   }
 
-  return (
+  return appWithTooltips(
     <div className="mac-window">
       {/* Titlebar - macOS style */}
       <div className="mac-toolbar">
@@ -1245,7 +1252,7 @@ Return your response in this JSON format:
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center">
                             {job.isRunning && (
-                              <span className="mr-2 inline-block h-2 w-2 rounded-full bg-green-500 animate-pulse flex-shrink-0"></span>
+                              <span className="mr-2 inline-block h-2 w-2 rounded-full bg-green-500 animate-[pulse_1s_ease-in-out_infinite] flex-shrink-0"></span>
                             )}
                             <h3 className="font-medium text-sm truncate" title={job.websiteUrl}>
                               {job.websiteUrl}
@@ -1253,15 +1260,20 @@ Return your response in this JSON format:
                           </div>
                           
                           <div className="flex items-center mt-1 text-xs text-muted-foreground">
-                            {job.lastRun && (
-                              <span className="flex-shrink-0">
-                                Checked {formatTimeAgo(new Date(job.lastRun))}
-                              </span>
-                            )}
+                          <Tooltip delayDuration={200}>
+                              <TooltipTrigger asChild>
+                                <span className="flex-shrink-0 cursor-default">
+                                  {job.frequency === 'hourly' ? 'Hourly' : 
+                                   job.frequency === 'daily' ? 'Daily' : 
+                                   job.frequency === 'weekly' ? 'Weekly' : ''} at {job.scheduledTime}
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                {job.lastRun ? `Checked ${formatTimeAgo(new Date(job.lastRun))}` : "Waiting for first check"}
+                              </TooltipContent>
+                            </Tooltip>
                             
-                            {job.lastRun && (
-                              <span className="mx-1.5 text-muted-foreground/40">•</span>
-                            )}
+                            <span className="mx-1.5 text-muted-foreground/40">•</span>
                             
                             <span className="truncate" title={job.notificationCriteria}>
                               {job.notificationCriteria}
