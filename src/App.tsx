@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Separator } from './components/ui/separator'
 import { Checkbox } from './components/ui/checkbox'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './components/ui/select'
+import { TimeInput } from './components/ui/time-input'
 import { 
   Gear, 
   Plus, 
@@ -793,11 +794,10 @@ Return your response in this JSON format:
 
                       <div>
                         <label className="text-sm font-medium mb-2 block">Start Time</label>
-                        <Input
-                          type="time"
+                        <TimeInput
                           value={newJob.scheduledTime}
+                          onChange={(time) => setNewJob(prev => ({ ...prev, scheduledTime: time }))}
                           className="h-9"
-                          onChange={(e: ChangeEvent<HTMLInputElement>) => setNewJob(prev => ({ ...prev, scheduledTime: e.target.value }))}
                         />
                       </div>
                     </div>
@@ -1091,11 +1091,10 @@ Return your response in this JSON format:
 
                       <div>
                         <label className="text-sm font-medium mb-2 block">Start Time</label>
-                        <Input
-                          type="time"
+                        <TimeInput
                           value={newJob.scheduledTime}
+                          onChange={(time) => setNewJob(prev => ({ ...prev, scheduledTime: time }))}
                           className="h-9"
-                          onChange={(e: ChangeEvent<HTMLInputElement>) => setNewJob(prev => ({ ...prev, scheduledTime: e.target.value }))}
                         />
                       </div>
                     </div>
