@@ -36,9 +36,11 @@ function toggleWindow() {
   if (mainWindow.isVisible()) {
     mainWindow.hide()
   } else {
+    // Always position under the tray icon when toggling window visibility
     const position = getWindowPosition()
     mainWindow.setPosition(position.x, position.y)
     mainWindow.show()
+    mainWindow.focus()
   }
 }
 
@@ -115,6 +117,12 @@ function createWindow() {
 
   // Create the tray icon
   createTray()
+  
+  // Position the window under the tray icon on first launch
+  if (tray) {
+    const position = getWindowPosition();
+    mainWindow.setPosition(position.x, position.y);
+  }
 
   // Check local storage setting in renderer and request initial value
   mainWindow.webContents.once('did-finish-load', () => {
@@ -151,6 +159,15 @@ function createWindow() {
     const indexPath = join(__dirname, '../dist/index.html')
     mainWindow.loadFile(indexPath)
   }
+  
+  // Make sure the window is positioned correctly before showing
+  mainWindow.once('ready-to-show', () => {
+    if (tray) {
+      const position = getWindowPosition();
+      mainWindow?.setPosition(position.x, position.y);
+    }
+    // Don't show initially - wait for tray click
+  })
 }
 
 // Handle window focus request from renderer
@@ -158,6 +175,11 @@ ipcMain.on('focus-window', () => {
   if (mainWindow) {
     if (mainWindow.isMinimized()) {
       mainWindow.restore()
+    }
+    // Position window under tray icon when showing from notification
+    if (tray && !mainWindow.isVisible()) {
+      const position = getWindowPosition()
+      mainWindow.setPosition(position.x, position.y)
     }
     mainWindow.show()
     mainWindow.focus()
