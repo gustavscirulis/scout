@@ -1351,7 +1351,7 @@ Return your response in this JSON format:
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center">
                             {job.isRunning && (
-                              <span className="mr-2 inline-block h-2 w-2 rounded-full bg-green-500 animate-[pulse_1s_ease-in-out_infinite] flex-shrink-0"></span>
+                              <span className="mr-2 inline-block h-1.5 w-1.5 rounded-full bg-green-500 animate-[subtle-pulse_1.5s_ease-in-out_infinite,scale_1.5s_ease-in-out_infinite] flex-shrink-0 origin-center"></span>
                             )}
                             <h3 className="font-medium text-sm truncate" title={job.websiteUrl}>
                               {job.websiteUrl}
@@ -1359,6 +1359,7 @@ Return your response in this JSON format:
                           </div>
                           
                           <div className="flex items-center mt-1 text-xs text-muted-foreground">
+                          <div className="w-[7px] flex-shrink-0 mr-1"></div>
                           <Tooltip delayDuration={200}>
                               <TooltipTrigger asChild>
                                 <span className="flex-shrink-0 cursor-default">
