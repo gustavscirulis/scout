@@ -64,6 +64,7 @@
   },
   "build": {
     "appId": "com.electron.scout",
+    "icon": "public/app_icon.png",
     "mac": {
       "category": "public.app-category.productivity",
       "target": ["dmg"],

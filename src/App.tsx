@@ -20,7 +20,8 @@ import {
   CaretLeft,
   CaretRight,
   Moon,
-  Sun
+  Sun,
+  Eye
 } from '@phosphor-icons/react'
 import './App.css'
 import { TaskForm, JobFormData, RecurringFrequency } from './components/TaskForm'
@@ -238,6 +239,14 @@ function App() {
           if (storedApiKey) {
             setApiKey(storedApiKey);
             setHasExistingKey(true);
+            
+            // Check if we have any jobs that need to be started
+            const jobsToStart = jobs.filter(job => !job.isRunning);
+            if (jobsToStart.length > 0) {
+              jobsToStart.forEach(job => {
+                toggleJob(job.id);
+              });
+            }
           }
         } catch (error) {
           console.error('Failed to load API key:', error);
@@ -249,6 +258,8 @@ function App() {
       // Silent fail if electron is not available in dev mode
       console.log('Electron not available, API key persistence disabled');
     }
+  // Disable dependency array to run only once when component mounts
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   
   // Handle view transitions by managing overflow during transitions
@@ -965,7 +976,10 @@ Return your response in this JSON format:
             {(!apiKey || jobs.length === 0) && !showNewJobForm && !editingJobId && !settingsView && (
               <div className="flex flex-col items-center justify-center py-8 text-center px-4 animate-in">
                 <div className="w-20 h-20 bg-primary/5 rounded-full flex items-center justify-center mb-6">
-                  <Robot size={36} className="text-primary/60" />
+                  <div className="relative">
+                    <Eye size={36} className="text-primary/30" />
+                    <div className="absolute w-3.5 h-3.5 rounded-full shadow-[0_0_6px_rgba(0,185,246,0.7)]" style={{ top: '50%', left: '50%', transform: 'translate(-50%, -50%)', borderWidth: '2.5px', borderStyle: 'solid', borderColor: '#00B9F6' }}></div>
+                  </div>
                 </div>
                 {!apiKey ? (
                   <>
@@ -1321,24 +1335,41 @@ Return your response in this JSON format:
                           } 
                           // If updating with a new key
                           else if (apiKey && apiKey !== lastSavedKey) {
-                            // Trigger confetti for new valid API key
-                            setShowConfetti(true);
+                            // Only show confetti if this is the first time adding an API key
+                            // AND there are no saved tasks yet
+                            if (!lastSavedKey && !hasExistingKey && jobs.length === 0) {
+                              setShowConfetti(true);
+                            }
                             
                             // Save new API key using IPC
                             await electron.ipcRenderer.invoke('save-api-key', apiKey);
                             setHasExistingKey(true);
                             
-                            // If this is adding a key after not having one, restart jobs that were running
-                            if (!lastSavedKey) {
-                              // Resume all jobs that were running before
-                              jobs.forEach(job => {
-                                // Schedule each job (which will automatically set isRunning to true)
-                                // Only if it was already set up previously (had a lastRun)
-                                if (job.lastRun) {
-                                  toggleJob(job.id);
-                                }
+                            // Immediately restart ALL jobs when adding a new API key
+                            // Use a timeout to ensure this happens after state updates
+                            setTimeout(() => {
+                              // First update all jobs state to running
+                              setJobs(prevJobs => {
+                                const updatedJobs = prevJobs.map(job => ({
+                                  ...job,
+                                  isRunning: true
+                                }));
+                                
+                                // Schedule each job after state update
+                                updatedJobs.forEach(job => {
+                                  // First stop any existing job to clear intervals
+                                  if (intervals.current[job.id]) {
+                                    if (intervals.current[job.id].interval) clearInterval(intervals.current[job.id].interval);
+                                    if (intervals.current[job.id].timeout) clearTimeout(intervals.current[job.id].timeout);
+                                  }
+                                  // Then schedule the job
+                                  scheduleJob(job);
+                                });
+                                
+                                return updatedJobs;
                               });
-                            }
+                            }, 50);
+                            
                           }
                         } catch (error) {
                           console.error('Failed to save/delete API key:', error);
@@ -1373,7 +1404,7 @@ Return your response in this JSON format:
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center">
                             {job.isRunning && (
-                              <span className="mr-2 inline-block h-1.5 w-1.5 rounded-full bg-green-500 animate-[subtle-pulse_1.5s_ease-in-out_infinite,scale_1.5s_ease-in-out_infinite] flex-shrink-0 origin-center"></span>
+                              <span className="mr-2 inline-block h-1.5 w-1.5 rounded-full bg-[#007AFF] dark:bg-[#007AFF] animate-[subtle-pulse_1.5s_ease-in-out_infinite,scale_1.5s_ease-in-out_infinite] flex-shrink-0 origin-center"></span>
                             )}
                             <h3 className="font-medium text-sm truncate" title={job.websiteUrl}>
                               {job.websiteUrl}
@@ -1401,23 +1432,6 @@ Return your response in this JSON format:
                               {job.notificationCriteria}
                             </span>
                             
-                            {job.lastMatchedCriteria !== undefined && (
-                              <span className="ml-auto flex-shrink-0">
-                                <span className={job.lastMatchedCriteria ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}>
-                                  {job.lastMatchedCriteria ? (
-                                    <span className="flex items-center">
-                                      <span>Matched</span>
-                                      <CheckCircle className="w-3 h-3 ml-0.5 text-green-500" weight="fill" />
-                                    </span>
-                                  ) : (
-                                    <span className="flex items-center text-neutral-500 dark:text-neutral-400">
-                                      <span>Not matched</span>
-                                      <XCircle className="w-3 h-3 ml-0.5" weight="fill" />
-                                    </span>
-                                  )}
-                                </span>
-                              </span>
-                            )}
                           </div>
                         </div>
                         
