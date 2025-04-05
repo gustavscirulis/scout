@@ -2,8 +2,12 @@ import electron from 'electron'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
 import Store from 'electron-store'
+import { execFile, spawn } from 'child_process'
+import fs from 'fs'
+import os from 'os'
+import path from 'path'
 
-const { app, BrowserWindow, nativeTheme, ipcMain, Tray, screen } = electron
+const { app, BrowserWindow, nativeTheme, ipcMain, Tray, screen, shell } = electron
 
 // Set up electron-store for persistent data
 const store = new Store({
@@ -260,6 +264,35 @@ ipcMain.handle('save-api-key', (_event, apiKey) => {
 ipcMain.handle('delete-api-key', () => {
   store.delete('apiKey')
   return true
+})
+
+// Handle opening images in preview window
+ipcMain.handle('open-image-preview', async (_event, dataUrl: string) => {
+  if (!dataUrl || !dataUrl.startsWith('data:image/')) {
+    return { success: false, error: 'Invalid image data' }
+  }
+
+  try {
+    // Convert data URL to file
+    const base64Data = dataUrl.replace(/^data:image\/png;base64,/, '');
+    const imageBuffer = Buffer.from(base64Data, 'base64');
+    
+    // Create temp file
+    const tempDir = path.join(os.tmpdir(), 'scout-app');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+    
+    const tempFilePath = path.join(tempDir, `screenshot-${Date.now()}.png`);
+    fs.writeFileSync(tempFilePath, imageBuffer);
+
+    // Open with the system's default app
+    shell.openPath(tempFilePath);
+    return { success: true };
+  } catch (error) {
+    console.error('Error opening image:', error);
+    return { success: false, error: String(error) };
+  }
 })
 
 

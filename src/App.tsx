@@ -57,6 +57,12 @@ interface AnalysisJob {
   lastRun?: Date
   notificationCriteria?: string
   lastMatchedCriteria?: boolean
+  lastTestResult?: {
+    result: string
+    matched?: boolean
+    timestamp?: string
+    screenshot?: string
+  }
 }
 
 type NewJobFormData = Omit<AnalysisJob, 'id' | 'isRunning' | 'lastResult' | 'lastRun' | 'lastMatchedCriteria'>
@@ -88,7 +94,7 @@ function App() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [notificationPermission, setNotificationPermission] = useState(Notification.permission)
-  const [testResult, setTestResult] = useState<{result: string, matched?: boolean, timestamp?: Date} | null>(null)
+  const [testResult, setTestResult] = useState<{result: string, matched?: boolean, timestamp?: Date, screenshot?: string} | null>(null)
   const [editingJobId, setEditingJobId] = useState<string | null>(null)
   const [windowIsFloating, setWindowIsFloating] = useState<boolean>(() => 
     !!localStorage.getItem('windowFloating')
@@ -397,8 +403,18 @@ function App() {
     setEditingJobId(jobId);
     setShowNewJobForm(false);
     
-    // Clear any previous test results
-    setTestResult(null);
+    // Load the last test result if available
+    if (job.lastTestResult) {
+      setTestResult({
+        result: job.lastTestResult.result,
+        matched: job.lastTestResult.matched,
+        timestamp: job.lastTestResult.timestamp ? new Date(job.lastTestResult.timestamp) : undefined,
+        screenshot: job.lastTestResult.screenshot
+      });
+    } else {
+      // Clear any previous test results if no saved result exists
+      setTestResult(null);
+    }
   };
   
   const updateJob = (updatedJob: NewJobFormData) => {
@@ -579,12 +595,8 @@ Return your response in this JSON format:
         parsedResult = JSON.parse(resultContent);
         criteriaMatched = parsedResult.criteriaMatched;
         
-        // Format the result to display simplified information
-        const formattedResult = [
-          `${parsedResult.analysis}`,
-          '',
-          criteriaMatched ? '✅ Condition matched!' : '❌ Condition not matched'
-        ].join('\n');
+        // Format the result to just show the analysis
+        const formattedResult = parsedResult.analysis;
         
         setJobs(jobs.map(j => 
           j.id === job.id 
@@ -708,39 +720,84 @@ Return your response in this JSON format:
         const parsedResult = JSON.parse(resultContent);
         const criteriaMatched = parsedResult.criteriaMatched;
         
-        // Format the result to display simplified information
-        const formattedResult = [
-          `${parsedResult.analysis}`,
-          '',
-          criteriaMatched ? '✅ Condition matched!' : '❌ Condition not matched'
-        ].join('\n');
+        // Format the result to just show the analysis
+        const formattedResult = parsedResult.analysis;
         
         const now = new Date();
+        const testResultData = {
+          result: formattedResult,
+          matched: criteriaMatched,
+          timestamp: now.toISOString(),
+          screenshot: screenshot
+        };
+        
         setTestResult({
           result: formattedResult,
           matched: criteriaMatched,
-          timestamp: now
+          timestamp: now,
+          screenshot: screenshot
         });
         
-        // If we're testing an existing job, update its lastRun timestamp too
+        // If we're testing an existing job, update its lastRun timestamp and test results
         if (editingJobId) {
           setJobs(jobs.map(j => 
             j.id === editingJobId 
-              ? { ...j, lastRun: now }
+              ? { 
+                  ...j, 
+                  lastRun: now,
+                  lastTestResult: testResultData
+                }
               : j
           ));
         }
       } catch (error) {
         console.error("Failed to parse response:", error);
+        const errorResult = {
+          result: `Error parsing response: ${resultContent.slice(0, 200)}...`,
+          timestamp: new Date().toISOString()
+        };
+        
         setTestResult({
-          result: `Error parsing response: ${resultContent.slice(0, 200)}...`
+          result: errorResult.result,
+          timestamp: new Date()
         });
+        
+        // Still save the error result if editing an existing job
+        if (editingJobId) {
+          setJobs(jobs.map(j => 
+            j.id === editingJobId 
+              ? { 
+                  ...j,
+                  lastTestResult: errorResult
+                }
+              : j
+          ));
+        }
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unknown error occurred');
+      const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
+      setError(errorMessage);
+      const errorResult = {
+        result: errorMessage,
+        timestamp: new Date().toISOString()
+      };
+      
       setTestResult({
-        result: err instanceof Error ? err.message : 'An unknown error occurred'
+        result: errorMessage,
+        timestamp: new Date()
       });
+      
+      // Save error result if editing an existing job
+      if (editingJobId) {
+        setJobs(jobs.map(j => 
+          j.id === editingJobId 
+            ? { 
+                ...j,
+                lastTestResult: errorResult
+              }
+            : j
+        ));
+      }
     } finally {
       setLoading(false)
     }
@@ -1059,43 +1116,56 @@ Return your response in this JSON format:
                     {/* Test Results */}
                     {(testResult || loading) && (
                       <div className="py-4">
+                        <label className="text-sm font-medium mb-2 block">Test Results</label>
                         {testResult && (
-                          <div className={`rounded-md border p-4 w-full ${
-                            testResult.matched === true 
-                              ? 'bg-green-50 border-green-200 dark:bg-green-900/30 dark:border-green-800'
-                              : testResult.matched === false
-                                ? 'bg-muted border-muted-foreground/20'
-                                : 'bg-destructive/10 border-destructive/30'
-                          } mac-animate-in`}>
-                            <div className="flex items-center mb-2">
-                              <span className="flex-shrink-0">
+                          <div className="mac-animate-in">
+                            <div className={`flex items-start gap-2 mb-4 p-3 rounded-md ${
+                              testResult.matched === true 
+                                ? 'bg-green-50 border border-green-200 dark:bg-green-900/20 dark:border-green-800/30' 
+                                : testResult.matched === false 
+                                  ? 'bg-rose-50 border border-rose-200 dark:bg-rose-900/20 dark:border-rose-800/30'
+                                  : 'bg-muted/50 border border-input/50'
+                            }`}>
+                              <span className="flex-shrink-0 mt-0.5">
                                 {testResult.matched === true ? (
-                                  <CheckCircle className="w-5 h-5 text-green-600" weight="fill" />
+                                  <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-500" weight="fill" />
                                 ) : testResult.matched === false ? (
-                                  <XCircle className="w-5 h-5 text-muted-foreground" weight="fill" />
+                                  <XCircle className="w-4 h-4 text-rose-500 dark:text-rose-400" weight="fill" />
                                 ) : (
-                                  <WarningCircle className="w-5 h-5 text-destructive" weight="fill" />
+                                  <WarningCircle className="w-4 h-4 text-destructive" weight="fill" />
                                 )}
                               </span>
-                              <div className="ml-2 flex flex-col">
-                                <span className="text-sm font-medium">
-                                  {testResult.matched === true
-                                    ? 'Notification would trigger'
-                                    : testResult.matched === false
-                                      ? 'Notification would not send'
-                                      : 'Error running test'}
-                                </span>
+                              <div className="text-xs whitespace-pre-wrap leading-relaxed">
+                                {testResult.result}
                               </div>
                             </div>
-                            <div className="text-xs whitespace-pre-wrap leading-relaxed max-h-32 overflow-y-auto rounded-md bg-background p-3 font-mono border border-input">
-                              {testResult.result}
-                            </div>
+                            {testResult.screenshot && (
+                              <div 
+                                className="border border-input rounded-md overflow-hidden cursor-zoom-in hover:opacity-90 hover:shadow-md relative group"
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  try {
+                                    const { ipcRenderer } = window.require('electron')
+                                    await ipcRenderer.invoke('open-image-preview', testResult.screenshot)
+                                  } catch (error) {
+                                    console.error('Error opening image preview:', error)
+                                  }
+                                }}
+                                title="Click to enlarge"
+                              >
+                                <img 
+                                  src={testResult.screenshot} 
+                                  alt="Screenshot of website" 
+                                  className="w-full h-auto" 
+                                />
+                              </div>
+                            )}
                           </div>
                         )}
                         
                         {loading && (
                           <div className="p-4 bg-muted border rounded-md flex items-center justify-center mac-animate-in">
-                            <SpinnerGap className="animate-spin h-5 w-5 border-2 border-primary border-t-transparent" />
+                            <SpinnerGap className="animate-spin h-5 w-5" />
                             <span className="text-sm">Running test...</span>
                           </div>
                         )}
@@ -1504,43 +1574,56 @@ Return your response in this JSON format:
                     {/* Test Results */}
                     {(testResult || loading) && (
                       <div className="py-4">
+                        <label className="text-sm font-medium mb-2 block">Test Results</label>
                         {testResult && (
-                          <div className={`rounded-md border p-4 w-full ${
-                            testResult.matched === true 
-                              ? 'bg-green-50 border-green-200 dark:bg-green-900/30 dark:border-green-800'
-                              : testResult.matched === false
-                                ? 'bg-muted border-muted-foreground/20'
-                                : 'bg-destructive/10 border-destructive/30'
-                          } mac-animate-in`}>
-                            <div className="flex items-center mb-2">
-                              <span className="flex-shrink-0">
+                          <div className="mac-animate-in">
+                            <div className={`flex items-start gap-2 mb-4 p-3 rounded-md ${
+                              testResult.matched === true 
+                                ? 'bg-green-50 border border-green-200 dark:bg-green-900/20 dark:border-green-800/30' 
+                                : testResult.matched === false 
+                                  ? 'bg-rose-50 border border-rose-200 dark:bg-rose-900/20 dark:border-rose-800/30'
+                                  : 'bg-muted/50 border border-input/50'
+                            }`}>
+                              <span className="flex-shrink-0 mt-0.5">
                                 {testResult.matched === true ? (
-                                  <CheckCircle className="w-5 h-5 text-green-600" weight="fill" />
+                                  <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-500" weight="fill" />
                                 ) : testResult.matched === false ? (
-                                  <XCircle className="w-5 h-5 text-muted-foreground" weight="fill" />
+                                  <XCircle className="w-4 h-4 text-rose-500 dark:text-rose-400" weight="fill" />
                                 ) : (
-                                  <WarningCircle className="w-5 h-5 text-destructive" weight="fill" />
+                                  <WarningCircle className="w-4 h-4 text-destructive" weight="fill" />
                                 )}
                               </span>
-                              <div className="ml-2 flex flex-col">
-                                <span className="text-sm font-medium">
-                                  {testResult.matched === true
-                                    ? 'Notification would trigger'
-                                    : testResult.matched === false
-                                      ? 'Notification would not send'
-                                      : 'Error running test'}
-                                </span>
+                              <div className="text-xs whitespace-pre-wrap leading-relaxed">
+                                {testResult.result}
                               </div>
                             </div>
-                            <div className="text-xs whitespace-pre-wrap leading-relaxed max-h-32 overflow-y-auto rounded-md bg-background p-3 font-mono border border-input">
-                              {testResult.result}
-                            </div>
+                            {testResult.screenshot && (
+                              <div 
+                                className="border border-input rounded-md overflow-hidden cursor-zoom-in hover:opacity-90 hover:shadow-md relative group"
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  try {
+                                    const { ipcRenderer } = window.require('electron')
+                                    await ipcRenderer.invoke('open-image-preview', testResult.screenshot)
+                                  } catch (error) {
+                                    console.error('Error opening image preview:', error)
+                                  }
+                                }}
+                                title="Click to enlarge"
+                              >
+                                <img 
+                                  src={testResult.screenshot} 
+                                  alt="Screenshot of website" 
+                                  className="w-full h-auto" 
+                                />
+                              </div>
+                            )}
                           </div>
                         )}
                         
                         {loading && (
                           <div className="p-4 bg-muted border rounded-md flex items-center justify-center mac-animate-in">
-                            <SpinnerGap className="animate-spin h-5 w-5 border-2 border-primary border-t-transparent" />
+                            <SpinnerGap className="animate-spin h-5 w-5" />
                             <span className="text-sm">Running test...</span>
                           </div>
                         )}
