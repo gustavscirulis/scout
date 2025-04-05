@@ -12,6 +12,7 @@ import { Input } from './ui/input'
 import { Textarea } from './ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
 import { TimeInput } from './ui/time-input'
+import { Tabs, TabsList, TabsTrigger } from './ui/tabs'
 import { validateUrl } from '../lib/utils'
 
 // Function to format time in a simple "ago" format
@@ -33,11 +34,14 @@ const formatTimeAgo = (date: Date): string => {
 
 export type RecurringFrequency = 'hourly' | 'daily' | 'weekly'
 
+export type DayOfWeek = "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun"
+
 export interface JobFormData {
   websiteUrl: string;
   notificationCriteria: string;
   frequency: RecurringFrequency;
   scheduledTime: string;
+  dayOfWeek?: DayOfWeek;
   analysisPrompt: string;
 }
 
@@ -124,30 +128,77 @@ export function TaskForm({
                 </div>
               )}
             
-              <div className="flex items-end gap-3">
-                <div className="flex-1">
-                  <Select
-                    value={formData.frequency}
-                    onValueChange={(value) => onFormChange({ ...formData, frequency: value as RecurringFrequency })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select frequency" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="hourly">Every Hour</SelectItem>
-                      <SelectItem value="daily">Every Day</SelectItem>
-                      <SelectItem value="weekly">Every Week</SelectItem>
-                    </SelectContent>
-                  </Select>
+              <div className="space-y-3">
+                {/* First row: Frequency selector and time picker side by side */}
+                <div className="flex items-end gap-3">
+                  <div className="flex-1">
+                    <Select
+                      value={formData.frequency}
+                      onValueChange={(value) => {
+                        const newFrequency = value as RecurringFrequency;
+                        // Initialize dayOfWeek to "mon" when switching to weekly frequency
+                        if (newFrequency === "weekly" && !formData.dayOfWeek) {
+                          onFormChange({ 
+                            ...formData, 
+                            frequency: newFrequency,
+                            dayOfWeek: "mon"
+                          });
+                        } else {
+                          onFormChange({ ...formData, frequency: newFrequency });
+                        }
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select frequency" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="hourly">Every Hour</SelectItem>
+                        <SelectItem value="daily">Every Day</SelectItem>
+                        <SelectItem value="weekly">Every Week</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="flex-1">
+                    {formData.frequency !== 'hourly' ? (
+                      <TimeInput
+                        value={formData.scheduledTime}
+                        onChange={(time) => onFormChange({ ...formData, scheduledTime: time })}
+                        className="h-9"
+                      />
+                    ) : (
+                      <div className="h-9 opacity-0 pointer-events-none">
+                        {/* This invisible element maintains layout */}
+                        <TimeInput
+                          value={formData.scheduledTime}
+                          onChange={() => {}}
+                          className="invisible"
+                        />
+                      </div>
+                    )}
+                  </div>
                 </div>
 
-                <div className="flex-1">
-                  <TimeInput
-                    value={formData.scheduledTime}
-                    onChange={(time) => onFormChange({ ...formData, scheduledTime: time })}
-                    className="h-9"
-                  />
-                </div>
+                {/* Second row: Day picker (only for weekly frequency) */}
+                {formData.frequency === 'weekly' && (
+                  <div>
+                    <Tabs 
+                      value={formData.dayOfWeek || "mon"}
+                      onValueChange={(value) => onFormChange({ ...formData, dayOfWeek: value as DayOfWeek })}
+                      className="w-full"
+                    >
+                      <TabsList className="grid grid-cols-7 w-full">
+                        <TabsTrigger value="mon">Mon</TabsTrigger>
+                        <TabsTrigger value="tue">Tue</TabsTrigger>
+                        <TabsTrigger value="wed">Wed</TabsTrigger>
+                        <TabsTrigger value="thu">Thu</TabsTrigger>
+                        <TabsTrigger value="fri">Fri</TabsTrigger>
+                        <TabsTrigger value="sat">Sat</TabsTrigger>
+                        <TabsTrigger value="sun">Sun</TabsTrigger>
+                      </TabsList>
+                    </Tabs>
+                  </div>
+                )}
               </div>
             </div>
           </div>

@@ -24,7 +24,7 @@ import {
   Eye
 } from '@phosphor-icons/react'
 import './App.css'
-import { TaskForm, JobFormData, RecurringFrequency } from './components/TaskForm'
+import { TaskForm, JobFormData, RecurringFrequency, DayOfWeek } from './components/TaskForm'
 
 // Function to format time in a simple "ago" format
 const formatTimeAgo = (date: Date): string => {
@@ -49,6 +49,7 @@ interface AnalysisJob {
   analysisPrompt: string
   frequency: RecurringFrequency
   scheduledTime: string
+  dayOfWeek?: DayOfWeek
   isRunning: boolean
   lastResult?: string
   lastRun?: Date
@@ -144,6 +145,7 @@ function App() {
       const now = new Date()
       return `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`
     })(),
+    dayOfWeek: 'mon',
     notificationCriteria: ''
   }))
   
@@ -343,7 +345,20 @@ function App() {
     } else if (job.frequency === 'daily') {
       if (next <= now) next.setDate(next.getDate() + 1)
     } else if (job.frequency === 'weekly') {
-      if (next <= now) next.setDate(next.getDate() + 7)
+      // Handle day of week for weekly jobs
+      const dayMap: Record<string, number> = {
+        mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6, sun: 0
+      }
+      const targetDay = dayMap[job.dayOfWeek || 'mon']
+      const currentDay = now.getDay() // 0 = Sunday, 1 = Monday, etc.
+      
+      let daysToAdd = targetDay - currentDay
+      if (daysToAdd < 0) daysToAdd += 7 // Wrap around to next week
+      
+      // If it's the same day but time has passed, or it's exactly now, go to next week
+      if (daysToAdd === 0 && next <= now) daysToAdd = 7
+      
+      next.setDate(next.getDate() + daysToAdd)
     }
 
     return next
@@ -423,6 +438,7 @@ function App() {
         const now = new Date()
         return `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`
       })(),
+      dayOfWeek: 'mon',
       notificationCriteria: ''
     });
     setTestResult(null);
@@ -439,6 +455,7 @@ function App() {
       analysisPrompt: job.analysisPrompt,
       frequency: job.frequency,
       scheduledTime: job.scheduledTime,
+      dayOfWeek: job.dayOfWeek || 'mon',
       notificationCriteria: job.notificationCriteria || ''
     });
     
@@ -502,6 +519,7 @@ function App() {
             analysisPrompt: updatedJob.analysisPrompt,
             frequency: updatedJob.frequency,
             scheduledTime: updatedJob.scheduledTime,
+            dayOfWeek: updatedJob.dayOfWeek,
             notificationCriteria: updatedJob.notificationCriteria 
           } 
         : j
@@ -1421,8 +1439,8 @@ Return your response in this JSON format:
                               <TooltipTrigger asChild>
                                 <span className="flex-shrink-0 cursor-default">
                                   {job.frequency === 'hourly' ? 'Hourly' : 
-                                   job.frequency === 'daily' ? 'Daily' : 
-                                   job.frequency === 'weekly' ? 'Weekly' : ''} at {job.scheduledTime}
+                                   job.frequency === 'daily' ? `Daily at ${job.scheduledTime}` : 
+                                   job.frequency === 'weekly' ? `Weekly on ${job.dayOfWeek || 'Mon'} at ${job.scheduledTime}` : ''}
                                 </span>
                               </TooltipTrigger>
                               <TooltipContent>
