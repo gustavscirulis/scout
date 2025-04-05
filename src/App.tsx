@@ -697,7 +697,11 @@ function App() {
   }
 
   const sendNotification = (job: AnalysisJob, analysis: string) => {
+    console.log(`Sending notification for job ${job.id}: ${job.notificationCriteria}`);
+    
     if (notificationPermission === 'granted') {
+      console.log(`Notification permission granted, creating notification`);
+      
       // Extract just the domain from the URL
       const urlObj = new URL(job.websiteUrl.startsWith('http') ? job.websiteUrl : `http://${job.websiteUrl}`);
       const domain = urlObj.hostname;
@@ -709,6 +713,9 @@ function App() {
       if (analysis && analysis.length > 100) {
         body = analysis.slice(0, 100) + '...';
       }
+      
+      console.log(`Notification title: ${title}`);
+      console.log(`Notification body: ${body.substring(0, 50)}...`);
       
       // Create notification that will persist until explicitly dismissed
       const notification = new Notification(title, {
@@ -893,6 +900,15 @@ Return your response in this JSON format:
                 setJobs(updatedJobs);
                 
                 console.log(`Job ${job.id} recovered and updated`);
+                
+                // Check if we should send a notification for the recovered job
+                if (criteriaMatched === true) {
+                  console.log(`Criteria matched for recovered job ${job.id}, sending notification`);
+                  sendNotification(updatedJob, parsedResult.analysis);
+                } else {
+                  console.log(`Criteria not matched for recovered job ${job.id}, no notification sent`);
+                }
+                
                 return;
               }
             }
@@ -929,7 +945,22 @@ Return your response in this JSON format:
         
         // Only send notification if criteria matched
         if (criteriaMatched === true) {
-          sendNotification(job, parsedResult.analysis);
+          console.log(`Criteria matched, sending notification for job ${job.id}`);
+          
+          // Get the freshly updated job from the array to ensure it has the latest data
+          const updatedJobForNotification = latestJobs[currentJobIndex];
+          
+          // Double-check we have the updated job before sending notification
+          if (updatedJobForNotification) {
+            console.log(`Using updated job data for notification: ${updatedJobForNotification.id}`);
+            sendNotification(updatedJobForNotification, parsedResult.analysis);
+          } else {
+            // Fallback to original job if we somehow can't find the updated one
+            console.log(`Falling back to original job for notification: ${job.id}`);
+            sendNotification(job, parsedResult.analysis);
+          }
+        } else {
+          console.log(`Criteria not matched for job ${job.id}, no notification sent`);
         }
       } catch (error) {
         console.error("Failed to parse response:", error);
