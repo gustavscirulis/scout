@@ -471,20 +471,45 @@ ipcMain.handle('take-screenshot', async (_event, url: string) => {
     height: 1080,
     show: false,
     webPreferences: {
-      offscreen: true
+      offscreen: true,
+      userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36'
     }
   })
-
-  await offscreenWindow.loadURL(url)
-  await new Promise(resolve => setTimeout(resolve, 2000))
-
-  const image = await offscreenWindow.webContents.capturePage()
-  const pngBuffer = await image.toPNG()
-  const base64Image = pngBuffer.toString('base64')
-  const screenshot = `data:image/png;base64,${base64Image}`
   
-  offscreenWindow.close()
-  return screenshot
+  // Set extra HTTP headers to avoid bot detection
+  offscreenWindow.webContents.session.webRequest.onBeforeSendHeaders(
+    { urls: ['*://*/*'] },
+    (details, callback) => {
+      details.requestHeaders['Accept-Language'] = 'en-US,en;q=0.9'
+      callback({ requestHeaders: details.requestHeaders })
+    }
+  )
+
+  try {
+    // Set a load timeout in case the page hangs
+    const loadPromise = offscreenWindow.loadURL(url)
+    
+    // Wait for page to load with proper timeout handling
+    await Promise.race([
+      loadPromise,
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Page load timeout')), 15000))
+    ])
+    
+    // Allow time for page content to render
+    await new Promise(resolve => setTimeout(resolve, 2000))
+
+    const image = await offscreenWindow.webContents.capturePage()
+    const pngBuffer = await image.toPNG()
+    const base64Image = pngBuffer.toString('base64')
+    const screenshot = `data:image/png;base64,${base64Image}`
+    
+    return screenshot
+  } catch (error) {
+    console.error('Screenshot error:', error)
+    throw error
+  } finally {
+    offscreenWindow.close()
+  }
 })
 
 // API Key management handlers

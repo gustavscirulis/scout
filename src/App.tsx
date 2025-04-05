@@ -755,7 +755,15 @@ function App() {
       const websiteUrl = (!task.websiteUrl.startsWith('http://') && !task.websiteUrl.startsWith('https://')) 
         ? `http://${task.websiteUrl}` 
         : task.websiteUrl
-      const screenshot = await ipcRenderer.invoke('take-screenshot', websiteUrl)
+      
+      let screenshot
+      try {
+        screenshot = await ipcRenderer.invoke('take-screenshot', websiteUrl)
+      } catch (error) {
+        console.error('Screenshot failed:', error)
+        // Instead of failing the entire analysis, continue with a fallback message
+        throw new Error(`Could not capture screenshot from ${websiteUrl}. Please check if the website is accessible.`)
+      }
 
       // Construct a focused prompt that directly evaluates the notification criteria
       const promptText = `Analyze this webpage and determine if the following condition is true: "${task.notificationCriteria}"
@@ -953,7 +961,15 @@ Return your response in this JSON format:
       const websiteUrl = (!taskData.websiteUrl.startsWith('http://') && !taskData.websiteUrl.startsWith('https://')) 
         ? `http://${taskData.websiteUrl}` 
         : taskData.websiteUrl
-      const screenshot = await ipcRenderer.invoke('take-screenshot', websiteUrl)
+      
+      let screenshot
+      try {
+        screenshot = await ipcRenderer.invoke('take-screenshot', websiteUrl)
+      } catch (error) {
+        console.error('Screenshot failed:', error)
+        // Instead of failing the entire analysis, continue with a fallback message
+        throw new Error(`Could not capture screenshot from ${websiteUrl}. Please check if the website is accessible.`)
+      }
       
       const promptText = `Analyze this webpage and determine if the following condition is true: "${taskData.notificationCriteria}"
 
