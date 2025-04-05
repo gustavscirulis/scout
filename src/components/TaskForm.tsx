@@ -1,4 +1,4 @@
-import { useState, ChangeEvent } from 'react'
+import { useState, useEffect, ChangeEvent } from 'react'
 import {
   WarningCircle,
   CheckCircle,
@@ -70,6 +70,19 @@ export function TaskForm({
   onSave
 }: TaskFormProps) {
   const [urlError, setUrlError] = useState<string | null>(null);
+  const [prevCriteria, setPrevCriteria] = useState(formData.notificationCriteria);
+
+  // Clear results when criteria changes since they're no longer valid
+  useEffect(() => {
+    if (formData.notificationCriteria !== prevCriteria && testResult) {
+      // If we're editing a task and the criteria changed, clear the test result
+      onFormChange({
+        ...formData,
+      });
+      onTest({ ...formData }); // Re-test with new criteria
+      setPrevCriteria(formData.notificationCriteria);
+    }
+  }, [formData.notificationCriteria, prevCriteria, testResult]);
 
   const handleUrlChange = (e: ChangeEvent<HTMLInputElement>) => {
     const url = e.target.value;
