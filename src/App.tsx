@@ -18,7 +18,9 @@ import {
   WarningCircle,
   Trash,
   CaretLeft,
-  CaretRight
+  CaretRight,
+  Moon,
+  Sun
 } from '@phosphor-icons/react'
 import './App.css'
 import { TaskForm, JobFormData, RecurringFrequency } from './components/TaskForm'
@@ -61,7 +63,49 @@ interface AnalysisJob {
 
 type NewJobFormData = JobFormData
 
+// Function to check if the user prefers dark mode
+const getSystemThemePreference = (): 'dark' | 'light' => {
+  if (typeof window !== 'undefined' && window.matchMedia) {
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+  }
+  return 'light' // Default to light if media queries not supported
+}
+
+// Function to update the document with the theme class
+const updateThemeClass = (theme: 'dark' | 'light') => {
+  if (theme === 'dark') {
+    document.documentElement.classList.add('dark')
+  } else {
+    document.documentElement.classList.remove('dark')
+  }
+}
+
 function App() {
+  // Theme state with initial value from system preference
+  const [theme, setTheme] = useState<'dark' | 'light'>(getSystemThemePreference)
+  
+  // Update theme when system preference changes
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+    
+    // Set initial theme
+    updateThemeClass(getSystemThemePreference())
+    
+    // Add listener for changes
+    const handleChange = (e: MediaQueryListEvent) => {
+      const newTheme = e.matches ? 'dark' : 'light'
+      setTheme(newTheme)
+      updateThemeClass(newTheme)
+    }
+    
+    // Modern browsers
+    mediaQuery.addEventListener('change', handleChange)
+    
+    return () => {
+      mediaQuery.removeEventListener('change', handleChange)
+    }
+  }, [])
+  
   // Wrap with TooltipProvider at the app level for all tooltips
   const appWithTooltips = (appContent: React.ReactNode) => (
     <TooltipProvider delayDuration={1}>
@@ -827,7 +871,7 @@ Return your response in this JSON format:
   return appWithTooltips(
     <div className="flex flex-col h-full w-full">
       {/* Titlebar - macOS style */}
-      <div className="h-12 -webkit-app-region-drag w-full flex items-center justify-between border-b bg-white px-2">
+      <div className="h-12 -webkit-app-region-drag w-full flex items-center justify-between border-b bg-header px-2">
         <div className="flex items-center justify-center">
           {(showNewJobForm || editingJobId || settingsView) ? (
             <Button
@@ -862,7 +906,7 @@ Return your response in this JSON format:
             (settingsView ? 'Settings' : 'Scout')}
         </div>
         
-        <div className="flex items-center justify-center">
+        <div className="flex items-center justify-center gap-1">
           {!showNewJobForm && !editingJobId && !settingsView ? (
             <Button
               variant="headerIcon"
@@ -891,7 +935,7 @@ Return your response in this JSON format:
 
 
       {/* Main content */}
-      <div className={`flex-1 overflow-y-auto overflow-x-hidden flex flex-col relative bg-[#F9FAFB] ${isTransitioning ? 'overflow-hidden' : ''}`}>
+      <div className={`flex-1 overflow-y-auto overflow-x-hidden flex flex-col relative bg-background ${isTransitioning ? 'overflow-hidden' : ''}`}>
         <div className="w-full space-y-6 flex-grow flex flex-col">
 
           {/* Jobs List */}
@@ -924,7 +968,7 @@ Return your response in this JSON format:
                 {!apiKey ? (
                   <>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-left mb-8 w-full">
-                      <div className="bg-background border p-4 rounded-lg opacity-70 text-left flex items-start -webkit-app-region-no-drag shadow-sm">
+                      <div className="bg-card border p-4 rounded-lg opacity-70 text-left flex items-start -webkit-app-region-no-drag shadow-sm">
                         <ShoppingBag size={18} className="text-primary mr-3 mt-0.5 flex-shrink-0" />
                         <div>
                           <div className="font-medium text-sm">Price Drops</div>
@@ -934,7 +978,7 @@ Return your response in this JSON format:
                         </div>
                       </div>
                       
-                      <div className="bg-background border p-4 rounded-lg opacity-70 text-left flex items-start -webkit-app-region-no-drag shadow-sm">
+                      <div className="bg-card border p-4 rounded-lg opacity-70 text-left flex items-start -webkit-app-region-no-drag shadow-sm">
                         <Ticket size={18} className="text-primary mr-3 mt-0.5 flex-shrink-0" />
                         <div>
                           <div className="font-medium text-sm">Back in Stock</div>
@@ -944,7 +988,7 @@ Return your response in this JSON format:
                         </div>
                       </div>
                       
-                      <div className="bg-background border p-4 rounded-lg opacity-70 text-left flex items-start -webkit-app-region-no-drag shadow-sm">
+                      <div className="bg-card border p-4 rounded-lg opacity-70 text-left flex items-start -webkit-app-region-no-drag shadow-sm">
                         <Briefcase size={18} className="text-primary mr-3 mt-0.5 flex-shrink-0" />
                         <div>
                           <div className="font-medium text-sm">New Content</div>
@@ -987,7 +1031,7 @@ Return your response in this JSON format:
                           }));
                           setShowNewJobForm(true);
                         }}
-                        className="bg-background border p-4 rounded-lg hover:bg-muted/30 transition-colors text-left flex items-start -webkit-app-region-no-drag shadow-sm"
+                        className="bg-card border p-4 rounded-lg hover:bg-muted/30 transition-colors text-left flex items-start -webkit-app-region-no-drag shadow-sm"
                       >
                         <ShoppingBag size={18} className="text-primary mr-3 mt-0.5 flex-shrink-0" />
                         <div>
@@ -1007,7 +1051,7 @@ Return your response in this JSON format:
                           }));
                           setShowNewJobForm(true);
                         }}
-                        className="bg-background border p-4 rounded-lg hover:bg-muted/30 transition-colors text-left flex items-start -webkit-app-region-no-drag shadow-sm"
+                        className="bg-card border p-4 rounded-lg hover:bg-muted/30 transition-colors text-left flex items-start -webkit-app-region-no-drag shadow-sm"
                       >
                         <Ticket size={18} className="text-primary mr-3 mt-0.5 flex-shrink-0" />
                         <div>
@@ -1027,7 +1071,7 @@ Return your response in this JSON format:
                           }));
                           setShowNewJobForm(true);
                         }}
-                        className="bg-background border p-4 rounded-lg hover:bg-muted/30 transition-colors text-left flex items-start -webkit-app-region-no-drag shadow-sm"
+                        className="bg-card border p-4 rounded-lg hover:bg-muted/30 transition-colors text-left flex items-start -webkit-app-region-no-drag shadow-sm"
                       >
                         <Briefcase size={18} className="text-primary mr-3 mt-0.5 flex-shrink-0" />
                         <div>
@@ -1176,9 +1220,30 @@ Return your response in this JSON format:
                         </div>
                       </div>
                     </fieldset>
+                    
+                    <Separator />
+                    
+                    <fieldset className="space-y-3">
+                      <legend className="text-sm font-medium">Appearance</legend>
+                      <div className="text-sm text-muted-foreground mb-2">
+                        Dark mode follows your system settings automatically
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-md border border-input bg-background">
+                          {theme === 'dark' ? (
+                            <Moon size={20} weight="fill" className="text-foreground" />
+                          ) : (
+                            <Sun size={20} weight="fill" className="text-foreground" />
+                          )}
+                        </div>
+                        <div className="text-sm">
+                          {theme === 'dark' ? 'Dark mode' : 'Light mode'}
+                        </div>
+                      </div>
+                    </fieldset>
                   </div>
                 </div>
-                <div className="sticky bottom-0 left-0 right-0 border-t border-border/60 h-12 px-2 flex justify-center items-center gap-3 bg-white">
+                <div className="sticky bottom-0 left-0 right-0 border-t border-border/60 h-12 px-2 flex justify-center items-center gap-3 bg-header">
                   <Button
                     variant="default"
                     onClick={async () => {

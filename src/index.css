@@ -7,6 +7,7 @@
     --background: 0 0% 100%;
     --foreground: 240 10% 3.9%;
     --sidebar: 0 0% 98%;
+    --header: 0 0% 100%;
     --card: 0 0% 100%;
     --card-foreground: 240 10% 3.9%;
     --popover: 0 0% 100%;
@@ -26,6 +27,30 @@
     --ring: 224 71.4% 4.1%;
     --radius: 8px;
   }
+
+  .dark {
+    --background: 215 13% 15%;  /* #202528 */
+    --foreground: 0 0% 98%;
+    --header: 210 7% 16%;        /* #252A2D */
+    --sidebar: 210 7% 16%;       /* #252A2D */
+    --card: 210 7% 16%;
+    --card-foreground: 0 0% 98%;
+    --popover: 210 7% 16%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 240 5.9% 10%;
+    --secondary: 240 3.7% 20.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 3.7% 20.9%;
+    --muted-foreground: 240 5% 64.9%;
+    --accent: 240 3.7% 20.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 3.7% 25.9%;
+    --input: 240 3.7% 25.9%;
+    --ring: 240 4.9% 83.9%;
+  }
 }
 
 @layer base {
@@ -39,7 +64,6 @@
     margin: 0;
     padding: 0;
     overflow: hidden;
-    background-color: #ffffff;
   }
 
   body {
@@ -74,28 +98,30 @@
   @apply rounded-lg px-3 py-1.5 text-sm font-medium transition-colors;
   background-color: transparent;
   border: none;
-  color: #000000;
+  @apply text-foreground;
 }
 
 .mac-native-button:hover {
-  background-color: rgba(0, 0, 0, 0.05);
+  @apply bg-foreground/5;
 }
 
 .mac-native-button:active {
-  background-color: rgba(0, 0, 0, 0.1);
+  @apply bg-foreground/10;
 }
 
 .mac-native-input {
   @apply rounded-lg px-3 py-1.5 text-sm;
-  background-color: #ffffff;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  color: #000000;
+  @apply bg-background border border-input text-foreground;
 }
 
 .mac-native-input:focus {
   outline: none;
   border-color: #007AFF;
   box-shadow: 0 0 0 2px rgba(0, 122, 255, 0.2);
+}
+
+.dark .mac-native-input:focus {
+  box-shadow: 0 0 0 2px rgba(0, 122, 255, 0.4);
 }
 
 textarea.mac-native-input {
@@ -106,9 +132,7 @@ textarea.mac-native-input {
 
 .mac-native-select {
   @apply rounded-lg px-3 py-1.5 text-sm;
-  background-color: #ffffff;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  color: #000000;
+  @apply bg-background border border-input text-foreground;
   appearance: none;
 }
 
@@ -118,28 +142,34 @@ textarea.mac-native-input {
   box-shadow: 0 0 0 2px rgba(0, 122, 255, 0.2);
 }
 
+.dark .mac-native-select:focus {
+  box-shadow: 0 0 0 2px rgba(0, 122, 255, 0.4);
+}
+
 /* Things-like styles */
 .sidebar {
-  background-color: #F6F6F6;
+  @apply bg-sidebar;
   border-right: 1px solid rgba(0, 0, 0, 0.06);
 }
 
+.dark .sidebar {
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+}
+
 .sidebar-item {
-  @apply px-3 py-1.5 text-sm font-medium transition-colors rounded-md;
-  color: rgba(0, 0, 0, 0.7);
+  @apply px-3 py-1.5 text-sm font-medium transition-colors rounded-md text-foreground/70;
 }
 
 .sidebar-item:hover {
-  background-color: rgba(0, 0, 0, 0.04);
+  @apply bg-foreground/5;
 }
 
 .sidebar-item.active {
-  background-color: rgba(0, 0, 0, 0.06);
-  color: rgba(0, 0, 0, 0.8);
+  @apply bg-foreground/10 text-foreground/80;
 }
 
 .content-area {
-  background-color: #ffffff;
+  @apply bg-background;
 }
 
 .checkbox {

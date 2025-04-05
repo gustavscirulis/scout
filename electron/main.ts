@@ -99,7 +99,7 @@ function createWindow() {
       nodeIntegration: true,
       contextIsolation: false,
     },
-    backgroundColor: '#00000080', // 50% opacity black
+    backgroundColor: '#00000000', // Fully transparent
     vibrancy: 'under-window',
     visualEffectState: 'active',
     transparent: true,
