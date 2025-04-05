@@ -62,7 +62,7 @@ npm run build
 - **API Key Security**: Your OpenAI API key is stored securely in your system's keychain.
 - **No Data Sharing**: Scout does not send any data to external servers beyond what's required for the OpenAI API.
 - **Secure Screenshots**: Website screenshots are processed by OpenAI's API but not stored long-term.
-- **No Tracking**: Scout does not include any analytics or tracking code.
+- **Anonymous Analytics**: Scout uses TelemetryDeck to collect anonymous usage data to help us improve the application. This data includes app launches, feature usage, and error reports. No personally identifiable information is collected, and all data is anonymized. You can learn more about TelemetryDeck's privacy practices at [telemetrydeck.com/privacy](https://telemetrydeck.com/privacy).
 
 ## License
 
