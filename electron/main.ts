@@ -10,6 +10,10 @@ import crypto from 'crypto'
 
 const { app, BrowserWindow, nativeTheme, ipcMain, Tray, screen, shell } = electron
 
+// Constants for tray icon paths
+let TRAY_ICON_PATH: string
+let TRAY_SUCCESS_ICON_PATH: string
+
 // Encryption key management
 const getEncryptionKey = () => {
   // Generate a device-specific key using the machine ID
@@ -64,6 +68,7 @@ let mainWindow: electron.BrowserWindow | null = null
 let tray: electron.Tray | null = null
 let windowFloating: boolean = false
 let temporaryFloating: boolean = false
+let hasSuccessfulTasks: boolean = false
 
 // Task type definition
 interface Task {
@@ -138,12 +143,31 @@ const getTaskById = (taskId: string): Task | undefined => {
   }
 }
 
+// Check if any tasks have matched their criteria
+const checkForSuccessfulTasks = (): boolean => {
+  const tasks = getAllTasks()
+  const hasSuccess = tasks.some(task => task.lastMatchedCriteria === true)
+  
+  // Update tray icon if success state has changed
+  if (hasSuccess !== hasSuccessfulTasks) {
+    hasSuccessfulTasks = hasSuccess
+    if (tray) {
+      createTray(hasSuccessfulTasks)
+    }
+  }
+  
+  return hasSuccess
+}
+
 const addTask = (task: Task): void => {
   try {
     const validatedTask = validateTask(task)
     const tasks = getAllTasks()
     tasks.push(validatedTask)
     saveAllTasks(tasks)
+    
+    // Check if we need to update the tray icon
+    checkForSuccessfulTasks()
   } catch (error) {
     console.error('Error adding task:', error)
     throw error
@@ -159,6 +183,9 @@ const updateTask = (updatedTask: Task): void => {
     if (index !== -1) {
       tasks[index] = validatedTask
       saveAllTasks(tasks)
+      
+      // Check if we need to update the tray icon
+      checkForSuccessfulTasks()
     } else {
       console.error(`Task with ID ${validatedTask.id} not found for update`)
     }
@@ -179,6 +206,9 @@ const deleteTask = (taskId: string): void => {
     }
     
     saveAllTasks(updatedTasks)
+    
+    // Check if we need to update the tray icon after deletion
+    checkForSuccessfulTasks()
   } catch (error) {
     console.error(`Error deleting task ${taskId}:`, error)
     throw error
@@ -219,17 +249,24 @@ function toggleWindow() {
   }
 }
 
-function createTray() {
+function createTray(useSuccessIcon = false) {
   if (tray) {
     tray.destroy()
     tray = null
   }
 
   try {
-    // Create tray icon
-    const iconPath = !app.isPackaged 
-      ? join(process.cwd(), 'public', 'icon.png')
-      : join(__dirname, '..', 'dist', 'icon.png')
+    // Set up tray icon paths
+    TRAY_ICON_PATH = !app.isPackaged 
+      ? join(process.cwd(), 'public', 'tray@2x.png')
+      : join(__dirname, '..', 'dist', 'tray@2x.png')
+    
+    TRAY_SUCCESS_ICON_PATH = !app.isPackaged 
+      ? join(process.cwd(), 'public', 'tray_success@2x.png')
+      : join(__dirname, '..', 'dist', 'tray_success@2x.png')
+    
+    // Use the appropriate icon based on task status
+    const iconPath = useSuccessIcon ? TRAY_SUCCESS_ICON_PATH : TRAY_ICON_PATH
     
     const icon = electron.nativeImage.createFromPath(iconPath)
     if (icon.isEmpty()) {
@@ -283,8 +320,11 @@ function createWindow() {
   // Hide dock icon
   if (app.dock) app.dock.hide()
 
-  // Create the tray icon
-  createTray()
+  // Check for successful tasks on startup
+  hasSuccessfulTasks = checkForSuccessfulTasks()
+  
+  // Create the tray icon with the appropriate state
+  createTray(hasSuccessfulTasks)
   
   // Position the window under the tray icon on first launch
   if (tray) {
@@ -466,6 +506,12 @@ ipcMain.handle('save-api-key', (_event, apiKey) => {
 ipcMain.handle('delete-api-key', () => {
   store.delete('apiKey')
   return true
+})
+
+// Handle request to update tray icon
+ipcMain.handle('update-tray-icon', () => {
+  hasSuccessfulTasks = checkForSuccessfulTasks()
+  return { success: true, hasSuccessfulTasks }
 })
 
 // Keep track of the latest temporary screenshot file

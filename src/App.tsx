@@ -195,6 +195,11 @@ function App() {
         electron.ipcRenderer.send('toggle-window-floating', true);
       }
       
+      // Request tray icon update on startup
+      electron.ipcRenderer.invoke('update-tray-icon').catch(err => {
+        console.error('Failed to update tray icon on startup:', err)
+      });
+      
       return () => {
         // Clean up listeners when component unmounts
         electron.ipcRenderer.removeAllListeners('window-floating-updated');
@@ -463,6 +468,16 @@ function App() {
       resetNewJobForm()
       setEditingJobId(null)
       setShowNewJobForm(false)
+      
+      // Update tray icon after deletion in case we removed a successful task
+      try {
+        const electron = window.require('electron');
+        electron.ipcRenderer.invoke('update-tray-icon').catch(err => {
+          console.error('Failed to update tray icon after task deletion:', err)
+        });
+      } catch (error) {
+        // Silent fail if electron is not available in dev mode
+      }
     } catch (error) {
       console.error('Failed to delete task:', error)
     }
@@ -605,6 +620,16 @@ function App() {
       // Clear form and editing mode
       setEditingJobId(null);
       resetNewJobForm();
+      
+      // Update tray icon if criteria might have changed
+      try {
+        const electron = window.require('electron');
+        electron.ipcRenderer.invoke('update-tray-icon').catch(err => {
+          console.error('Failed to update tray icon after task update:', err)
+        });
+      } catch (error) {
+        // Silent fail if electron is not available in dev mode
+      }
     } catch (error) {
       console.error('Failed to update task:', error);
       setError('Failed to update task');
@@ -654,6 +679,18 @@ function App() {
       // Close form and reset
       setShowNewJobForm(false);
       resetNewJobForm();
+      
+      // Update tray icon if a new task was added with a matched condition
+      if (testResult?.matched) {
+        try {
+          const electron = window.require('electron');
+          electron.ipcRenderer.invoke('update-tray-icon').catch(err => {
+            console.error('Failed to update tray icon after task creation:', err)
+          });
+        } catch (error) {
+          // Silent fail if electron is not available in dev mode
+        }
+      }
     } catch (error) {
       console.error('Failed to create task:', error);
       setError('Failed to create task');
@@ -809,6 +846,16 @@ Return your response in this JSON format:
           // Only send notification if criteria matched
           if (criteriaMatched === true) {
             sendNotification(updatedTask, parsedResult.analysis);
+          }
+          
+          // Update tray icon if criteria matched state changed
+          try {
+            const electron = window.require('electron');
+            electron.ipcRenderer.invoke('update-tray-icon').catch(err => {
+              console.error('Failed to update tray icon:', err)
+            });
+          } catch (error) {
+            // Silent fail if electron is not available in dev mode
           }
         } else {
           // Log error if we couldn't update the task
@@ -1507,6 +1554,15 @@ Return your response in this JSON format:
                                 })
                               );
                               setTasks(updatedTasks);
+                              
+                              // Update tray icon after starting all tasks
+                              try {
+                                electron.ipcRenderer.invoke('update-tray-icon').catch(err => {
+                                  console.error('Failed to update tray icon after starting all tasks:', err)
+                                });
+                              } catch (error) {
+                                // Silent fail if electron is not available in dev mode
+                              }
                             }, 50);
                           }
                         } catch (error) {
