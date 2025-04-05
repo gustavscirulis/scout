@@ -19,8 +19,6 @@ import {
   Trash,
   CaretLeft,
   CaretRight,
-  Moon,
-  Sun,
   Eye
 } from '@phosphor-icons/react'
 import './App.css'
@@ -1351,74 +1349,74 @@ Return your response in this JSON format:
                       </div>
                     </fieldset>
                     
-                    <Separator />
-                    
-                    <fieldset className="space-y-3">
-                      <legend className="text-sm font-medium">Window Options</legend>
-                      
-                      <div className="items-top flex space-x-2">
-                        <Checkbox
-                          id="windowFloating"
-                          checked={windowIsFloating}
-                          onCheckedChange={(checked) => {
-                            const isChecked = !!checked;
-                            
-                            // Update state for immediate UI feedback
-                            setWindowIsFloating(isChecked);
-                            
-                            // Update localStorage
-                            if (isChecked) {
-                              localStorage.setItem('windowFloating', 'true');
-                            } else {
-                              localStorage.removeItem('windowFloating');
-                            }
-                            
-                            // Send IPC message to main process
-                            try {
-                              const electron = window.require('electron');
-                              electron.ipcRenderer.send('toggle-window-floating', isChecked);
-                            } catch (error) {
-                              setError('Could not update window settings');
+                    {(() => {
+                      // Check if app is in development mode
+                      try {
+                        const electron = window.require('electron');
+                        const isDev = !electron.app?.isPackaged;
+                        
+                        // Only render window options in dev mode
+                        if (isDev) {
+                          return (
+                            <>
+                              <Separator />
                               
-                              // Revert state on error
-                              setWindowIsFloating(!isChecked);
-                            }
-                          }}
-                        />
-                        <div className="grid gap-1.5 leading-none">
-                          <label
-                            htmlFor="windowFloating"
-                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                          >
-                            Keep window floating
-                          </label>
-                          <p className="text-sm text-muted-foreground">
-                            Window will stay open when clicking elsewhere
-                          </p>
-                        </div>
-                      </div>
-                    </fieldset>
+                              <fieldset className="space-y-3">
+                                <legend className="text-sm font-medium">Window Options</legend>
+                                
+                                <div className="items-top flex space-x-2">
+                                  <Checkbox
+                                    id="windowFloating"
+                                    checked={windowIsFloating}
+                                    onCheckedChange={(checked) => {
+                                      const isChecked = !!checked;
+                                      
+                                      // Update state for immediate UI feedback
+                                      setWindowIsFloating(isChecked);
+                                      
+                                      // Update localStorage
+                                      if (isChecked) {
+                                        localStorage.setItem('windowFloating', 'true');
+                                      } else {
+                                        localStorage.removeItem('windowFloating');
+                                      }
+                                      
+                                      // Send IPC message to main process
+                                      try {
+                                        const electron = window.require('electron');
+                                        electron.ipcRenderer.send('toggle-window-floating', isChecked);
+                                      } catch (error) {
+                                        setError('Could not update window settings');
+                                        
+                                        // Revert state on error
+                                        setWindowIsFloating(!isChecked);
+                                      }
+                                    }}
+                                  />
+                                  <div className="grid gap-1.5 leading-none">
+                                    <label
+                                      htmlFor="windowFloating"
+                                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                    >
+                                      Keep window floating
+                                    </label>
+                                    <p className="text-sm text-muted-foreground">
+                                      Window will stay open when clicking elsewhere
+                                    </p>
+                                  </div>
+                                </div>
+                              </fieldset>
+                            </>
+                          );
+                        }
+                        
+                        return null;
+                      } catch (error) {
+                        // Silent fail if electron is not available
+                        return null;
+                      }
+                    })()}
                     
-                    <Separator />
-                    
-                    <fieldset className="space-y-3">
-                      <legend className="text-sm font-medium">Appearance</legend>
-                      <div className="text-sm text-muted-foreground mb-2">
-                        Dark mode follows your system settings automatically
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-md border border-input bg-background">
-                          {theme === 'dark' ? (
-                            <Moon size={20} weight="fill" className="text-foreground" />
-                          ) : (
-                            <Sun size={20} weight="fill" className="text-foreground" />
-                          )}
-                        </div>
-                        <div className="text-sm">
-                          {theme === 'dark' ? 'Dark mode' : 'Light mode'}
-                        </div>
-                      </div>
-                    </fieldset>
                   </div>
                 </div>
                 <div className="sticky bottom-0 left-0 right-0 border-t border-border/60 h-12 px-2 flex justify-center items-center gap-3 bg-header">
