@@ -871,8 +871,8 @@ Return your response in this JSON format:
   return appWithTooltips(
     <div className="flex flex-col h-full w-full">
       {/* Titlebar - macOS style */}
-      <div className="h-12 -webkit-app-region-drag w-full flex items-center justify-between border-b bg-header px-2">
-        <div className="flex items-center justify-center">
+      <div className="h-12 -webkit-app-region-drag w-full flex items-center border-b bg-header">
+        <div className="flex items-center w-12 pl-2">
           {(showNewJobForm || editingJobId || settingsView) ? (
             <Button
               variant="headerIcon"
@@ -900,13 +900,13 @@ Return your response in this JSON format:
           )}
         </div>
         
-        <div className="font-semibold text-sm -webkit-app-region-drag text-muted-foreground">
+        <div className="font-semibold text-sm -webkit-app-region-drag text-muted-foreground text-center flex-1">
           {(showNewJobForm || editingJobId) ? 
             (editingJobId ? 'Edit Task' : 'New Task') : 
             (settingsView ? 'Settings' : 'Scout')}
         </div>
         
-        <div className="flex items-center justify-center gap-1">
+        <div className="flex items-center justify-end w-12 pr-2">
           {!showNewJobForm && !editingJobId && !settingsView ? (
             <Button
               variant="headerIcon"
@@ -1336,7 +1336,7 @@ Return your response in this JSON format:
               // When not in edit mode, settings, or creating new job, and API key exists, show a Mac-style list
               jobs.length > 0 && (
                 <div className="pb-6">
-                  <div className="rounded-lg border overflow-hidden animate-in border-x-0 rounded-none">
+                  <div className="rounded-lg overflow-hidden animate-in border-x-0 rounded-none">
                     {jobs.map((job, index) => (
                       <div 
                         key={job.id}
@@ -1387,7 +1387,7 @@ Return your response in this JSON format:
                                       <CheckCircle className="w-3 h-3 ml-0.5" weight="fill" />
                                     </span>
                                   ) : (
-                                    <span className="flex items-center">
+                                    <span className="flex items-center text-neutral-500 dark:text-neutral-400">
                                       <span>Not matched</span>
                                       <XCircle className="w-3 h-3 ml-0.5" weight="fill" />
                                     </span>

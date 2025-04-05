@@ -193,15 +193,15 @@ export function TaskForm({
                             <div className="flex items-center text-xs">
                               {testResult.matched !== undefined && (
                                 <>
-                                  <span className={testResult.matched ? "text-green-600 dark:text-green-500 font-medium flex items-center" : "text-gray-500 dark:text-gray-400 font-medium flex items-center"}>
+                                  <span className={testResult.matched ? "text-green-600 dark:text-green-500 font-medium flex items-center" : "text-neutral-500 dark:text-neutral-400 font-medium flex items-center"}>
                                     {testResult.matched ? (
                                       <>
-                                        <Check className="w-3 h-3 mr-1 text-gray-400" weight="bold" />
+                                        <Check className="w-3 h-3 mr-1 text-neutral-400" weight="bold" />
                                         Matched
                                       </>
                                     ) : (
                                       <>
-                                        <X className="w-3 h-3 mr-1 text-gray-400" weight="bold" />
+                                        <X className="w-3 h-3 mr-1 text-neutral-400" weight="bold" />
                                         Not matched
                                       </>
                                     )}
