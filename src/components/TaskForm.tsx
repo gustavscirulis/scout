@@ -72,17 +72,13 @@ export function TaskForm({
   const [urlError, setUrlError] = useState<string | null>(null);
   const [prevCriteria, setPrevCriteria] = useState(formData.notificationCriteria);
 
-  // Clear results when criteria changes since they're no longer valid
+  // Track criteria changes to know when test results are no longer valid
   useEffect(() => {
-    if (formData.notificationCriteria !== prevCriteria && testResult) {
-      // If we're editing a task and the criteria changed, clear the test result
-      onFormChange({
-        ...formData,
-      });
-      onTest({ ...formData }); // Re-test with new criteria
+    // Just update the previous criteria value
+    if (formData.notificationCriteria !== prevCriteria) {
       setPrevCriteria(formData.notificationCriteria);
     }
-  }, [formData.notificationCriteria, prevCriteria, testResult]);
+  }, [formData.notificationCriteria, prevCriteria]);
 
   const handleUrlChange = (e: ChangeEvent<HTMLInputElement>) => {
     const url = e.target.value;
@@ -307,7 +303,18 @@ export function TaskForm({
         </Button>
         <Button
           variant="default"
-          onClick={() => onSave(formData)}
+          onClick={() => {
+            // If criteria has changed and there are test results, 
+            // don't pass them when saving as they're no longer valid
+            if (formData.notificationCriteria !== prevCriteria && testResult) {
+              // Create a wrapper save function that clears test results
+              onSave({
+                ...formData
+              });
+            } else {
+              onSave(formData);
+            }
+          }}
           disabled={!formData.websiteUrl || !formData.notificationCriteria || loading}
           className="h-8 w-24"
         >

@@ -479,6 +479,18 @@ function App() {
     setEditingJobId(null);
   };
   
+  // Clear test results when criteria changes since they're no longer valid
+  useEffect(() => {
+    if (editingJobId && testResult) {
+      const task = tasks.find(t => t.id === editingJobId);
+      // If we're editing a task and the criteria in form doesn't match task criteria 
+      // and there are test results, clear them as they're no longer valid
+      if (task && task.notificationCriteria !== newJob.notificationCriteria) {
+        setTestResult(null);
+      }
+    }
+  }, [newJob.notificationCriteria, editingJobId, testResult, tasks]);
+  
   const startEditingTask = (taskId: string) => {
     const task = tasks.find(t => t.id === taskId);
     if (!task) return;
@@ -538,6 +550,9 @@ function App() {
         await stopTask(editingJobId);
       }
       
+      // Check if criteria changed
+      const criteriaChanged = task.notificationCriteria !== updatedTaskData.notificationCriteria;
+      
       // Update the task with new data
       const updatedTask: Task = {
         ...task,
@@ -546,7 +561,11 @@ function App() {
         frequency: updatedTaskData.frequency,
         scheduledTime: updatedTaskData.scheduledTime,
         dayOfWeek: updatedTaskData.dayOfWeek,
-        notificationCriteria: updatedTaskData.notificationCriteria 
+        notificationCriteria: updatedTaskData.notificationCriteria,
+        // Clear lastResult and lastMatchedCriteria if criteria changed
+        lastResult: criteriaChanged ? undefined : task.lastResult,
+        lastMatchedCriteria: criteriaChanged ? undefined : task.lastMatchedCriteria,
+        lastTestResult: criteriaChanged ? undefined : task.lastTestResult
       };
       
       // Save to storage
