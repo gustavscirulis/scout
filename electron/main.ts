@@ -6,8 +6,47 @@ import { execFile, spawn } from 'child_process'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
+import crypto from 'crypto'
 
 const { app, BrowserWindow, nativeTheme, ipcMain, Tray, screen, shell } = electron
+
+// Encryption key management
+const getEncryptionKey = () => {
+  // Generate a device-specific key using the machine ID
+  // This ensures the encryption is tied to this specific device
+  const machineId = crypto.createHash('sha256').update(os.hostname() + os.platform() + os.arch()).digest('hex')
+  return crypto.createHash('sha256').update(machineId).digest()
+}
+
+// Encryption/decryption functions
+const encrypt = (text: string): string => {
+  if (!text) return ''
+  const iv = crypto.randomBytes(16)
+  const cipher = crypto.createCipheriv('aes-256-gcm', getEncryptionKey(), iv)
+  const encrypted = Buffer.concat([cipher.update(text, 'utf8'), cipher.final()])
+  const authTag = cipher.getAuthTag()
+  // Store IV and auth tag with the encrypted content
+  return iv.toString('hex') + ':' + authTag.toString('hex') + ':' + encrypted.toString('hex')
+}
+
+const decrypt = (encryptedText: string): string => {
+  if (!encryptedText) return ''
+  try {
+    const parts = encryptedText.split(':')
+    if (parts.length !== 3) return ''
+    
+    const iv = Buffer.from(parts[0], 'hex')
+    const authTag = Buffer.from(parts[1], 'hex')
+    const encrypted = Buffer.from(parts[2], 'hex')
+    
+    const decipher = crypto.createDecipheriv('aes-256-gcm', getEncryptionKey(), iv)
+    decipher.setAuthTag(authTag)
+    return decipher.update(encrypted) + decipher.final('utf8')
+  } catch (error) {
+    console.error('Decryption error:', error)
+    return ''
+  }
+}
 
 // Set up electron-store for persistent data
 const store = new Store({
@@ -93,7 +132,7 @@ function createWindow() {
   // Create window
   mainWindow = new BrowserWindow({
     width: 350,
-    height: 630,
+    height: 640,
     show: false,
     webPreferences: {
       nodeIntegration: true,
@@ -263,11 +302,17 @@ ipcMain.handle('take-screenshot', async (_event, url: string) => {
 
 // API Key management handlers
 ipcMain.handle('get-api-key', () => {
-  return store.get('apiKey')
+  const encryptedKey = store.get('apiKey') as string
+  return encryptedKey ? decrypt(encryptedKey) : null
 })
 
 ipcMain.handle('save-api-key', (_event, apiKey) => {
-  store.set('apiKey', apiKey)
+  if (!apiKey) {
+    store.delete('apiKey')
+  } else {
+    const encryptedKey = encrypt(apiKey)
+    store.set('apiKey', encryptedKey)
+  }
   return true
 })
 
