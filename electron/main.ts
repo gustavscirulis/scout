@@ -48,12 +48,15 @@ const decrypt = (encryptedText: string): string => {
   }
 }
 
-// Set up electron-store for persistent data
+// Setup electron-store for persistent data storage
 const store = new Store({
+  name: 'scout-data',
   defaults: {
-    apiKey: null
+    apiKey: null,
+    tasks: []
   }
 })
+
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
@@ -61,6 +64,126 @@ let mainWindow: electron.BrowserWindow | null = null
 let tray: electron.Tray | null = null
 let windowFloating: boolean = false
 let temporaryFloating: boolean = false
+
+// Task type definition
+interface Task {
+  id: string
+  websiteUrl: string
+  analysisPrompt: string
+  frequency: 'hourly' | 'daily' | 'weekly'
+  scheduledTime: string
+  dayOfWeek?: string
+  isRunning: boolean
+  lastResult?: string
+  lastRun?: string
+  notificationCriteria: string
+  lastMatchedCriteria?: boolean
+  lastTestResult?: {
+    result: string
+    matched?: boolean
+    timestamp?: string
+    screenshot?: string
+  }
+}
+
+// Ensure task has all required fields
+const validateTask = (task: any): Task => {
+  // Make sure the task has all required fields
+  if (!task.id || !task.websiteUrl || !task.notificationCriteria || 
+      !task.frequency || !task.scheduledTime) {
+    console.error('Invalid task missing required fields:', task)
+    throw new Error('Invalid task: missing required fields')
+  }
+  
+  return {
+    id: task.id,
+    websiteUrl: task.websiteUrl,
+    analysisPrompt: task.analysisPrompt || '',
+    frequency: task.frequency,
+    scheduledTime: task.scheduledTime,
+    dayOfWeek: task.dayOfWeek,
+    isRunning: Boolean(task.isRunning),
+    lastResult: task.lastResult,
+    lastRun: task.lastRun,
+    notificationCriteria: task.notificationCriteria,
+    lastMatchedCriteria: task.lastMatchedCriteria,
+    lastTestResult: task.lastTestResult
+  }
+}
+
+// Task management functions
+const getAllTasks = (): Task[] => {
+  try {
+    const tasks = store.get('tasks') as Task[]
+    return Array.isArray(tasks) ? tasks.map(t => validateTask(t)) : []
+  } catch (error) {
+    console.error('Error getting all tasks:', error)
+    return []
+  }
+}
+
+const saveAllTasks = (tasks: Task[]): void => {
+  // Validate tasks before saving
+  const validatedTasks = tasks.map(task => validateTask(task))
+  store.set('tasks', validatedTasks)
+}
+
+const getTaskById = (taskId: string): Task | undefined => {
+  try {
+    const tasks = getAllTasks()
+    return tasks.find(task => task.id === taskId)
+  } catch (error) {
+    console.error(`Error getting task by ID ${taskId}:`, error)
+    return undefined
+  }
+}
+
+const addTask = (task: Task): void => {
+  try {
+    const validatedTask = validateTask(task)
+    const tasks = getAllTasks()
+    tasks.push(validatedTask)
+    saveAllTasks(tasks)
+  } catch (error) {
+    console.error('Error adding task:', error)
+    throw error
+  }
+}
+
+const updateTask = (updatedTask: Task): void => {
+  try {
+    const validatedTask = validateTask(updatedTask)
+    const tasks = getAllTasks()
+    const index = tasks.findIndex(task => task.id === validatedTask.id)
+    
+    if (index !== -1) {
+      tasks[index] = validatedTask
+      saveAllTasks(tasks)
+    } else {
+      console.error(`Task with ID ${validatedTask.id} not found for update`)
+    }
+  } catch (error) {
+    console.error('Error updating task:', error)
+    throw error
+  }
+}
+
+const deleteTask = (taskId: string): void => {
+  try {
+    const tasks = getAllTasks()
+    const updatedTasks = tasks.filter(task => task.id !== taskId)
+    
+    // Verify that a task was actually removed
+    if (tasks.length === updatedTasks.length) {
+      console.warn(`No task found with ID ${taskId} to delete`)
+    }
+    
+    saveAllTasks(updatedTasks)
+  } catch (error) {
+    console.error(`Error deleting task ${taskId}:`, error)
+    throw error
+  }
+}
 
 function getWindowPosition() {
   if (!tray) return { x: 0, y: 0 }
@@ -268,6 +391,30 @@ ipcMain.on('set-temporary-floating', (_event, floating: boolean) => {
   }
 })
 
+// IPC handlers for tasks
+ipcMain.handle('get-all-tasks', () => {
+  return getAllTasks()
+})
+
+ipcMain.handle('get-task', (_event, taskId: string) => {
+  return getTaskById(taskId)
+})
+
+ipcMain.handle('add-task', (_event, task: Task) => {
+  addTask(task)
+  return { success: true }
+})
+
+ipcMain.handle('update-task', (_event, task: Task) => {
+  updateTask(task)
+  return { success: true }
+})
+
+ipcMain.handle('delete-task', (_event, taskId: string) => {
+  deleteTask(taskId)
+  return { success: true }
+})
+
 ipcMain.handle('take-screenshot', async (_event, url: string) => {
   // Clean up previous screenshot file if it exists before taking a new one
   if (latestScreenshotPath && fs.existsSync(latestScreenshotPath)) {
@@ -391,4 +538,4 @@ app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) {
     createWindow()
   }
-}) 
+})

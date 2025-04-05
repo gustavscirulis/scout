@@ -25,6 +25,7 @@ import {
 } from '@phosphor-icons/react'
 import './App.css'
 import { TaskForm, JobFormData, RecurringFrequency, DayOfWeek } from './components/TaskForm'
+import { Task, getAllTasks, addTask, updateTask, deleteTask, toggleTaskRunningState, updateTaskResults, TaskFormData } from './lib/storage/tasks'
 
 // Function to format time in a simple "ago" format
 const formatTimeAgo = (date: Date): string => {
@@ -41,26 +42,6 @@ const formatTimeAgo = (date: Date): string => {
   if (diffDays < 7) return `${diffDays}d ago`;
   
   return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-}
-
-interface AnalysisJob {
-  id: string
-  websiteUrl: string
-  analysisPrompt: string
-  frequency: RecurringFrequency
-  scheduledTime: string
-  dayOfWeek?: DayOfWeek
-  isRunning: boolean
-  lastResult?: string
-  lastRun?: Date
-  notificationCriteria: string
-  lastMatchedCriteria?: boolean
-  lastTestResult?: {
-    result: string
-    matched?: boolean
-    timestamp?: string
-    screenshot?: string
-  }
 }
 
 type NewJobFormData = JobFormData
@@ -114,58 +95,8 @@ function App() {
       {appContent}
     </TooltipProvider>
   )
-  const [jobs, setJobs] = useState<AnalysisJob[]>(() => {
-    console.log('Loading jobs from localStorage'); // Essential log
-    const savedJobsData = localStorage.getItem('analysisJobs')
-    if (!savedJobsData) {
-      console.log('No saved jobs found'); // Essential log
-      return [];
-    }
-    
-    // Parse the JSON and properly convert date strings back to Date objects
-    try {
-      const parsedData = JSON.parse(savedJobsData);
-      
-      // Check if we're using the new format (with timestamp) or old format
-      let parsedJobs;
-      if (parsedData.timestamp && Array.isArray(parsedData.jobs)) {
-        console.log(`Loading jobs from new format, saved at: ${parsedData.timestamp}`);
-        parsedJobs = parsedData.jobs;
-      } else if (Array.isArray(parsedData)) {
-        console.log('Loading jobs from old format');
-        parsedJobs = parsedData;
-      } else {
-        console.error('Invalid job data in localStorage, unexpected format');
-        return [];
-      }
-      
-      const loadedJobs = parsedJobs.map((job: any) => {
-        const loadedJob = {
-          ...job,
-          // Convert lastRun from string to Date object
-          lastRun: job.lastRun ? new Date(job.lastRun) : undefined,
-          // Also ensure lastTestResult timestamp is properly converted if it exists
-          lastTestResult: job.lastTestResult ? {
-            ...job.lastTestResult,
-            timestamp: job.lastTestResult.timestamp ? job.lastTestResult.timestamp : undefined
-          } : undefined
-        };
-        
-        // Log complete job details for debugging
-        console.log(`- Job ${loadedJob.id}: frequency=${loadedJob.frequency}, criteria=${loadedJob.notificationCriteria?.substring(0, 50)}`);
-        
-        return loadedJob;
-      });
-      
-      // Log the loaded jobs for debugging
-      console.log(`Loaded ${loadedJobs.length} jobs from localStorage`); // Essential log
-      
-      return loadedJobs;
-    } catch (error) {
-      console.error('Error parsing jobs from localStorage:', error);
-      return [];
-    }
-  })
+
+  const [tasks, setTasks] = useState<Task[]>([])
   const [apiKey, setApiKey] = useState('')
   const [hasExistingKey, setHasExistingKey] = useState(false)
   const [settingsView, setSettingsView] = useState(false)
@@ -193,33 +124,44 @@ function App() {
   // Store job intervals
   const intervals = useRef<Record<string, { interval: NodeJS.Timeout | null, timeout: NodeJS.Timeout | null }>>({})
 
-  const checkForMissedRuns = (job: AnalysisJob) => {
-    if (!job.lastRun) return false;
+  const checkForMissedRuns = (task: Task) => {
+    if (!task.lastRun) return false;
     
     const now = new Date();
-    const lastRun = new Date(job.lastRun);
+    const lastRun = new Date(task.lastRun);
     const intervalTimes: Record<RecurringFrequency, number> = {
       hourly: 60 * 60 * 1000,
       daily: 24 * 60 * 60 * 1000,
       weekly: 7 * 24 * 60 * 60 * 1000
     };
     
-    const interval = intervalTimes[job.frequency];
+    const interval = intervalTimes[task.frequency];
     const timeSinceLastRun = now.getTime() - lastRun.getTime();
     
     // If more than one interval has passed since the last run
     return timeSinceLastRun > interval;
   };
 
-  // Check for missed runs on startup and when jobs are resumed
+  // Load tasks from storage and check for missed runs on startup
   useEffect(() => {
-    jobs.forEach(job => {
-      if (job.isRunning && checkForMissedRuns(job)) {
-        // Run the analysis immediately for missed jobs
-        runAnalysis(job);
+    const loadTasks = async () => {
+      try {
+        const loadedTasks = await getAllTasks()
+        setTasks(loadedTasks)
+        
+        // Check for missed runs for running tasks
+        loadedTasks.forEach(task => {
+          if (task.isRunning && checkForMissedRuns(task)) {
+            runAnalysis(task)
+          }
+        })
+      } catch (error) {
+        console.error('Failed to load tasks:', error)
       }
-    });
-  }, [jobs]);
+    }
+    
+    loadTasks()
+  }, [])
 
   // Request notification permission immediately on app launch
   useEffect(() => {
@@ -265,74 +207,6 @@ function App() {
     }
   }, [])
 
-  // Save jobs to localStorage
-  useEffect(() => {
-    console.log(`Saving ${jobs.length} jobs to localStorage`); // Essential log
-    
-    // Log all jobs being saved for debugging
-    jobs.forEach((job, index) => {
-      console.log(`Job ${index}: ${job.id}, criteria: ${job.notificationCriteria?.substring(0, 50)}`);
-    });
-    
-    // CRITICAL: Before saving, make a deep clone to avoid stale data issues
-    const jobsToSave = jobs.map(job => {
-      // Create a fresh deep copy of each job
-      const jobCopy = {
-        ...job,
-        // Convert Date objects to ISO strings for proper serialization
-        lastRun: job.lastRun ? job.lastRun.toISOString() : undefined
-      };
-      
-      // CRITICAL FIX: Save a separate copy of the notification criteria to ensure it's not lost
-      // This is a hack to deal with potential race conditions in React state management
-      if (!jobCopy.notificationCriteria) {
-        // Try to recover from localStorage if it's missing
-        try {
-          const savedData = localStorage.getItem('analysisJobs');
-          if (savedData) {
-            const parsedData = JSON.parse(savedData);
-            if (parsedData.timestamp && Array.isArray(parsedData.jobs)) {
-              const savedJob = parsedData.jobs.find((j: any) => j.id === job.id);
-              if (savedJob && savedJob.notificationCriteria) {
-                console.log(`Recovered missing criteria from localStorage: "${savedJob.notificationCriteria}"`);
-                jobCopy.notificationCriteria = savedJob.notificationCriteria;
-              }
-            }
-          }
-        } catch (e) {
-          console.error("Error recovering criteria from localStorage", e);
-        }
-      }
-      
-      // Double check we have criteria
-      if (!jobCopy.notificationCriteria) {
-        console.error(`ERROR: Job ${jobCopy.id} has no criteria before saving to localStorage!`);
-      }
-      
-      // Log the job being saved
-      console.log(`Saving job ${jobCopy.id}, condition: "${jobCopy.notificationCriteria?.substring(0, 30)}"`);
-      
-      return jobCopy;
-    });
-    
-    // Add a timestamp for debugging
-    const saveData = {
-      timestamp: new Date().toISOString(),
-      jobs: jobsToSave
-    };
-    
-    // Save to localStorage with a timestamp for debugging
-    localStorage.setItem('analysisJobs', JSON.stringify(saveData));
-    
-    // ADDITIONAL BACKUP: Store the criteria separately for each job to help recovery
-    // This ensures we have a backup if the main storage gets corrupted
-    jobs.forEach(job => {
-      if (job.notificationCriteria) {
-        localStorage.setItem(`job_criteria_${job.id}`, job.notificationCriteria);
-      }
-    });
-  }, [jobs])
-
   // Load API key from electron-store when the app starts
   useEffect(() => {
     try {
@@ -346,54 +220,13 @@ function App() {
             setApiKey(storedApiKey);
             setHasExistingKey(true);
             
-            // Check if we have any jobs that need to be started
-            const jobsToStart = jobs.filter(job => !job.isRunning);
+            // Check if we have any tasks that need to be started
+            const tasksToStart = tasks.filter(task => !task.isRunning);
             
-            if (jobsToStart.length > 0) {
-              jobsToStart.forEach(job => {
-                toggleJob(job.id);
+            if (tasksToStart.length > 0) {
+              tasksToStart.forEach(task => {
+                toggleTaskState(task.id);
               });
-            }
-            
-            // Add auto-recovery safety check - check local storage vs. loaded jobs
-            try {
-              const savedJobsData = localStorage.getItem('analysisJobs');
-              if (savedJobsData) {
-                // Parse the data, handling both new and old formats
-                const parsedData = JSON.parse(savedJobsData);
-                let savedJobs;
-                
-                // Handle different formats
-                if (parsedData.timestamp && Array.isArray(parsedData.jobs)) {
-                  console.log(`Loading jobs from new format during recovery, saved at ${parsedData.timestamp}`);
-                  savedJobs = parsedData.jobs;
-                } else if (Array.isArray(parsedData)) {
-                  console.log('Loading jobs from old format during recovery');
-                  savedJobs = parsedData;
-                } else {
-                  console.error('Invalid localStorage format during recovery');
-                  return;
-                }
-                
-                // Compare number of jobs in localStorage vs. loaded state
-                if (savedJobs.length !== jobs.length) {
-                  console.log(`Job count mismatch: localStorage=${savedJobs.length}, state=${jobs.length}`);
-                  // This indicates a possible bug - let's try to recover by loading from localStorage
-                  if (savedJobs.length > jobs.length) {
-                    console.log(`Recovering ${savedJobs.length - jobs.length} jobs from localStorage`);
-                    // Convert any string dates to Date objects
-                    const recoveredJobs = savedJobs.map((job: any) => ({
-                      ...job,
-                      lastRun: job.lastRun ? new Date(job.lastRun) : undefined
-                    }));
-                    
-                    // Update the jobs state with the recovered jobs
-                    setJobs(recoveredJobs);
-                  }
-                }
-              }
-            } catch (e) {
-              console.error('Error during job recovery check:', e);
             }
           }
         } catch (error) {
@@ -480,24 +313,24 @@ function App() {
     }
   }, [])
 
-  const getNextRunTime = (job: AnalysisJob) => {
-    const [hours, minutes] = job.scheduledTime.split(':').map(Number)
+  const getNextRunTime = (task: Task) => {
+    const [hours, minutes] = task.scheduledTime.split(':').map(Number)
     const now = new Date()
     const next = new Date()
     next.setHours(hours, minutes, 0, 0)
 
-    if (job.frequency === 'hourly') {
+    if (task.frequency === 'hourly') {
       if (next <= now) {
         next.setHours(next.getHours() + 1);
       }
-    } else if (job.frequency === 'daily') {
+    } else if (task.frequency === 'daily') {
       if (next <= now) next.setDate(next.getDate() + 1)
-    } else if (job.frequency === 'weekly') {
+    } else if (task.frequency === 'weekly') {
       // Handle day of week for weekly jobs
       const dayMap: Record<string, number> = {
         mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6, sun: 0
       }
-      const targetDay = dayMap[job.dayOfWeek || 'mon']
+      const targetDay = dayMap[task.dayOfWeek || 'mon']
       const currentDay = now.getDay() // 0 = Sunday, 1 = Monday, etc.
       
       let daysToAdd = targetDay - currentDay
@@ -512,13 +345,12 @@ function App() {
     return next
   }
 
-  const scheduleJob = (job: AnalysisJob) => {
-    console.log(`Scheduling job ${job.id} with frequency ${job.frequency}`); // Essential log
-    const nextRun = getNextRunTime(job)
+  const scheduleTask = (task: Task) => {
+    const nextRun = getNextRunTime(task)
     const delay = nextRun.getTime() - Date.now()
 
-    if (intervals.current[job.id]?.timeout) {
-      clearTimeout(intervals.current[job.id].timeout!)
+    if (intervals.current[task.id]?.timeout) {
+      clearTimeout(intervals.current[task.id].timeout!)
     }
 
     const intervalTimes: Record<RecurringFrequency, number> = {
@@ -527,127 +359,107 @@ function App() {
       weekly: 7 * 24 * 60 * 60 * 1000
     }
 
-    intervals.current[job.id] = {
+    intervals.current[task.id] = {
       interval: null,
       timeout: setTimeout(() => {
-        runAnalysis(job)
+        runAnalysis(task)
         
-        console.log(`Setting up interval for job ${job.id} (${job.frequency})`); // Essential log
-        
-        // SUPER CRITICAL FIX: We need to use the useRef reference to the latest jobs state
-        // because the closure captures a snapshot of the jobs array at this point
-        const interval = setInterval(() => {
-          console.log(`Running scheduled task ${job.id}`); // Essential log
-          
-          // Use a React hook getter call to get the latest jobs state
-          // This is crucial to prevent stale closures
-          const getLatestJobs = () => {
-            let latestJobs: AnalysisJob[] = [];
+        // Setup recurring interval
+        const interval = setInterval(async () => {
+          try {
+            // Get the latest task data from storage
+            const currentTask = await getTaskById(task.id)
             
-            // We need to get the fresh jobs state from localStorage as a fallback
-            try {
-              const savedJobsData = localStorage.getItem('analysisJobs');
-              if (savedJobsData) {
-                // Parse the data, handling both new and old formats
-                const parsedData = JSON.parse(savedJobsData);
-                let parsedJobs;
-                
-                // Handle different formats
-                if (parsedData.timestamp && Array.isArray(parsedData.jobs)) {
-                  console.log(`Loading jobs from new format in interval, saved at ${parsedData.timestamp}`);
-                  parsedJobs = parsedData.jobs;
-                } else if (Array.isArray(parsedData)) {
-                  console.log('Loading jobs from old format in interval');
-                  parsedJobs = parsedData;
-                } else {
-                  console.error('Invalid localStorage format in interval');
-                  return jobs; // Return current jobs if localStorage format is invalid
+            if (currentTask?.isRunning) {
+              // Make sure our local state is updated with the latest task data
+              setTasks(prevTasks => {
+                const taskExists = prevTasks.some(t => t.id === currentTask.id)
+                if (!taskExists) {
+                  return [...prevTasks, currentTask]
                 }
-                
-                // Convert dates
-                latestJobs = parsedJobs.map((job: any) => ({
-                  ...job,
-                  lastRun: job.lastRun ? new Date(job.lastRun) : undefined
-                }));
-              }
-            } catch (e) {
-              console.error('Error getting fresh jobs from localStorage', e);
-            }
-            
-            // Also try to get the jobs from the current state
-            // If there's a mismatch, log it
-            if (jobs.length !== latestJobs.length) {
-              console.warn(`Jobs state mismatch! State: ${jobs.length}, localStorage: ${latestJobs.length}`);
-            }
-            
-            // Prefer the larger array to avoid data loss
-            return jobs.length >= latestJobs.length ? jobs : latestJobs;
-          };
-          
-          // Get the latest jobs
-          const currentJobs = getLatestJobs();
-          console.log(`Current jobs count: ${currentJobs.length}`);
-          
-          // Find the job in the latest jobs array
-          const currentJob = currentJobs.find(j => j.id === job.id);
-          
-          if (currentJob) {
-            console.log(`Found job ${job.id} in fresh state, isRunning=${currentJob.isRunning}`);
-            if (currentJob.isRunning) {
-              runAnalysis(currentJob);
+                return prevTasks.map(t => t.id === currentTask.id ? currentTask : t)
+              })
+              
+              runAnalysis(currentTask)
+            } else if (currentTask) {
+              // Task exists but is not running
+              clearInterval(interval)
+              delete intervals.current[task.id]
+              
+              // Make sure our local state reflects that the task is not running
+              setTasks(prevTasks => 
+                prevTasks.map(t => t.id === currentTask.id ? currentTask : t)
+              )
             } else {
-              console.log(`Job ${job.id} is no longer running, skipping`); // Essential log
+              // Task doesn't exist anymore
+              clearInterval(interval)
+              delete intervals.current[task.id]
+              
+              // Remove the task from our local state if it's gone from storage
+              setTasks(prevTasks => prevTasks.filter(t => t.id !== task.id))
             }
-          } else {
-            console.log(`Job ${job.id} not found in state or localStorage, clearing interval`); // Essential log
-            // If the job doesn't exist anymore, clear the interval
-            clearInterval(interval);
+          } catch (error) {
+            console.error(`Error in task interval for ${task.id}:`, error)
           }
-        }, intervalTimes[job.frequency])
-        intervals.current[job.id].interval = interval
+        }, intervalTimes[task.frequency])
+        
+        intervals.current[task.id].interval = interval
       }, delay)
     }
   }
 
-  const stopJob = (jobId: string) => {
-    console.log(`Stopping job ${jobId}`); // Essential log
-    if (intervals.current[jobId]) {
-      if (intervals.current[jobId].interval) clearInterval(intervals.current[jobId].interval)
-      if (intervals.current[jobId].timeout) clearTimeout(intervals.current[jobId].timeout)
-      delete intervals.current[jobId]
+  const stopTask = async (taskId: string) => {
+    if (intervals.current[taskId]) {
+      if (intervals.current[taskId].interval) clearInterval(intervals.current[taskId].interval)
+      if (intervals.current[taskId].timeout) clearTimeout(intervals.current[taskId].timeout)
+      delete intervals.current[taskId]
     }
 
-    setJobs(jobs.map(job => 
-      job.id === jobId ? { ...job, isRunning: false } : job
-    ))
-  }
-
-  const toggleJob = (jobId: string) => {
-    const job = jobs.find(j => j.id === jobId)
-    if (!job) return
-
-    if (job.isRunning) {
-      stopJob(jobId)
-    } else {
-      setJobs(jobs.map(j => 
-        j.id === jobId ? { ...j, isRunning: true } : j
+    try {
+      await toggleTaskRunningState(taskId, false)
+      setTasks(tasks.map(task => 
+        task.id === taskId ? { ...task, isRunning: false } : task
       ))
-      scheduleJob(job)
+    } catch (error) {
+      console.error('Failed to stop task:', error)
     }
   }
 
-  const deleteJob = (jobId: string) => {
-    console.log(`Deleting job ${jobId}`); // Essential log
-    stopJob(jobId)
+  const toggleTaskState = async (taskId: string) => {
+    const task = tasks.find(t => t.id === taskId)
+    if (!task) return
+
+    if (task.isRunning) {
+      await stopTask(taskId)
+    } else {
+      try {
+        await toggleTaskRunningState(taskId, true)
+        setTasks(tasks.map(t => 
+          t.id === taskId ? { ...t, isRunning: true } : t
+        ))
+        
+        const updatedTask = { ...task, isRunning: true }
+        scheduleTask(updatedTask)
+      } catch (error) {
+        console.error('Failed to start task:', error)
+      }
+    }
+  }
+
+  const removeTask = async (taskId: string) => {
+    stopTask(taskId)
     
-    // Update the jobs array
-    const updatedJobs = jobs.filter(job => job.id !== jobId)
-    setJobs(updatedJobs)
-    
-    // If we're deleting the last job, or the job we're currently editing,
-    // exit edit mode to show the empty state
-    if (updatedJobs.length === 0 || jobId === editingJobId) {
-      resetNewJobForm()
+    try {
+      await deleteTask(taskId)
+      setTasks(tasks.filter(task => task.id !== taskId))
+      
+      // If we're deleting the last task, or the task we're currently editing,
+      // exit edit mode to show the empty state
+      if (tasks.length === 1 || taskId === editingJobId) {
+        resetNewJobForm()
+      }
+    } catch (error) {
+      console.error('Failed to delete task:', error)
     }
   }
 
@@ -667,187 +479,154 @@ function App() {
     setEditingJobId(null);
   };
   
-  const startEditingJob = (jobId: string) => {
-    const job = jobs.find(j => j.id === jobId);
-    if (!job) return;
+  const startEditingTask = (taskId: string) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
     
-    // Set form data from the existing job
+    // Set form data from the existing task
     setNewJob({
-      websiteUrl: job.websiteUrl,
-      analysisPrompt: job.analysisPrompt,
-      frequency: job.frequency,
-      scheduledTime: job.scheduledTime,
-      dayOfWeek: job.dayOfWeek || 'mon',
-      notificationCriteria: job.notificationCriteria || ''
+      websiteUrl: task.websiteUrl,
+      analysisPrompt: task.analysisPrompt,
+      frequency: task.frequency,
+      scheduledTime: task.scheduledTime,
+      dayOfWeek: task.dayOfWeek || 'mon',
+      notificationCriteria: task.notificationCriteria || ''
     });
     
     // Set editing mode, but make sure showNewJobForm is false
     // to prevent both forms from being visible
-    setEditingJobId(jobId);
+    setEditingJobId(taskId);
     setShowNewJobForm(false);
     
     // First check if there's a last test result available
-    if (job.lastTestResult) {
+    if (task.lastTestResult) {
       setTestResult({
-        result: job.lastTestResult.result,
-        matched: job.lastTestResult.matched,
-        timestamp: job.lastTestResult.timestamp ? new Date(job.lastTestResult.timestamp) : undefined,
-        screenshot: job.lastTestResult.screenshot
+        result: task.lastTestResult.result,
+        matched: task.lastTestResult.matched,
+        timestamp: task.lastTestResult.timestamp ? new Date(task.lastTestResult.timestamp) : undefined,
+        screenshot: task.lastTestResult.screenshot
       });
-      
-      // Log for debugging
-      console.log('Found lastTestResult:', job.lastTestResult);
     } 
     // If no test result, but there's a last scheduled run result, use that instead
-    else if (job.lastResult) {
+    else if (task.lastResult) {
       setTestResult({
-        result: job.lastResult,
-        matched: job.lastMatchedCriteria,
-        timestamp: job.lastRun,
+        result: task.lastResult,
+        matched: task.lastMatchedCriteria,
+        timestamp: task.lastRun,
         screenshot: undefined // We don't store screenshots for scheduled runs
       });
-      
-      // Log for debugging
-      console.log('Using lastResult:', job.lastResult, 'lastRun:', job.lastRun);
     } 
     else {
       // Clear any previous test results if no saved result exists
       setTestResult(null);
-      console.log('No result found for job:', job.id);
     }
   };
   
-  const updateJob = (updatedJob: NewJobFormData) => {
+  const updateExistingTask = async (updatedTaskData: TaskFormData) => {
     if (!editingJobId) return;
     
-    // Find the job being edited
-    const job = jobs.find(j => j.id === editingJobId);
-    if (!job) return;
-    
-    // CRITICAL: Before updating, save the updated notification criteria to our backup storage
-    console.log(`Saving criteria to backup: "${updatedJob.notificationCriteria}"`);
-    localStorage.setItem(`job_criteria_${editingJobId}`, updatedJob.notificationCriteria);
-    
-    // Check if the job is currently running
-    const wasRunning = job.isRunning;
-    
-    // If it was running, stop it first
-    if (wasRunning) {
-      stopJob(editingJobId);
+    try {
+      // Find the task being edited
+      const task = tasks.find(t => t.id === editingJobId);
+      if (!task) return;
+      
+      // Check if the task is currently running
+      const wasRunning = task.isRunning;
+      
+      // If it was running, stop it first
+      if (wasRunning) {
+        await stopTask(editingJobId);
+      }
+      
+      // Update the task with new data
+      const updatedTask: Task = {
+        ...task,
+        websiteUrl: updatedTaskData.websiteUrl,
+        analysisPrompt: updatedTaskData.analysisPrompt,
+        frequency: updatedTaskData.frequency,
+        scheduledTime: updatedTaskData.scheduledTime,
+        dayOfWeek: updatedTaskData.dayOfWeek,
+        notificationCriteria: updatedTaskData.notificationCriteria 
+      };
+      
+      // Save to storage
+      await updateTask(updatedTask);
+      
+      // Update local state
+      setTasks(tasks.map(t => t.id === editingJobId ? updatedTask : t));
+      
+      // If it was running, restart it with the new settings
+      if (wasRunning) {
+        const freshTask = { ...updatedTask, isRunning: true };
+        await toggleTaskRunningState(editingJobId, true);
+        scheduleTask(freshTask);
+      }
+      
+      // Clear form and editing mode
+      setEditingJobId(null);
+      resetNewJobForm();
+    } catch (error) {
+      console.error('Failed to update task:', error);
+      setError('Failed to update task');
     }
-    
-    // Update the job with new data
-    const updatedJobs = jobs.map(j => 
-      j.id === editingJobId 
-        ? { 
-            ...j, 
-            websiteUrl: updatedJob.websiteUrl,
-            analysisPrompt: updatedJob.analysisPrompt,
-            frequency: updatedJob.frequency,
-            scheduledTime: updatedJob.scheduledTime,
-            dayOfWeek: updatedJob.dayOfWeek,
-            notificationCriteria: updatedJob.notificationCriteria 
-          } 
-        : j
-    );
-    
-    // Log the updated job for debugging
-    const jobAfterUpdate = updatedJobs.find(j => j.id === editingJobId);
-    if (jobAfterUpdate) {
-      console.log(`Job after update: criteria = "${jobAfterUpdate.notificationCriteria}"`);
-    }
-    
-    // Set the jobs state
-    setJobs(updatedJobs);
-    
-    // Force an immediate save to localStorage for the updated job
-    const jobsToSave = updatedJobs.map(job => ({
-      ...job,
-      lastRun: job.lastRun ? job.lastRun.toISOString() : undefined
-    }));
-    
-    // Immediately save to localStorage to avoid race conditions
-    const saveData = {
-      timestamp: new Date().toISOString(),
-      jobs: jobsToSave
-    };
-    
-    // Save to both main storage and backup
-    localStorage.setItem('analysisJobs', JSON.stringify(saveData));
-    
-    // If it was running, restart it with the new settings
-    if (wasRunning) {
-      // IMPORTANT: Wait a bit for the state update to complete before restarting
-      setTimeout(() => {
-        const freshJob = updatedJobs.find(j => j.id === editingJobId);
-        if (freshJob) {
-          console.log(`Restarting job with criteria: "${freshJob.notificationCriteria}"`);
-          scheduleJob(freshJob);
-        }
-      }, 100);
-    }
-    
-    // Clear form and editing mode
-    setEditingJobId(null);
-    resetNewJobForm();
   };
   
-  const addJob = (job: JobFormData) => {
-    // Create the new job with test result if available
-    const newJob: AnalysisJob = {
-      ...job,
-      id: crypto.randomUUID(),
-      isRunning: true, // Set to true by default
+  const createNewTask = async (taskData: TaskFormData) => {
+    try {
       // Include test result if available
-      ...(testResult && {
-        lastTestResult: {
+      const newTaskData: TaskFormData & {
+        lastTestResult?: {
+          result: string;
+          matched?: boolean;
+          timestamp?: string;
+          screenshot?: string;
+        };
+        lastResult?: string;
+        lastRun?: Date;
+        lastMatchedCriteria?: boolean;
+      } = {
+        ...taskData
+      };
+      
+      if (testResult) {
+        newTaskData.lastTestResult = {
           result: testResult.result,
           matched: testResult.matched,
           timestamp: testResult.timestamp?.toISOString(),
           screenshot: testResult.screenshot
-        },
+        };
+        
         // Also set these fields based on the test result
-        lastResult: testResult.result,
-        lastRun: testResult.timestamp,
-        lastMatchedCriteria: testResult.matched
-      })
+        newTaskData.lastResult = testResult.result;
+        newTaskData.lastRun = testResult.timestamp;
+        newTaskData.lastMatchedCriteria = testResult.matched;
+      }
+      
+      // Add task to storage
+      const newTask = await addTask(newTaskData);
+      
+      // Update local state
+      setTasks([...tasks, newTask]);
+      
+      // Schedule the task
+      scheduleTask(newTask);
+      
+      // Close form and reset
+      setShowNewJobForm(false);
+      resetNewJobForm();
+    } catch (error) {
+      console.error('Failed to create task:', error);
+      setError('Failed to create task');
     }
-    
-    // CRITICAL FIX: Add job to state first and ensure it's fully updated before scheduling
-    // To avoid race conditions, we need to ensure the job is in the state before scheduling it
-    const updatedJobs = [...jobs, newJob];
-    
-    console.log(`Adding new job ${newJob.id} to jobs array`);
-    console.log(`Jobs before adding: ${jobs.length}, after adding: ${updatedJobs.length}`);
-    
-    // Update the jobs state
-    setJobs(updatedJobs);
-    
-    // Use a short timeout to ensure state has updated before scheduling
-    // This is a workaround since useState doesn't have a callback function
-    setTimeout(() => {
-      console.log(`Running delayed schedule for job ${newJob.id}`);
-      scheduleJob(newJob);
-    }, 100);
-    
-    // Close form and reset
-    setShowNewJobForm(false)
-    resetNewJobForm()
   }
 
-  const sendNotification = (job: AnalysisJob, analysis: string) => {
-    // CRITICAL DEBUG INFO - Let's see what notification criteria is coming in
-    console.log(`Sending notification for job ${job.id}`);
-    console.log(`Notification criteria: "${job.notificationCriteria}"`);
-    
+  const sendNotification = (task: Task, analysis: string) => {
     if (notificationPermission === 'granted') {
-      console.log(`Notification permission granted, creating notification`);
-      
       // Extract just the domain from the URL
-      const urlObj = new URL(job.websiteUrl.startsWith('http') ? job.websiteUrl : `http://${job.websiteUrl}`);
+      const urlObj = new URL(task.websiteUrl.startsWith('http') ? task.websiteUrl : `http://${task.websiteUrl}`);
       const domain = urlObj.hostname;
       
-      const title = `${domain} matched your condition: ${job.notificationCriteria}`;
+      const title = `${domain} matched your condition: ${task.notificationCriteria}`;
       
       // Create a notification body that just includes the rationale (analysis)
       let body = analysis;
@@ -855,16 +634,13 @@ function App() {
         body = analysis.slice(0, 100) + '...';
       }
       
-      console.log(`Notification title: ${title}`);
-      console.log(`Notification body: ${body.substring(0, 50)}...`);
-      
       // Create notification that will persist until explicitly dismissed
       const notification = new Notification(title, {
         body: body,
         icon: '/favicon.ico',
         requireInteraction: true, // Prevents auto-closing
         silent: false,
-        tag: `analysis-${job.id}`,
+        tag: `analysis-${task.id}`,
         // The timeoutType property is not standard but supported in some implementations
         // @ts-ignore
         timeoutType: 'never'
@@ -880,34 +656,7 @@ function App() {
     }
   }
 
-  const runAnalysis = async (job: AnalysisJob) => {
-    console.log(`Starting analysis for job ${job.id} (${job.frequency})`); // Essential log
-    
-    // CRITICAL: Check if this job still exists in jobs state before proceeding
-    // If it's not in state yet, try to load from localStorage as a backup
-    let jobExists = jobs.some(j => j.id === job.id);
-    
-    if (!jobExists) {
-      console.log(`Job ${job.id} not found in current state, checking localStorage...`);
-      try {
-        const savedJobs = localStorage.getItem('analysisJobs');
-        if (savedJobs) {
-          const parsedJobs = JSON.parse(savedJobs);
-          jobExists = parsedJobs.some((j: any) => j.id === job.id);
-          if (jobExists) {
-            console.log(`Job ${job.id} found in localStorage`);
-          }
-        }
-      } catch (e) {
-        console.error('Error checking localStorage for job', e);
-      }
-    } else {
-      console.log(`Job ${job.id} found in current state`);
-    }
-    
-    // Even if we can't find the job in state or localStorage,
-    // we'll still proceed with the analysis since we have the job object
-    // This is a safety measure to ensure jobs don't disappear
+  const runAnalysis = async (task: Task) => {
     if (!apiKey) {
       setError('Please set your OpenAI API key in settings')
       return
@@ -926,13 +675,13 @@ function App() {
 
       const { ipcRenderer } = window.require('electron')
       // Ensure URL has protocol prefix for the screenshot function
-      const websiteUrl = (!job.websiteUrl.startsWith('http://') && !job.websiteUrl.startsWith('https://')) 
-        ? `http://${job.websiteUrl}` 
-        : job.websiteUrl
+      const websiteUrl = (!task.websiteUrl.startsWith('http://') && !task.websiteUrl.startsWith('https://')) 
+        ? `http://${task.websiteUrl}` 
+        : task.websiteUrl
       const screenshot = await ipcRenderer.invoke('take-screenshot', websiteUrl)
 
       // Construct a focused prompt that directly evaluates the notification criteria
-      const promptText = `Analyze this webpage and determine if the following condition is true: "${job.notificationCriteria}"
+      const promptText = `Analyze this webpage and determine if the following condition is true: "${task.notificationCriteria}"
 
 Return your response in this JSON format:
 {
@@ -996,219 +745,34 @@ Return your response in this JSON format:
           screenshot: screenshot
         };
         
-        console.log(`Analysis successful for job ${job.id}, matched=${criteriaMatched}`); // Essential log
-        
-        // THIS IS CRITICAL: Get a fresh copy of the jobs array before updating
-        // The closure may have a stale version of the jobs array
-        // We need to get the latest jobs from state
-        console.log(`Current jobs length before update: ${jobs.length}`); // Debug job count
-        
-        // Create a deep copy of the current job from the current array
-        const currentJobIndex = jobs.findIndex(j => j.id === job.id);
-        console.log(`Job index in array: ${currentJobIndex}`); // Debug job index
-        
-        // If the job is not found in the current state, we need to add it
-        if (currentJobIndex === -1) {
-          console.log(`Job ${job.id} not found in current state, attempting to add it`);
-          
-          // First check if it exists in localStorage
-          try {
-            const savedJobsData = localStorage.getItem('analysisJobs');
-            if (savedJobsData) {
-              // Parse the data, handling both new and old formats
-              const parsedData = JSON.parse(savedJobsData);
-              let parsedJobs;
-              
-              // Handle different formats
-              if (parsedData.timestamp && Array.isArray(parsedData.jobs)) {
-                console.log(`Loading job from new format, saved at ${parsedData.timestamp}`);
-                parsedJobs = parsedData.jobs;
-              } else if (Array.isArray(parsedData)) {
-                console.log('Loading job from old format');
-                parsedJobs = parsedData;
-              } else {
-                console.error('Invalid localStorage format');
-                return;
-              }
-              
-              // Find the job by ID
-              const savedJob = parsedJobs.find((j: any) => j.id === job.id);
-              
-              if (savedJob) {
-                console.log(`Job ${job.id} found in localStorage, will add to state`);
-                
-                // Convert dates in the saved job
-                if (savedJob.lastRun) {
-                  savedJob.lastRun = new Date(savedJob.lastRun);
-                }
-                
-                // Create a copy with our new data
-                const updatedJob = { 
-                  ...savedJob, 
-                  lastResult: formattedResult,
-                  lastRun: now,
-                  lastMatchedCriteria: criteriaMatched,
-                  lastTestResult: resultData,
-                  isRunning: true,
-                  // CRITICAL: Explicitly preserve notification criteria
-                  notificationCriteria: savedJob.notificationCriteria
-                };
-                
-                console.log(`Preserved criteria in success recovery: "${savedJob.notificationCriteria}"`);
-                
-                // Verify the criteria is preserved in the updatedJob
-                console.log(`Updated job criteria: "${updatedJob.notificationCriteria}"`);
-                
-                // Add an explicit check for edge cases
-                if (!updatedJob.notificationCriteria || updatedJob.notificationCriteria === "undefined") {
-                  console.error("Critical error: criteria is undefined or empty in recovered job");
-                  
-                  // Force the criteria from the original job as a fallback
-                  updatedJob.notificationCriteria = job.notificationCriteria || savedJob.notificationCriteria || "Unknown criteria";
-                  console.log(`Forced criteria to: "${updatedJob.notificationCriteria}"`);
-                }
-                
-                // Add the updated job to our current array
-                const updatedJobs = [...jobs, updatedJob];
-                setJobs(updatedJobs);
-                
-                console.log(`Job ${job.id} recovered and updated`);
-                
-                // Check if we should send a notification for the recovered job
-                if (criteriaMatched === true) {
-                  console.log(`Criteria matched for recovered job ${job.id}, sending notification`);
-                  console.log(`Recovered job criteria: "${updatedJob.notificationCriteria}"`);
-                  
-                  // One final safety check
-                  if (!updatedJob.notificationCriteria || updatedJob.notificationCriteria === "undefined") {
-                    console.error("CRITICAL ERROR: Recovered job criteria missing");
-                    
-                    // Force a fresh copy with the correct criteria
-                    const freshJob = {
-                      ...updatedJob,
-                      notificationCriteria: job.notificationCriteria || savedJob.notificationCriteria || "Unknown criteria"
-                    };
-                    
-                    console.log(`Forced recovered job criteria: "${freshJob.notificationCriteria}"`);
-                    sendNotification(freshJob, parsedResult.analysis);
-                  } else {
-                    // Send notification with the verified job data
-                    sendNotification(updatedJob, parsedResult.analysis);
-                  }
-                } else {
-                  console.log(`Criteria not matched for recovered job ${job.id}, no notification sent`);
-                }
-                
-                return;
-              }
-            }
-          } catch (e) {
-            console.error('Error recovering job from localStorage', e);
-          }
-          
-          // If we got here, we couldn't find the job anywhere - we'll simply keep using the
-          // original job object but won't update state since we can't find it there
-          console.error(`ERROR: Job ${job.id} not found in state or localStorage!`);
-          return;
-        }
-        
-        // Make a fresh copy of the current jobs array
-        const latestJobs = [...jobs];
-        
-        // Update the specific job in the fresh array
-        // MOST CRITICAL FIX! The notification criteria is getting reverted somewhere
-        // Log the current notification criteria for debugging
-        console.log(`Before update: notification criteria = "${latestJobs[currentJobIndex].notificationCriteria}"`);
-        
-        // Get the criteria from localStorage as well for comparison
-        let storedCriteria = "";
-        try {
-          const savedJobsData = localStorage.getItem('analysisJobs');
-          if (savedJobsData) {
-            const parsedData = JSON.parse(savedJobsData);
-            if (parsedData.timestamp && Array.isArray(parsedData.jobs)) {
-              const storedJob = parsedData.jobs.find((j: any) => j.id === job.id);
-              if (storedJob) {
-                storedCriteria = storedJob.notificationCriteria;
-                console.log(`Stored criteria in localStorage: "${storedCriteria}"`);
-              }
-            } else if (Array.isArray(parsedData)) {
-              const storedJob = parsedData.find((j: any) => j.id === job.id);
-              if (storedJob) {
-                storedCriteria = storedJob.notificationCriteria;
-                console.log(`Stored criteria in localStorage (old format): "${storedCriteria}"`);
-              }
-            }
-          }
-        } catch (e) {
-          console.error("Error reading localStorage for criteria comparison", e);
-        }
-        
-        // Update the job with explicit preservation of notification criteria
-        latestJobs[currentJobIndex] = { 
-          ...latestJobs[currentJobIndex], 
+        // Update the task with results
+        const updatedTask = await updateTaskResults(task.id, {
           lastResult: formattedResult,
           lastRun: now,
           lastMatchedCriteria: criteriaMatched,
-          lastTestResult: resultData, // Store full result data including screenshot
-          isRunning: true, // Explicitly ensure job stays running
-          // CRITICAL - ensure we preserve the current notification criteria
-          // This is the field that's being lost during updates
-          // Try multiple fallbacks to ensure we get the right criteria
-          notificationCriteria: storedCriteria || 
-                             localStorage.getItem(`job_criteria_${job.id}`) || 
-                             latestJobs[currentJobIndex].notificationCriteria
-        };
+          lastTestResult: resultData
+        });
         
-        // Debug log for the notification criteria
-        console.log(`Job criteria preserved: ${latestJobs[currentJobIndex].notificationCriteria}`);
-        
-        console.log(`New jobs array length: ${latestJobs.length}`); // Debug new array length
-        
-        // Log the updated job for critical debugging
-        console.log(`Job updated: ${latestJobs[currentJobIndex].id}, isRunning=${latestJobs[currentJobIndex].isRunning}`);
-        
-        // Set the state with our freshly created array
-        setJobs(latestJobs);
-        
-        // Only send notification if criteria matched
-        if (criteriaMatched === true) {
-          console.log(`Criteria matched, sending notification for job ${job.id}`);
-          
-          // Get the freshly updated job from the array to ensure it has the latest data
-          const updatedJobForNotification = latestJobs[currentJobIndex];
-          
-          // Double-check we have the updated job before sending notification
-          if (updatedJobForNotification) {
-            console.log(`Using updated job data for notification: ${updatedJobForNotification.id}`);
-            console.log(`Latest job criteria: "${updatedJobForNotification.notificationCriteria}"`);
-            
-            // One final safety check to make sure we're using the correct criteria
-            if (!updatedJobForNotification.notificationCriteria || 
-                updatedJobForNotification.notificationCriteria === "undefined") {
-              
-              console.error("CRITICAL ERROR: Job criteria missing before notification");
-              
-              // Force a fresh copy with the correct criteria
-              const freshJob = {
-                ...updatedJobForNotification,
-                notificationCriteria: job.notificationCriteria || "Unknown criteria"
-              };
-              
-              console.log(`Forced job criteria for notification: "${freshJob.notificationCriteria}"`);
-              sendNotification(freshJob, parsedResult.analysis);
-            } else {
-              // Send notification with the verified job data
-              sendNotification(updatedJobForNotification, parsedResult.analysis);
+        if (updatedTask) {
+          // Update local state using functional update to avoid stale state
+          setTasks(prevTasks => {
+            // Double check the task still exists in our local state
+            const taskExists = prevTasks.some(t => t.id === task.id)
+            if (!taskExists) {
+              // If it doesn't exist anymore, add it back
+              return [...prevTasks, updatedTask]
             }
-          } else {
-            // Fallback to original job if we somehow can't find the updated one
-            console.log(`Falling back to original job for notification: ${job.id}`);
-            console.log(`Original job criteria: "${job.notificationCriteria}"`);
-            sendNotification(job, parsedResult.analysis);
+            // Otherwise update it
+            return prevTasks.map(t => t.id === task.id ? updatedTask : t)
+          });
+          
+          // Only send notification if criteria matched
+          if (criteriaMatched === true) {
+            sendNotification(updatedTask, parsedResult.analysis);
           }
         } else {
-          console.log(`Criteria not matched for job ${job.id}, no notification sent`);
+          // Log error if we couldn't update the task
+          console.error(`Failed to update task results for ${task.id}`);
         }
       } catch (error) {
         console.error("Failed to parse response:", error);
@@ -1222,221 +786,62 @@ Return your response in this JSON format:
           screenshot: screenshot
         };
         
-        console.log(`Parse error for job ${job.id}, but keeping it running`); // Essential log
-        
-        // THIS IS CRITICAL: Get a fresh copy of the jobs array before updating
-        // The closure may have a stale version of the jobs array
-        console.log(`Current jobs length before parse error update: ${jobs.length}`); // Debug job count
-        
-        // Create a deep copy of the current job from the current array
-        const currentJobIndex = jobs.findIndex(j => j.id === job.id);
-        console.log(`Job index in array (parse error): ${currentJobIndex}`); // Debug job index
-        
-        if (currentJobIndex === -1) {
-          console.log(`Job ${job.id} not found during parse error, attempting to recover it`);
-          
-          try {
-            // First try to find it in localStorage
-            const savedJobsData = localStorage.getItem('analysisJobs');
-            if (savedJobsData) {
-              // Parse the data, handling both new and old formats
-              const parsedData = JSON.parse(savedJobsData);
-              let parsedJobs;
-              
-              // Handle different formats
-              if (parsedData.timestamp && Array.isArray(parsedData.jobs)) {
-                console.log(`Loading job from new format during parse error, saved at ${parsedData.timestamp}`);
-                parsedJobs = parsedData.jobs;
-              } else if (Array.isArray(parsedData)) {
-                console.log('Loading job from old format during parse error');
-                parsedJobs = parsedData;
-              } else {
-                console.error('Invalid localStorage format during parse error');
-                return;
-              }
-              
-              // Find the job by ID
-              const savedJob = parsedJobs.find((j: any) => j.id === job.id);
-              
-              if (savedJob) {
-                console.log(`Job ${job.id} found in localStorage, recovering it`);
-                
-                // Convert dates
-                if (savedJob.lastRun) {
-                  savedJob.lastRun = new Date(savedJob.lastRun);
-                }
-                
-                // Update the job with the error information
-                const updatedJob = {
-                  ...savedJob,
-                  lastResult: errorResult,
-                  lastRun: now,
-                  lastTestResult: errorResultData,
-                  isRunning: true,
-                  // CRITICAL: Explicitly preserve notification criteria
-                  notificationCriteria: savedJob.notificationCriteria
-                };
-                
-                console.log(`Preserved criteria in parse error recovery: ${savedJob.notificationCriteria}`);
-                
-                // Add the updated job to the current jobs array
-                const updatedJobs = [...jobs, updatedJob];
-                setJobs(updatedJobs);
-                
-                console.log(`Job ${job.id} recovered and updated after parse error`);
-                return;
-              }
-            }
-          } catch (e) {
-            console.error('Error recovering job from localStorage during parse error', e);
-          }
-          
-          console.error(`ERROR: Job ${job.id} not found in state or localStorage during parse error!`);
-          return;
-        }
-        
-        // Make a fresh copy of the current jobs array
-        const latestJobs = [...jobs];
-        
-        // Update the specific job in the fresh array
-        latestJobs[currentJobIndex] = { 
-          ...latestJobs[currentJobIndex], 
+        // Update task with error result
+        const updatedTask = await updateTaskResults(task.id, {
           lastResult: errorResult,
           lastRun: now,
-          lastTestResult: errorResultData,
-          isRunning: true, // Explicitly ensure job stays running
-          // CRITICAL - ensure we preserve the current notification criteria
-          // This is the field that's being lost during updates
-          notificationCriteria: latestJobs[currentJobIndex].notificationCriteria
-        };
+          lastTestResult: errorResultData
+        });
         
-        // Debug log for the notification criteria
-        console.log(`Job criteria preserved in parse error: ${latestJobs[currentJobIndex].notificationCriteria}`);
-        
-        console.log(`New jobs array length after parse error: ${latestJobs.length}`); // Debug new array length
-        console.log(`Job updated after parse error: ${latestJobs[currentJobIndex].id}, isRunning=${latestJobs[currentJobIndex].isRunning}`);
-        
-        // Set the state with our freshly created array
-        setJobs(latestJobs);
+        if (updatedTask) {
+          // Update using functional update to avoid stale state
+          setTasks(prevTasks => {
+            const taskExists = prevTasks.some(t => t.id === task.id)
+            if (!taskExists) {
+              return [...prevTasks, updatedTask]
+            }
+            return prevTasks.map(t => t.id === task.id ? updatedTask : t)
+          });
+        } else {
+          console.error(`Failed to update task error results for ${task.id}`);
+        }
       }
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
       setError(errorMessage);
       
-      // Also save the error in the job's result
+      // Also save the error in the task's result
       const now = new Date();
       const errorResultData = {
         result: errorMessage,
         timestamp: now.toISOString()
       };
       
-      console.log(`Error during analysis for job ${job.id}, but keeping it running: ${errorMessage}`); // Essential log
-      
-      // THIS IS CRITICAL: Get a fresh copy of the jobs array before updating after an error
-      // The closure may have a stale version of the jobs array
-      console.log(`Current jobs length before error update: ${jobs.length}`); // Debug job count
-      
-      // Create a deep copy of the current job from the current array
-      const currentJobIndex = jobs.findIndex(j => j.id === job.id);
-      console.log(`Job index in array (error): ${currentJobIndex}`); // Debug job index
-      
-      if (currentJobIndex === -1) {
-        console.log(`Job ${job.id} not found during error handling, attempting to recover it`);
-        
-        try {
-          // First try to find it in localStorage
-          const savedJobsData = localStorage.getItem('analysisJobs');
-          if (savedJobsData) {
-            // Parse the data, handling both new and old formats
-            const parsedData = JSON.parse(savedJobsData);
-            let parsedJobs;
-            
-            // Handle different formats
-            if (parsedData.timestamp && Array.isArray(parsedData.jobs)) {
-              console.log(`Loading job from new format during error handling, saved at ${parsedData.timestamp}`);
-              parsedJobs = parsedData.jobs;
-            } else if (Array.isArray(parsedData)) {
-              console.log('Loading job from old format during error handling');
-              parsedJobs = parsedData;
-            } else {
-              console.error('Invalid localStorage format during error handling');
-              return;
-            }
-            
-            // Find the job by ID
-            const savedJob = parsedJobs.find((j: any) => j.id === job.id);
-            
-            if (savedJob) {
-              console.log(`Job ${job.id} found in localStorage, recovering it`);
-              
-              // Convert dates
-              if (savedJob.lastRun) {
-                savedJob.lastRun = new Date(savedJob.lastRun);
-              }
-              
-              // Update the job with the error information
-              const updatedJob = {
-                ...savedJob,
-                lastResult: errorMessage,
-                lastRun: now,
-                lastTestResult: errorResultData,
-                isRunning: true,
-                // CRITICAL: Explicitly preserve notification criteria
-                notificationCriteria: savedJob.notificationCriteria
-              };
-              
-              console.log(`Preserved criteria in error recovery: ${savedJob.notificationCriteria}`);
-              
-              // Add the updated job to the current jobs array
-              const updatedJobs = [...jobs, updatedJob];
-              setJobs(updatedJobs);
-              
-              console.log(`Job ${job.id} recovered and updated after error`);
-              return;
-            }
-          }
-        } catch (e) {
-          console.error('Error recovering job from localStorage during error handling', e);
-        }
-        
-        console.error(`ERROR: Job ${job.id} not found in state or localStorage during error!`);
-        return;
-      }
-      
-      // Make a fresh copy of the current jobs array
-      const latestJobs = [...jobs];
-      
-      // Update the specific job in the fresh array
-      latestJobs[currentJobIndex] = { 
-        ...latestJobs[currentJobIndex], 
+      // Update task with error
+      const updatedTask = await updateTaskResults(task.id, {
         lastResult: errorMessage,
         lastRun: now,
-        lastTestResult: errorResultData,
-        isRunning: true, // Explicitly ensure job stays running
-        // CRITICAL - ensure we preserve the current notification criteria
-        // This is the field that's being lost during updates
-        notificationCriteria: latestJobs[currentJobIndex].notificationCriteria
-      };
+        lastTestResult: errorResultData
+      });
       
-      // Debug log for the notification criteria
-      console.log(`Job criteria preserved in error handler: ${latestJobs[currentJobIndex].notificationCriteria}`);
-      
-      console.log(`New jobs array length after error: ${latestJobs.length}`); // Debug new array length
-      console.log(`Job updated after error: ${latestJobs[currentJobIndex].id}, isRunning=${latestJobs[currentJobIndex].isRunning}`);
-      
-      // Set the state with our freshly created array
-      setJobs(latestJobs);
-      
-      // For temporary API errors etc., don't even stop the job
-      // The job will continue running at its scheduled intervals
-      // This prevents job disappearance when there are temporary errors
+      if (updatedTask) {
+        // Update using functional update to avoid stale state
+        setTasks(prevTasks => {
+          const taskExists = prevTasks.some(t => t.id === task.id)
+          if (!taskExists) {
+            return [...prevTasks, updatedTask]
+          }
+          return prevTasks.map(t => t.id === task.id ? updatedTask : t)
+        });
+      } else {
+        console.error(`Failed to update task with global error for ${task.id}`);
+      }
     } finally {
-      console.log(`Analysis finished for job ${job.id}`); // Essential log
       setLoading(false);
     }
   }
 
-  const testJob = async (job: NewJobFormData) => {
+  const testAnalysis = async (taskData: TaskFormData) => {
     setLoading(true)
     setTestResult(null)
     
@@ -1455,18 +860,15 @@ Return your response in this JSON format:
       return
     }
     
-    // Set up for testing
-    
     try {
-      // Create a modified version of runAnalysis that returns the result instead of updating jobs
       const { ipcRenderer } = window.require('electron')
       // Ensure URL has protocol prefix for the screenshot function
-      const websiteUrl = (!job.websiteUrl.startsWith('http://') && !job.websiteUrl.startsWith('https://')) 
-        ? `http://${job.websiteUrl}` 
-        : job.websiteUrl
+      const websiteUrl = (!taskData.websiteUrl.startsWith('http://') && !taskData.websiteUrl.startsWith('https://')) 
+        ? `http://${taskData.websiteUrl}` 
+        : taskData.websiteUrl
       const screenshot = await ipcRenderer.invoke('take-screenshot', websiteUrl)
       
-      const promptText = `Analyze this webpage and determine if the following condition is true: "${job.notificationCriteria}"
+      const promptText = `Analyze this webpage and determine if the following condition is true: "${taskData.notificationCriteria}"
 
 Return your response in this JSON format:
 {
@@ -1533,17 +935,16 @@ Return your response in this JSON format:
           screenshot: screenshot
         });
         
-        // If we're testing an existing job, update its lastRun timestamp and test results
+        // If we're testing an existing task, update its lastRun timestamp and test results
         if (editingJobId) {
-          setJobs(jobs.map(j => 
-            j.id === editingJobId 
-              ? { 
-                  ...j, 
-                  lastRun: now,
-                  lastTestResult: testResultData
-                }
-              : j
-          ));
+          const updatedTask = await updateTaskResults(editingJobId, {
+            lastRun: now,
+            lastTestResult: testResultData
+          });
+          
+          if (updatedTask) {
+            setTasks(tasks.map(t => t.id === editingJobId ? updatedTask : t));
+          }
         }
       } catch (error) {
         console.error("Failed to parse response:", error);
@@ -1557,16 +958,15 @@ Return your response in this JSON format:
           timestamp: new Date()
         });
         
-        // Still save the error result if editing an existing job
+        // Still save the error result if editing an existing task
         if (editingJobId) {
-          setJobs(jobs.map(j => 
-            j.id === editingJobId 
-              ? { 
-                  ...j,
-                  lastTestResult: errorResult
-                }
-              : j
-          ));
+          const updatedTask = await updateTaskResults(editingJobId, {
+            lastTestResult: errorResult
+          });
+          
+          if (updatedTask) {
+            setTasks(tasks.map(t => t.id === editingJobId ? updatedTask : t));
+          }
         }
       }
     } catch (err) {
@@ -1582,16 +982,15 @@ Return your response in this JSON format:
         timestamp: new Date()
       });
       
-      // Save error result if editing an existing job
+      // Save error result if editing an existing task
       if (editingJobId) {
-        setJobs(jobs.map(j => 
-          j.id === editingJobId 
-            ? { 
-                ...j,
-                lastTestResult: errorResult
-              }
-            : j
-        ));
+        const updatedTask = await updateTaskResults(editingJobId, {
+          lastTestResult: errorResult
+        });
+        
+        if (updatedTask) {
+          setTasks(tasks.map(t => t.id === editingJobId ? updatedTask : t));
+        }
       }
     } finally {
       setLoading(false)
@@ -1655,7 +1054,7 @@ Return your response in this JSON format:
             <Button
               variant="headerIcon"
               size="icon"
-              onClick={() => deleteJob(editingJobId)}
+              onClick={() => removeTask(editingJobId)}
               title="Delete"
               className="-webkit-app-region-no-drag"
             >
@@ -1672,9 +1071,9 @@ Return your response in this JSON format:
       <div className={`flex-1 overflow-y-auto overflow-x-hidden flex flex-col relative bg-background ${isTransitioning ? 'overflow-hidden' : ''}`}>
         <div className="w-full space-y-6 flex-grow flex flex-col">
 
-          {/* Jobs List */}
+          {/* Tasks List */}
           <div className="space-y-4">
-            {(!apiKey || jobs.length === 0) && !showNewJobForm && !editingJobId && !settingsView && (
+            {(!apiKey || tasks.length === 0) && !showNewJobForm && !editingJobId && !settingsView && (
               <div className="flex flex-col items-center justify-center py-10 text-center px-6 animate-in">
                 <div className="w-20 h-20 bg-primary/5 rounded-full flex items-center justify-center mb-8">
                   <div className="relative">
@@ -1835,17 +1234,17 @@ Return your response in this JSON format:
               </div>
             )}
 
-            {/* When in edit mode or creating a new job, only show that form */}
-            {editingJobId && jobs.find(job => job.id === editingJobId) ? (
+            {/* When in edit mode or creating a new task, only show that form */}
+            {editingJobId && tasks.find(task => task.id === editingJobId) ? (
               <TaskForm
                 formData={newJob}
                 testResult={testResult}
                 loading={loading}
                 onFormChange={setNewJob}
-                onTest={testJob}
+                onTest={testAnalysis}
                 onSave={(data) => {
                   if (data.websiteUrl && data.notificationCriteria) {
-                    updateJob(data);
+                    updateExistingTask(data);
                   }
                 }}
               />
@@ -2019,16 +1418,16 @@ Return your response in this JSON format:
                             await electron.ipcRenderer.invoke('delete-api-key');
                             setHasExistingKey(false);
                             
-                            // Pause all running jobs
-                            const updatedJobs = jobs.map(job => {
-                              // Stop any interval/timeout for this job
-                              if (job.isRunning) {
-                                stopJob(job.id);
-                              }
-                              // Mark all jobs as not running but preserve other state
-                              return { ...job, isRunning: false };
-                            });
-                            setJobs(updatedJobs);
+                            // Stop all running tasks
+                            const updatedTasks = await Promise.all(
+                              tasks.map(async task => {
+                                if (task.isRunning) {
+                                  await stopTask(task.id);
+                                }
+                                return { ...task, isRunning: false };
+                              })
+                            );
+                            setTasks(updatedTasks);
                             
                             // Close settings and show the welcome screen
                             setSettingsView(false);
@@ -2038,7 +1437,7 @@ Return your response in this JSON format:
                           else if (apiKey && apiKey !== lastSavedKey) {
                             // Only show confetti if this is the first time adding an API key
                             // AND there are no saved tasks yet
-                            if (!lastSavedKey && !hasExistingKey && jobs.length === 0) {
+                            if (!lastSavedKey && !hasExistingKey && tasks.length === 0) {
                               setShowConfetti(true);
                             }
                             
@@ -2046,31 +1445,32 @@ Return your response in this JSON format:
                             await electron.ipcRenderer.invoke('save-api-key', apiKey);
                             setHasExistingKey(true);
                             
-                            // Immediately restart ALL jobs when adding a new API key
-                            // Use a timeout to ensure this happens after state updates
-                            setTimeout(() => {
-                              // First update all jobs state to running
-                              setJobs(prevJobs => {
-                                const updatedJobs = prevJobs.map(job => ({
-                                  ...job,
-                                  isRunning: true
-                                }));
-                                
-                                // Schedule each job after state update
-                                updatedJobs.forEach(job => {
-                                  // First stop any existing job to clear intervals
-                                  if (intervals.current[job.id]) {
-                                    if (intervals.current[job.id].interval) clearInterval(intervals.current[job.id].interval);
-                                    if (intervals.current[job.id].timeout) clearTimeout(intervals.current[job.id].timeout);
+                            // Start all tasks when adding a new API key
+                            setTimeout(async () => {
+                              const updatedTasks = await Promise.all(
+                                tasks.map(async task => {
+                                  // Clear any existing interval for this task
+                                  if (intervals.current[task.id]) {
+                                    if (intervals.current[task.id].interval) {
+                                      clearInterval(intervals.current[task.id].interval);
+                                    }
+                                    if (intervals.current[task.id].timeout) {
+                                      clearTimeout(intervals.current[task.id].timeout);
+                                    }
                                   }
-                                  // Then schedule the job
-                                  scheduleJob(job);
-                                });
-                                
-                                return updatedJobs;
-                              });
+                                  
+                                  // Update the task to be running
+                                  const updatedTask = await toggleTaskRunningState(task.id, true);
+                                  if (updatedTask) {
+                                    // Schedule the task to run
+                                    scheduleTask(updatedTask);
+                                    return updatedTask;
+                                  }
+                                  return task;
+                                })
+                              );
+                              setTasks(updatedTasks);
                             }, 50);
-                            
                           }
                         } catch (error) {
                           console.error('Failed to save/delete API key:', error);
@@ -2087,31 +1487,31 @@ Return your response in this JSON format:
                 </div>
               </div>
             ) : !showNewJobForm && apiKey ? (
-              // When not in edit mode, settings, or creating new job, and API key exists, show a Mac-style list
-              jobs.length > 0 && (
+              // When not in edit mode, settings, or creating new task, and API key exists, show tasks list
+              tasks.length > 0 && (
                 <div className="pb-6">
                   <div className="rounded-lg overflow-hidden animate-in border-x-0 rounded-none">
-                    {[...jobs].reverse().map((job, index) => (
+                    {[...tasks].reverse().map((task, index) => (
                       <div 
-                        key={job.id}
+                        key={task.id}
                         className={`flex items-center px-5 py-5 border-b border-border/50 hover:bg-accent transition-colors ${index === 0 ? 'border-t-0' : ''}`}
                         onClick={(e) => {
                           // Only trigger if not clicking on buttons
                           if (!(e.target as HTMLElement).closest('button')) {
-                            startEditingJob(job.id);
+                            startEditingTask(task.id);
                           }
                         }}
                       >
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center">
-                            {job.isRunning && (
-                              <span className={`mr-2 inline-block h-1.5 w-1.5 rounded-full ${job.lastMatchedCriteria 
+                            {task.isRunning && (
+                              <span className={`mr-2 inline-block h-1.5 w-1.5 rounded-full ${task.lastMatchedCriteria 
                                 ? 'bg-emerald-500 dark:bg-emerald-500 shadow-[0_0_4px_rgba(16,185,129,0.7)]' 
                                 : 'bg-[#007AFF] dark:bg-[#007AFF] shadow-[0_0_4px_rgba(0,122,255,0.7)]'} 
                                 animate-[subtle-pulse_1.5s_ease-in-out_infinite,scale_1.5s_ease-in-out_infinite] flex-shrink-0 origin-center`}></span>
                             )}
-                            <h3 className="font-medium text-sm truncate" title={job.websiteUrl}>
-                              {job.websiteUrl}
+                            <h3 className="font-medium text-sm truncate" title={task.websiteUrl}>
+                              {task.websiteUrl}
                             </h3>
                           </div>
                           
@@ -2119,22 +1519,22 @@ Return your response in this JSON format:
                           <div className="w-[7px] flex-shrink-0 mr-1"></div>
                           <span 
                             className="flex-shrink-0 cursor-default" 
-                            title={job.lastRun ? `Checked ${formatTimeAgo(new Date(job.lastRun))}` : "Waiting for first check"}
+                            title={task.lastRun ? `Checked ${formatTimeAgo(new Date(task.lastRun))}` : "Waiting for first check"}
                           >
-                            {job.frequency === 'hourly' ? 'Hourly' : 
-                             job.frequency === 'daily' ? `Daily at ${job.scheduledTime}` : 
-                             job.frequency === 'weekly' ? `Weekly on ${job.dayOfWeek || 'Mon'} at ${job.scheduledTime}` : ''}
+                            {task.frequency === 'hourly' ? 'Hourly' : 
+                             task.frequency === 'daily' ? `Daily at ${task.scheduledTime}` : 
+                             task.frequency === 'weekly' ? `Weekly on ${task.dayOfWeek || 'Mon'} at ${task.scheduledTime}` : ''}
                           </span>
                             
                             <span className="mx-1.5 text-muted-foreground/40">•</span>
                             
-                            {job.lastMatchedCriteria ? (
-                              <span className="truncate" title={job.notificationCriteria}>
-                                Matched: {job.notificationCriteria}
+                            {task.lastMatchedCriteria ? (
+                              <span className="truncate" title={task.notificationCriteria}>
+                                Matched: {task.notificationCriteria}
                               </span>
                             ) : (
-                              <span className="truncate" title={job.notificationCriteria}>
-                                {job.notificationCriteria}
+                              <span className="truncate" title={task.notificationCriteria}>
+                                {task.notificationCriteria}
                               </span>
                             )}
                             
@@ -2151,17 +1551,17 @@ Return your response in this JSON format:
               )
             ) : null }
 
-            {/* New Job Form (only shown when not editing any job) */}
+            {/* New Task Form (only shown when not editing any task) */}
             {showNewJobForm && !editingJobId && (
               <TaskForm
                 formData={newJob}
                 testResult={testResult}
                 loading={loading}
                 onFormChange={setNewJob}
-                onTest={testJob}
+                onTest={testAnalysis}
                 onSave={(data) => {
                   if (data.websiteUrl && data.notificationCriteria) {
-                    addJob(data);
+                    createNewTask(data);
                   }
                 }}
               />
