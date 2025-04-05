@@ -136,7 +136,7 @@
 textarea.mac-native-input {
   line-height: 1.5;
   resize: vertical;
-  min-height: 60px;
+  min-height: 90px;
 }
 
 .mac-native-select {
