@@ -20,6 +20,28 @@
   }
 }
 
+@layer base {
+  /* Override default browser cursor for buttons */
+  button, [role="button"] {
+    cursor: default !important;
+  }
+  
+  /* Ensure specific button components also use default cursor */
+  .Button, .button, [type="button"], [type="submit"] {
+    cursor: default !important;
+  }
+  
+  /* Override for card buttons in the empty state */
+  .bg-card.border.rounded-lg {
+    cursor: default !important;
+  }
+  
+  /* Links should use pointer cursor */
+  a {
+    cursor: pointer !important;
+  }
+}
+
 @layer utilities {
   .-webkit-app-region-drag {
     -webkit-app-region: drag;

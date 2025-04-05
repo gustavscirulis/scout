@@ -576,7 +576,11 @@ function App() {
       setError('')
 
       const { ipcRenderer } = window.require('electron')
-      const screenshot = await ipcRenderer.invoke('take-screenshot', job.websiteUrl)
+      // Ensure URL has protocol prefix for the screenshot function
+      const websiteUrl = (!job.websiteUrl.startsWith('http://') && !job.websiteUrl.startsWith('https://')) 
+        ? `http://${job.websiteUrl}` 
+        : job.websiteUrl
+      const screenshot = await ipcRenderer.invoke('take-screenshot', websiteUrl)
 
       // Construct a focused prompt that directly evaluates the notification criteria
       const promptText = `Analyze this webpage and determine if the following condition is true: "${job.notificationCriteria}"
@@ -734,7 +738,11 @@ Return your response in this JSON format:
     try {
       // Create a modified version of runAnalysis that returns the result instead of updating jobs
       const { ipcRenderer } = window.require('electron')
-      const screenshot = await ipcRenderer.invoke('take-screenshot', job.websiteUrl)
+      // Ensure URL has protocol prefix for the screenshot function
+      const websiteUrl = (!job.websiteUrl.startsWith('http://') && !job.websiteUrl.startsWith('https://')) 
+        ? `http://${job.websiteUrl}` 
+        : job.websiteUrl
+      const screenshot = await ipcRenderer.invoke('take-screenshot', websiteUrl)
       
       const promptText = `Analyze this webpage and determine if the following condition is true: "${job.notificationCriteria}"
 
@@ -1340,7 +1348,7 @@ Return your response in this JSON format:
                     {jobs.map((job, index) => (
                       <div 
                         key={job.id}
-                        className={`flex items-center px-5 py-5 border-b border-border/50 hover:bg-accent cursor-pointer transition-colors ${index === 0 ? 'border-t-0' : ''}`}
+                        className={`flex items-center px-5 py-5 border-b border-border/50 hover:bg-accent transition-colors ${index === 0 ? 'border-t-0' : ''}`}
                         onClick={(e) => {
                           // Only trigger if not clicking on buttons
                           if (!(e.target as HTMLElement).closest('button')) {
@@ -1385,7 +1393,7 @@ Return your response in this JSON format:
                                   {job.lastMatchedCriteria ? (
                                     <span className="flex items-center">
                                       <span>Matched</span>
-                                      <CheckCircle className="w-3 h-3 ml-0.5" weight="fill" />
+                                      <CheckCircle className="w-3 h-3 ml-0.5 text-green-500" weight="fill" />
                                     </span>
                                   ) : (
                                     <span className="flex items-center text-neutral-500 dark:text-neutral-400">

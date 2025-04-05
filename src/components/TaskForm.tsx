@@ -109,7 +109,7 @@ export function TaskForm({
               <Input
                 type="url"
                 value={formData.websiteUrl}
-                placeholder="https://example.com"
+                placeholder="example.com"
                 className={`h-9 ${urlError ? 'border-destructive' : ''}`}
                 autoFocus
                 onChange={handleUrlChange}
@@ -169,7 +169,7 @@ export function TaskForm({
                 <div className="animate-in">
                   {testResult.screenshot && (
                     <div 
-                      className="border border-input rounded-md overflow-hidden cursor-zoom-in hover:shadow-md relative group transition-shadow duration-200"
+                      className="border border-input rounded-md overflow-hidden hover:shadow-md relative group transition-shadow duration-200"
                       onClick={async (e) => {
                         e.stopPropagation();
                         try {
@@ -196,7 +196,7 @@ export function TaskForm({
                                   <span className={testResult.matched ? "text-green-600 dark:text-green-500 font-medium flex items-center" : "text-neutral-500 dark:text-neutral-400 font-medium flex items-center"}>
                                     {testResult.matched ? (
                                       <>
-                                        <Check className="w-3 h-3 mr-1 text-neutral-400" weight="bold" />
+                                        <Check className="w-3 h-3 mr-1 text-green-500" weight="bold" />
                                         Matched
                                       </>
                                     ) : (
@@ -220,9 +220,11 @@ export function TaskForm({
               )}
               
               {loading && (
-                <div className="p-4 bg-muted border rounded-md flex items-center justify-center animate-in">
-                  <div className="relative w-5 h-5">
-                    <div className="absolute top-0 left-0 w-full h-full border-[2px] border-t-primary border-r-primary/40 border-b-primary/20 border-l-primary/10 rounded-full animate-spin"></div>
+                <div className="border border-input rounded-md overflow-hidden animate-in">
+                  <div className="px-3 py-2 text-xs text-muted-foreground bg-muted/30 border-t border-input flex items-center justify-center" style={{ height: "100px" }}>
+                    <div className="relative w-5 h-5">
+                      <div className="absolute top-0 left-0 w-full h-full border-[2px] border-t-primary border-r-primary/40 border-b-primary/20 border-l-primary/10 rounded-full animate-spin"></div>
+                    </div>
                   </div>
                 </div>
               )}

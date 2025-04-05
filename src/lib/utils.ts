@@ -27,8 +27,14 @@ export function validateUrl(url: string): { isValid: boolean; message?: string }
     return { isValid: false, message: 'URL is required' }
   }
 
+  // If URL doesn't start with http:// or https://, add https:// prefix
+  let normalizedUrl = url;
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    normalizedUrl = `https://${url}`;
+  }
+
   try {
-    const urlObj = new URL(url)
+    const urlObj = new URL(normalizedUrl)
     // Check for http or https protocol
     if (urlObj.protocol !== 'http:' && urlObj.protocol !== 'https:') {
       return { isValid: false, message: 'URL must use http or https protocol' }
