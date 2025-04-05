@@ -1275,7 +1275,7 @@ Return your response in this JSON format:
                     {jobs.map((job, index) => (
                       <div 
                         key={job.id}
-                        className={`flex items-center px-6 py-3 border-b border-border/50 hover:bg-accent cursor-pointer transition-colors ${index === 0 ? 'border-t-0' : ''}`}
+                        className={`flex items-center px-5 py-5 border-b border-border/50 hover:bg-accent cursor-pointer transition-colors ${index === 0 ? 'border-t-0' : ''}`}
                         onClick={(e) => {
                           // Only trigger if not clicking on buttons
                           if (!(e.target as HTMLElement).closest('button')) {
@@ -1333,7 +1333,7 @@ Return your response in this JSON format:
                           </div>
                         </div>
                         
-                        <div className="flex items-center ml-4">
+                        <div className="flex items-center ml-4 mr-0">
                           <CaretRight className="text-muted-foreground/70 flex-shrink-0" size={16} />
                         </div>
                       </div>
