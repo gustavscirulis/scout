@@ -116,33 +116,55 @@ function App() {
   )
   const [jobs, setJobs] = useState<AnalysisJob[]>(() => {
     console.log('Loading jobs from localStorage'); // Essential log
-    const savedJobs = localStorage.getItem('analysisJobs')
-    if (!savedJobs) {
+    const savedJobsData = localStorage.getItem('analysisJobs')
+    if (!savedJobsData) {
       console.log('No saved jobs found'); // Essential log
       return [];
     }
     
     // Parse the JSON and properly convert date strings back to Date objects
-    const parsedJobs = JSON.parse(savedJobs);
-    
-    const loadedJobs = parsedJobs.map((job: any) => ({
-      ...job,
-      // Convert lastRun from string to Date object
-      lastRun: job.lastRun ? new Date(job.lastRun) : undefined,
-      // Also ensure lastTestResult timestamp is properly converted if it exists
-      lastTestResult: job.lastTestResult ? {
-        ...job.lastTestResult,
-        timestamp: job.lastTestResult.timestamp ? job.lastTestResult.timestamp : undefined
-      } : undefined
-    }));
-    
-    // Log the loaded jobs for debugging
-    console.log(`Loaded ${loadedJobs.length} jobs from localStorage`); // Essential log
-    loadedJobs.forEach(job => {
-      console.log(`- Job ${job.id}: frequency=${job.frequency}, isRunning=${job.isRunning}`); // Essential log
-    });
-    
-    return loadedJobs;
+    try {
+      const parsedData = JSON.parse(savedJobsData);
+      
+      // Check if we're using the new format (with timestamp) or old format
+      let parsedJobs;
+      if (parsedData.timestamp && Array.isArray(parsedData.jobs)) {
+        console.log(`Loading jobs from new format, saved at: ${parsedData.timestamp}`);
+        parsedJobs = parsedData.jobs;
+      } else if (Array.isArray(parsedData)) {
+        console.log('Loading jobs from old format');
+        parsedJobs = parsedData;
+      } else {
+        console.error('Invalid job data in localStorage, unexpected format');
+        return [];
+      }
+      
+      const loadedJobs = parsedJobs.map((job: any) => {
+        const loadedJob = {
+          ...job,
+          // Convert lastRun from string to Date object
+          lastRun: job.lastRun ? new Date(job.lastRun) : undefined,
+          // Also ensure lastTestResult timestamp is properly converted if it exists
+          lastTestResult: job.lastTestResult ? {
+            ...job.lastTestResult,
+            timestamp: job.lastTestResult.timestamp ? job.lastTestResult.timestamp : undefined
+          } : undefined
+        };
+        
+        // Log complete job details for debugging
+        console.log(`- Job ${loadedJob.id}: frequency=${loadedJob.frequency}, criteria=${loadedJob.notificationCriteria?.substring(0, 50)}`);
+        
+        return loadedJob;
+      });
+      
+      // Log the loaded jobs for debugging
+      console.log(`Loaded ${loadedJobs.length} jobs from localStorage`); // Essential log
+      
+      return loadedJobs;
+    } catch (error) {
+      console.error('Error parsing jobs from localStorage:', error);
+      return [];
+    }
   })
   const [apiKey, setApiKey] = useState('')
   const [hasExistingKey, setHasExistingKey] = useState(false)
@@ -247,13 +269,68 @@ function App() {
   useEffect(() => {
     console.log(`Saving ${jobs.length} jobs to localStorage`); // Essential log
     
-    // Make sure to properly handle Date objects for serialization
-    const jobsToSave = jobs.map(job => ({
-      ...job,
-      // Convert Date objects to ISO strings for proper serialization
-      lastRun: job.lastRun ? job.lastRun.toISOString() : undefined
-    }))
-    localStorage.setItem('analysisJobs', JSON.stringify(jobsToSave))
+    // Log all jobs being saved for debugging
+    jobs.forEach((job, index) => {
+      console.log(`Job ${index}: ${job.id}, criteria: ${job.notificationCriteria?.substring(0, 50)}`);
+    });
+    
+    // CRITICAL: Before saving, make a deep clone to avoid stale data issues
+    const jobsToSave = jobs.map(job => {
+      // Create a fresh deep copy of each job
+      const jobCopy = {
+        ...job,
+        // Convert Date objects to ISO strings for proper serialization
+        lastRun: job.lastRun ? job.lastRun.toISOString() : undefined
+      };
+      
+      // CRITICAL FIX: Save a separate copy of the notification criteria to ensure it's not lost
+      // This is a hack to deal with potential race conditions in React state management
+      if (!jobCopy.notificationCriteria) {
+        // Try to recover from localStorage if it's missing
+        try {
+          const savedData = localStorage.getItem('analysisJobs');
+          if (savedData) {
+            const parsedData = JSON.parse(savedData);
+            if (parsedData.timestamp && Array.isArray(parsedData.jobs)) {
+              const savedJob = parsedData.jobs.find((j: any) => j.id === job.id);
+              if (savedJob && savedJob.notificationCriteria) {
+                console.log(`Recovered missing criteria from localStorage: "${savedJob.notificationCriteria}"`);
+                jobCopy.notificationCriteria = savedJob.notificationCriteria;
+              }
+            }
+          }
+        } catch (e) {
+          console.error("Error recovering criteria from localStorage", e);
+        }
+      }
+      
+      // Double check we have criteria
+      if (!jobCopy.notificationCriteria) {
+        console.error(`ERROR: Job ${jobCopy.id} has no criteria before saving to localStorage!`);
+      }
+      
+      // Log the job being saved
+      console.log(`Saving job ${jobCopy.id}, condition: "${jobCopy.notificationCriteria?.substring(0, 30)}"`);
+      
+      return jobCopy;
+    });
+    
+    // Add a timestamp for debugging
+    const saveData = {
+      timestamp: new Date().toISOString(),
+      jobs: jobsToSave
+    };
+    
+    // Save to localStorage with a timestamp for debugging
+    localStorage.setItem('analysisJobs', JSON.stringify(saveData));
+    
+    // ADDITIONAL BACKUP: Store the criteria separately for each job to help recovery
+    // This ensures we have a backup if the main storage gets corrupted
+    jobs.forEach(job => {
+      if (job.notificationCriteria) {
+        localStorage.setItem(`job_criteria_${job.id}`, job.notificationCriteria);
+      }
+    });
   }, [jobs])
 
   // Load API key from electron-store when the app starts
@@ -280,14 +357,30 @@ function App() {
             
             // Add auto-recovery safety check - check local storage vs. loaded jobs
             try {
-              const savedJobsJson = localStorage.getItem('analysisJobs');
-              if (savedJobsJson) {
-                const savedJobs = JSON.parse(savedJobsJson);
+              const savedJobsData = localStorage.getItem('analysisJobs');
+              if (savedJobsData) {
+                // Parse the data, handling both new and old formats
+                const parsedData = JSON.parse(savedJobsData);
+                let savedJobs;
+                
+                // Handle different formats
+                if (parsedData.timestamp && Array.isArray(parsedData.jobs)) {
+                  console.log(`Loading jobs from new format during recovery, saved at ${parsedData.timestamp}`);
+                  savedJobs = parsedData.jobs;
+                } else if (Array.isArray(parsedData)) {
+                  console.log('Loading jobs from old format during recovery');
+                  savedJobs = parsedData;
+                } else {
+                  console.error('Invalid localStorage format during recovery');
+                  return;
+                }
                 
                 // Compare number of jobs in localStorage vs. loaded state
                 if (savedJobs.length !== jobs.length) {
+                  console.log(`Job count mismatch: localStorage=${savedJobs.length}, state=${jobs.length}`);
                   // This indicates a possible bug - let's try to recover by loading from localStorage
                   if (savedJobs.length > jobs.length) {
+                    console.log(`Recovering ${savedJobs.length - jobs.length} jobs from localStorage`);
                     // Convert any string dates to Date objects
                     const recoveredJobs = savedJobs.map((job: any) => ({
                       ...job,
@@ -453,9 +546,25 @@ function App() {
             
             // We need to get the fresh jobs state from localStorage as a fallback
             try {
-              const savedJobs = localStorage.getItem('analysisJobs');
-              if (savedJobs) {
-                const parsedJobs = JSON.parse(savedJobs);
+              const savedJobsData = localStorage.getItem('analysisJobs');
+              if (savedJobsData) {
+                // Parse the data, handling both new and old formats
+                const parsedData = JSON.parse(savedJobsData);
+                let parsedJobs;
+                
+                // Handle different formats
+                if (parsedData.timestamp && Array.isArray(parsedData.jobs)) {
+                  console.log(`Loading jobs from new format in interval, saved at ${parsedData.timestamp}`);
+                  parsedJobs = parsedData.jobs;
+                } else if (Array.isArray(parsedData)) {
+                  console.log('Loading jobs from old format in interval');
+                  parsedJobs = parsedData;
+                } else {
+                  console.error('Invalid localStorage format in interval');
+                  return jobs; // Return current jobs if localStorage format is invalid
+                }
+                
+                // Convert dates
                 latestJobs = parsedJobs.map((job: any) => ({
                   ...job,
                   lastRun: job.lastRun ? new Date(job.lastRun) : undefined
@@ -615,6 +724,10 @@ function App() {
     const job = jobs.find(j => j.id === editingJobId);
     if (!job) return;
     
+    // CRITICAL: Before updating, save the updated notification criteria to our backup storage
+    console.log(`Saving criteria to backup: "${updatedJob.notificationCriteria}"`);
+    localStorage.setItem(`job_criteria_${editingJobId}`, updatedJob.notificationCriteria);
+    
     // Check if the job is currently running
     const wasRunning = job.isRunning;
     
@@ -638,14 +751,40 @@ function App() {
         : j
     );
     
+    // Log the updated job for debugging
+    const jobAfterUpdate = updatedJobs.find(j => j.id === editingJobId);
+    if (jobAfterUpdate) {
+      console.log(`Job after update: criteria = "${jobAfterUpdate.notificationCriteria}"`);
+    }
+    
+    // Set the jobs state
     setJobs(updatedJobs);
+    
+    // Force an immediate save to localStorage for the updated job
+    const jobsToSave = updatedJobs.map(job => ({
+      ...job,
+      lastRun: job.lastRun ? job.lastRun.toISOString() : undefined
+    }));
+    
+    // Immediately save to localStorage to avoid race conditions
+    const saveData = {
+      timestamp: new Date().toISOString(),
+      jobs: jobsToSave
+    };
+    
+    // Save to both main storage and backup
+    localStorage.setItem('analysisJobs', JSON.stringify(saveData));
     
     // If it was running, restart it with the new settings
     if (wasRunning) {
-      const updatedJob = updatedJobs.find(j => j.id === editingJobId);
-      if (updatedJob) {
-        scheduleJob(updatedJob);
-      }
+      // IMPORTANT: Wait a bit for the state update to complete before restarting
+      setTimeout(() => {
+        const freshJob = updatedJobs.find(j => j.id === editingJobId);
+        if (freshJob) {
+          console.log(`Restarting job with criteria: "${freshJob.notificationCriteria}"`);
+          scheduleJob(freshJob);
+        }
+      }, 100);
     }
     
     // Clear form and editing mode
@@ -697,7 +836,9 @@ function App() {
   }
 
   const sendNotification = (job: AnalysisJob, analysis: string) => {
-    console.log(`Sending notification for job ${job.id}: ${job.notificationCriteria}`);
+    // CRITICAL DEBUG INFO - Let's see what notification criteria is coming in
+    console.log(`Sending notification for job ${job.id}`);
+    console.log(`Notification criteria: "${job.notificationCriteria}"`);
     
     if (notificationPermission === 'granted') {
       console.log(`Notification permission granted, creating notification`);
@@ -706,7 +847,7 @@ function App() {
       const urlObj = new URL(job.websiteUrl.startsWith('http') ? job.websiteUrl : `http://${job.websiteUrl}`);
       const domain = urlObj.hostname;
       
-      const title = `${domain} matched your condition`;
+      const title = `${domain} matched your condition: ${job.notificationCriteria}`;
       
       // Create a notification body that just includes the rationale (analysis)
       let body = analysis;
@@ -872,9 +1013,25 @@ Return your response in this JSON format:
           
           // First check if it exists in localStorage
           try {
-            const savedJobs = localStorage.getItem('analysisJobs');
-            if (savedJobs) {
-              const parsedJobs = JSON.parse(savedJobs);
+            const savedJobsData = localStorage.getItem('analysisJobs');
+            if (savedJobsData) {
+              // Parse the data, handling both new and old formats
+              const parsedData = JSON.parse(savedJobsData);
+              let parsedJobs;
+              
+              // Handle different formats
+              if (parsedData.timestamp && Array.isArray(parsedData.jobs)) {
+                console.log(`Loading job from new format, saved at ${parsedData.timestamp}`);
+                parsedJobs = parsedData.jobs;
+              } else if (Array.isArray(parsedData)) {
+                console.log('Loading job from old format');
+                parsedJobs = parsedData;
+              } else {
+                console.error('Invalid localStorage format');
+                return;
+              }
+              
+              // Find the job by ID
               const savedJob = parsedJobs.find((j: any) => j.id === job.id);
               
               if (savedJob) {
@@ -892,8 +1049,24 @@ Return your response in this JSON format:
                   lastRun: now,
                   lastMatchedCriteria: criteriaMatched,
                   lastTestResult: resultData,
-                  isRunning: true
+                  isRunning: true,
+                  // CRITICAL: Explicitly preserve notification criteria
+                  notificationCriteria: savedJob.notificationCriteria
                 };
+                
+                console.log(`Preserved criteria in success recovery: "${savedJob.notificationCriteria}"`);
+                
+                // Verify the criteria is preserved in the updatedJob
+                console.log(`Updated job criteria: "${updatedJob.notificationCriteria}"`);
+                
+                // Add an explicit check for edge cases
+                if (!updatedJob.notificationCriteria || updatedJob.notificationCriteria === "undefined") {
+                  console.error("Critical error: criteria is undefined or empty in recovered job");
+                  
+                  // Force the criteria from the original job as a fallback
+                  updatedJob.notificationCriteria = job.notificationCriteria || savedJob.notificationCriteria || "Unknown criteria";
+                  console.log(`Forced criteria to: "${updatedJob.notificationCriteria}"`);
+                }
                 
                 // Add the updated job to our current array
                 const updatedJobs = [...jobs, updatedJob];
@@ -904,7 +1077,24 @@ Return your response in this JSON format:
                 // Check if we should send a notification for the recovered job
                 if (criteriaMatched === true) {
                   console.log(`Criteria matched for recovered job ${job.id}, sending notification`);
-                  sendNotification(updatedJob, parsedResult.analysis);
+                  console.log(`Recovered job criteria: "${updatedJob.notificationCriteria}"`);
+                  
+                  // One final safety check
+                  if (!updatedJob.notificationCriteria || updatedJob.notificationCriteria === "undefined") {
+                    console.error("CRITICAL ERROR: Recovered job criteria missing");
+                    
+                    // Force a fresh copy with the correct criteria
+                    const freshJob = {
+                      ...updatedJob,
+                      notificationCriteria: job.notificationCriteria || savedJob.notificationCriteria || "Unknown criteria"
+                    };
+                    
+                    console.log(`Forced recovered job criteria: "${freshJob.notificationCriteria}"`);
+                    sendNotification(freshJob, parsedResult.analysis);
+                  } else {
+                    // Send notification with the verified job data
+                    sendNotification(updatedJob, parsedResult.analysis);
+                  }
                 } else {
                   console.log(`Criteria not matched for recovered job ${job.id}, no notification sent`);
                 }
@@ -926,14 +1116,52 @@ Return your response in this JSON format:
         const latestJobs = [...jobs];
         
         // Update the specific job in the fresh array
+        // MOST CRITICAL FIX! The notification criteria is getting reverted somewhere
+        // Log the current notification criteria for debugging
+        console.log(`Before update: notification criteria = "${latestJobs[currentJobIndex].notificationCriteria}"`);
+        
+        // Get the criteria from localStorage as well for comparison
+        let storedCriteria = "";
+        try {
+          const savedJobsData = localStorage.getItem('analysisJobs');
+          if (savedJobsData) {
+            const parsedData = JSON.parse(savedJobsData);
+            if (parsedData.timestamp && Array.isArray(parsedData.jobs)) {
+              const storedJob = parsedData.jobs.find((j: any) => j.id === job.id);
+              if (storedJob) {
+                storedCriteria = storedJob.notificationCriteria;
+                console.log(`Stored criteria in localStorage: "${storedCriteria}"`);
+              }
+            } else if (Array.isArray(parsedData)) {
+              const storedJob = parsedData.find((j: any) => j.id === job.id);
+              if (storedJob) {
+                storedCriteria = storedJob.notificationCriteria;
+                console.log(`Stored criteria in localStorage (old format): "${storedCriteria}"`);
+              }
+            }
+          }
+        } catch (e) {
+          console.error("Error reading localStorage for criteria comparison", e);
+        }
+        
+        // Update the job with explicit preservation of notification criteria
         latestJobs[currentJobIndex] = { 
           ...latestJobs[currentJobIndex], 
           lastResult: formattedResult,
           lastRun: now,
           lastMatchedCriteria: criteriaMatched,
           lastTestResult: resultData, // Store full result data including screenshot
-          isRunning: true // Explicitly ensure job stays running
+          isRunning: true, // Explicitly ensure job stays running
+          // CRITICAL - ensure we preserve the current notification criteria
+          // This is the field that's being lost during updates
+          // Try multiple fallbacks to ensure we get the right criteria
+          notificationCriteria: storedCriteria || 
+                             localStorage.getItem(`job_criteria_${job.id}`) || 
+                             latestJobs[currentJobIndex].notificationCriteria
         };
+        
+        // Debug log for the notification criteria
+        console.log(`Job criteria preserved: ${latestJobs[currentJobIndex].notificationCriteria}`);
         
         console.log(`New jobs array length: ${latestJobs.length}`); // Debug new array length
         
@@ -953,10 +1181,30 @@ Return your response in this JSON format:
           // Double-check we have the updated job before sending notification
           if (updatedJobForNotification) {
             console.log(`Using updated job data for notification: ${updatedJobForNotification.id}`);
-            sendNotification(updatedJobForNotification, parsedResult.analysis);
+            console.log(`Latest job criteria: "${updatedJobForNotification.notificationCriteria}"`);
+            
+            // One final safety check to make sure we're using the correct criteria
+            if (!updatedJobForNotification.notificationCriteria || 
+                updatedJobForNotification.notificationCriteria === "undefined") {
+              
+              console.error("CRITICAL ERROR: Job criteria missing before notification");
+              
+              // Force a fresh copy with the correct criteria
+              const freshJob = {
+                ...updatedJobForNotification,
+                notificationCriteria: job.notificationCriteria || "Unknown criteria"
+              };
+              
+              console.log(`Forced job criteria for notification: "${freshJob.notificationCriteria}"`);
+              sendNotification(freshJob, parsedResult.analysis);
+            } else {
+              // Send notification with the verified job data
+              sendNotification(updatedJobForNotification, parsedResult.analysis);
+            }
           } else {
             // Fallback to original job if we somehow can't find the updated one
             console.log(`Falling back to original job for notification: ${job.id}`);
+            console.log(`Original job criteria: "${job.notificationCriteria}"`);
             sendNotification(job, parsedResult.analysis);
           }
         } else {
@@ -989,9 +1237,25 @@ Return your response in this JSON format:
           
           try {
             // First try to find it in localStorage
-            const savedJobs = localStorage.getItem('analysisJobs');
-            if (savedJobs) {
-              const parsedJobs = JSON.parse(savedJobs);
+            const savedJobsData = localStorage.getItem('analysisJobs');
+            if (savedJobsData) {
+              // Parse the data, handling both new and old formats
+              const parsedData = JSON.parse(savedJobsData);
+              let parsedJobs;
+              
+              // Handle different formats
+              if (parsedData.timestamp && Array.isArray(parsedData.jobs)) {
+                console.log(`Loading job from new format during parse error, saved at ${parsedData.timestamp}`);
+                parsedJobs = parsedData.jobs;
+              } else if (Array.isArray(parsedData)) {
+                console.log('Loading job from old format during parse error');
+                parsedJobs = parsedData;
+              } else {
+                console.error('Invalid localStorage format during parse error');
+                return;
+              }
+              
+              // Find the job by ID
               const savedJob = parsedJobs.find((j: any) => j.id === job.id);
               
               if (savedJob) {
@@ -1008,8 +1272,12 @@ Return your response in this JSON format:
                   lastResult: errorResult,
                   lastRun: now,
                   lastTestResult: errorResultData,
-                  isRunning: true
+                  isRunning: true,
+                  // CRITICAL: Explicitly preserve notification criteria
+                  notificationCriteria: savedJob.notificationCriteria
                 };
+                
+                console.log(`Preserved criteria in parse error recovery: ${savedJob.notificationCriteria}`);
                 
                 // Add the updated job to the current jobs array
                 const updatedJobs = [...jobs, updatedJob];
@@ -1036,8 +1304,14 @@ Return your response in this JSON format:
           lastResult: errorResult,
           lastRun: now,
           lastTestResult: errorResultData,
-          isRunning: true // Explicitly ensure job stays running
+          isRunning: true, // Explicitly ensure job stays running
+          // CRITICAL - ensure we preserve the current notification criteria
+          // This is the field that's being lost during updates
+          notificationCriteria: latestJobs[currentJobIndex].notificationCriteria
         };
+        
+        // Debug log for the notification criteria
+        console.log(`Job criteria preserved in parse error: ${latestJobs[currentJobIndex].notificationCriteria}`);
         
         console.log(`New jobs array length after parse error: ${latestJobs.length}`); // Debug new array length
         console.log(`Job updated after parse error: ${latestJobs[currentJobIndex].id}, isRunning=${latestJobs[currentJobIndex].isRunning}`);
@@ -1071,9 +1345,25 @@ Return your response in this JSON format:
         
         try {
           // First try to find it in localStorage
-          const savedJobs = localStorage.getItem('analysisJobs');
-          if (savedJobs) {
-            const parsedJobs = JSON.parse(savedJobs);
+          const savedJobsData = localStorage.getItem('analysisJobs');
+          if (savedJobsData) {
+            // Parse the data, handling both new and old formats
+            const parsedData = JSON.parse(savedJobsData);
+            let parsedJobs;
+            
+            // Handle different formats
+            if (parsedData.timestamp && Array.isArray(parsedData.jobs)) {
+              console.log(`Loading job from new format during error handling, saved at ${parsedData.timestamp}`);
+              parsedJobs = parsedData.jobs;
+            } else if (Array.isArray(parsedData)) {
+              console.log('Loading job from old format during error handling');
+              parsedJobs = parsedData;
+            } else {
+              console.error('Invalid localStorage format during error handling');
+              return;
+            }
+            
+            // Find the job by ID
             const savedJob = parsedJobs.find((j: any) => j.id === job.id);
             
             if (savedJob) {
@@ -1090,8 +1380,12 @@ Return your response in this JSON format:
                 lastResult: errorMessage,
                 lastRun: now,
                 lastTestResult: errorResultData,
-                isRunning: true
+                isRunning: true,
+                // CRITICAL: Explicitly preserve notification criteria
+                notificationCriteria: savedJob.notificationCriteria
               };
+              
+              console.log(`Preserved criteria in error recovery: ${savedJob.notificationCriteria}`);
               
               // Add the updated job to the current jobs array
               const updatedJobs = [...jobs, updatedJob];
@@ -1118,8 +1412,14 @@ Return your response in this JSON format:
         lastResult: errorMessage,
         lastRun: now,
         lastTestResult: errorResultData,
-        isRunning: true // Explicitly ensure job stays running
+        isRunning: true, // Explicitly ensure job stays running
+        // CRITICAL - ensure we preserve the current notification criteria
+        // This is the field that's being lost during updates
+        notificationCriteria: latestJobs[currentJobIndex].notificationCriteria
       };
+      
+      // Debug log for the notification criteria
+      console.log(`Job criteria preserved in error handler: ${latestJobs[currentJobIndex].notificationCriteria}`);
       
       console.log(`New jobs array length after error: ${latestJobs.length}`); // Debug new array length
       console.log(`Job updated after error: ${latestJobs[currentJobIndex].id}, isRunning=${latestJobs[currentJobIndex].isRunning}`);
