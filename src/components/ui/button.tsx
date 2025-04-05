@@ -5,20 +5,20 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "mac-native-button inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50",
+  "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50",
   {
     variants: {
       variant: {
         default:
-          "bg-transparent text-black hover:bg-black/5 active:bg-black/10",
+          "bg-primary text-primary-foreground hover:bg-primary/90",
         destructive:
-          "text-red-600 hover:bg-red-50",
+          "bg-destructive text-destructive-foreground hover:bg-destructive/90",
         outline:
-          "border border-gray-200 bg-white hover:bg-gray-50",
+          "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
         secondary:
-          "bg-gray-50 text-black hover:bg-gray-100",
-        ghost: "hover:bg-black/5",
-        link: "text-[#007AFF] hover:underline",
+          "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+        ghost: "hover:bg-accent hover:text-accent-foreground",
+        link: "text-primary underline-offset-4 hover:underline",
       },
       size: {
         default: "h-9 px-3 py-1.5",

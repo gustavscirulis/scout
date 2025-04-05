@@ -1189,14 +1189,13 @@ Return your response in this JSON format:
                     )}
                   </div>
                 </div>
-                <div className="sticky bottom-0 left-0 right-0 border-t border-border/60 h-12 px-8 flex justify-center items-center gap-2 bg-white">
+                <div className="sticky bottom-0 left-0 right-0 border-t border-border/60 h-12 px-8 flex justify-end items-center gap-3 bg-white">
                   <Button
-                    variant="secondary"
+                    variant="outline"
                     onClick={() => testJob(newJob)}
                     disabled={!newJob.websiteUrl || !newJob.notificationCriteria || loading}
-                    size="sm"
+                    className="h-8 px-4"
                   >
-                    <SpinnerGap className="w-4 h-4 mr-2" />
                     {loading ? 'Testing...' : 'Test'}
                   </Button>
                   <Button
@@ -1207,9 +1206,8 @@ Return your response in this JSON format:
                       }
                     }}
                     disabled={!newJob.websiteUrl || !newJob.notificationCriteria || loading}
-                    size="sm"
+                    className="h-8 px-4"
                   >
-                    <CheckCircle className="w-4 h-4 mr-2" />
                     Save
                   </Button>
                 </div>
@@ -1324,9 +1322,9 @@ Return your response in this JSON format:
                     </fieldset>
                   </div>
                 </div>
-                <div className="sticky bottom-0 left-0 right-0 border-t border-border/60 px-8 py-4 flex justify-end bg-background">
-                  <Button 
-                    type="button" 
+                <div className="sticky bottom-0 left-0 right-0 border-t border-border/60 h-12 px-8 flex justify-end items-center gap-3 bg-white">
+                  <Button
+                    variant="default"
                     onClick={async () => {
                       // Check if we need to refresh hasExistingKey
                       try {
@@ -1354,59 +1352,60 @@ Return your response in this JSON format:
                       // Only proceed if there are no errors
                       if (!hasError) {
                         try {
-                        const electron = window.require('electron');
-                        const lastSavedKey = await electron.ipcRenderer.invoke('get-api-key') || '';
-                        
-                        // If clearing the API key
-                        if (!apiKey && lastSavedKey) {
-                          // Remove API key from storage using IPC
-                          await electron.ipcRenderer.invoke('delete-api-key');
-                          setHasExistingKey(false);
+                          const electron = window.require('electron');
+                          const lastSavedKey = await electron.ipcRenderer.invoke('get-api-key') || '';
                           
-                          // Pause all running jobs
-                          const updatedJobs = jobs.map(job => {
-                            // Stop any interval/timeout for this job
-                            if (job.isRunning) {
-                              stopJob(job.id);
-                            }
-                            // Mark all jobs as not running but preserve other state
-                            return { ...job, isRunning: false };
-                          });
-                          setJobs(updatedJobs);
-                          
-                          // Close settings and show the welcome screen
-                          setSettingsView(false);
-                          return;
-                        } 
-                        // If updating with a new key
-                        else if (apiKey && apiKey !== lastSavedKey) {
-                          // Trigger confetti for new valid API key
-                          setShowConfetti(true);
-                          
-                          // Save new API key using IPC
-                          await electron.ipcRenderer.invoke('save-api-key', apiKey);
-                          setHasExistingKey(true);
-                          
-                          // If this is adding a key after not having one, restart jobs that were running
-                          if (!lastSavedKey) {
-                            // Resume all jobs that were running before
-                            jobs.forEach(job => {
-                              // Schedule each job (which will automatically set isRunning to true)
-                              // Only if it was already set up previously (had a lastRun)
-                              if (job.lastRun) {
-                                toggleJob(job.id);
+                          // If clearing the API key
+                          if (!apiKey && lastSavedKey) {
+                            // Remove API key from storage using IPC
+                            await electron.ipcRenderer.invoke('delete-api-key');
+                            setHasExistingKey(false);
+                            
+                            // Pause all running jobs
+                            const updatedJobs = jobs.map(job => {
+                              // Stop any interval/timeout for this job
+                              if (job.isRunning) {
+                                stopJob(job.id);
                               }
+                              // Mark all jobs as not running but preserve other state
+                              return { ...job, isRunning: false };
                             });
+                            setJobs(updatedJobs);
+                            
+                            // Close settings and show the welcome screen
+                            setSettingsView(false);
+                            return;
+                          } 
+                          // If updating with a new key
+                          else if (apiKey && apiKey !== lastSavedKey) {
+                            // Trigger confetti for new valid API key
+                            setShowConfetti(true);
+                            
+                            // Save new API key using IPC
+                            await electron.ipcRenderer.invoke('save-api-key', apiKey);
+                            setHasExistingKey(true);
+                            
+                            // If this is adding a key after not having one, restart jobs that were running
+                            if (!lastSavedKey) {
+                              // Resume all jobs that were running before
+                              jobs.forEach(job => {
+                                // Schedule each job (which will automatically set isRunning to true)
+                                // Only if it was already set up previously (had a lastRun)
+                                if (job.lastRun) {
+                                  toggleJob(job.id);
+                                }
+                              });
+                            }
                           }
+                        } catch (error) {
+                          console.error('Failed to save/delete API key:', error);
+                          setError('Failed to save API key settings');
                         }
-                      } catch (error) {
-                        console.error('Failed to save/delete API key:', error);
-                        setError('Failed to save API key settings');
-                      }
                         
                         setSettingsView(false)
                       }
                     }}
+                    className="h-8 px-4"
                   >
                     Save
                   </Button>
@@ -1642,14 +1641,13 @@ Return your response in this JSON format:
                     )}
                   </div>
                 </div>
-                <div className="sticky bottom-0 left-0 right-0 border-t border-border/60 h-12 px-8 flex justify-center items-center gap-2 bg-white">
+                <div className="sticky bottom-0 left-0 right-0 border-t border-border/60 h-12 px-8 flex justify-end items-center gap-3 bg-white">
                   <Button
-                    variant="secondary"
+                    variant="outline"
                     onClick={() => testJob(newJob)}
                     disabled={!newJob.websiteUrl || !newJob.notificationCriteria || loading}
-                    size="sm"
+                    className="h-8 px-4"
                   >
-                    <SpinnerGap className="w-4 h-4 mr-2" />
                     {loading ? 'Testing...' : 'Test'}
                   </Button>
                   <Button
@@ -1660,9 +1658,8 @@ Return your response in this JSON format:
                       }
                     }}
                     disabled={!newJob.websiteUrl || !newJob.notificationCriteria || loading}
-                    size="sm"
+                    className="h-8 px-4"
                   >
-                    <CheckCircle className="w-4 h-4 mr-2" />
                     Save
                   </Button>
                 </div>
