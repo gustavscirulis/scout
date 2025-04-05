@@ -1008,7 +1008,7 @@ Return your response in this JSON format:
                       <label className="text-sm font-medium mb-2 block">Notify Me When...</label>
                       <textarea
                         value={newJob.notificationCriteria || ''}
-                        className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none min-h-[100px]"
+                        className="flex w-full rounded-md border border-input bg-input px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none min-h-[100px]"
                         placeholder="e.g., 'product price drops below target price' or 'PS5 is back in stock'"
                         onChange={(e: ChangeEvent<HTMLTextAreaElement>) => {
                           const criteria = e.target.value;
@@ -1108,10 +1108,9 @@ Return your response in this JSON format:
                     <Button
                       variant="destructive"
                       onClick={() => deleteJob(editingJobId)}
-                      size="sm"
+                      size="icon"
                     >
-                      <Trash size={14} className="mr-1.5" />
-                      Delete
+                      <Trash size={14} />
                     </Button>
                     <Button
                       variant="outline"
@@ -1454,7 +1453,7 @@ Return your response in this JSON format:
                       <label className="text-sm font-medium mb-2 block">Notify Me When...</label>
                       <textarea
                         value={newJob.notificationCriteria || ''}
-                        className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none min-h-[100px]"
+                        className="flex w-full rounded-md border border-input bg-input px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none min-h-[100px]"
                         placeholder="e.g., 'product price drops below target price' or 'PS5 is back in stock'"
                         onChange={(e: ChangeEvent<HTMLTextAreaElement>) => {
                           const criteria = e.target.value;
@@ -1554,10 +1553,9 @@ Return your response in this JSON format:
                     <Button
                       variant="destructive"
                       onClick={() => deleteJob(editingJobId)}
-                      size="sm"
+                      size="icon"
                     >
-                      <Trash size={14} className="mr-1.5" />
-                      Delete
+                      <Trash size={14} />
                     </Button>
                     <Button
                       variant="outline"
