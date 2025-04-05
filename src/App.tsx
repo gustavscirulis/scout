@@ -217,7 +217,7 @@ function App() {
     }
   }, []);
   
-  // Handle view transitions by managing the mac-transitioning class
+  // Handle view transitions by managing overflow during transitions
   const [isTransitioning, setIsTransitioning] = useState(false)
   
   // Track if user just added an API key for celebration
@@ -804,10 +804,10 @@ Return your response in this JSON format:
   }
 
   return appWithTooltips(
-    <div className="mac-window">
+    <div className="flex flex-col h-full w-full">
       {/* Titlebar - macOS style */}
-      <div className="mac-toolbar">
-        <div style={{ width: "40px", height: "100%" }}>
+      <div className="h-12 -webkit-app-region-drag w-full flex items-center justify-between border-b">
+        <div className="w-10 h-full flex items-center justify-center">
           {(showNewJobForm || editingJobId || settingsView) ? (
             <Button
               variant="ghost"
@@ -818,6 +818,7 @@ Return your response in this JSON format:
                 setSettingsView(false);
               }}
               title="Back"
+              className="-webkit-app-region-no-drag"
             >
               <CaretLeft size={16} />
             </Button>
@@ -827,19 +828,20 @@ Return your response in this JSON format:
               size="icon"
               onClick={() => setSettingsView(true)}
               title="Settings"
+              className="-webkit-app-region-no-drag"
             >
               <Gear size={16} />
             </Button>
           )}
         </div>
         
-        <div className="mac-toolbar-title text-muted-foreground/60">
+        <div className="font-semibold text-sm -webkit-app-region-drag text-muted-foreground">
           {(showNewJobForm || editingJobId) ? 
             (editingJobId ? 'Edit Task' : 'New Task') : 
             (settingsView ? 'Settings' : 'Scout')}
         </div>
         
-        <div style={{ width: "40px", height: "100%" }}>
+        <div className="w-10 h-full flex items-center justify-center">
           {!showNewJobForm && !editingJobId && !settingsView ? (
             <Button
               variant="ghost"
@@ -857,13 +859,13 @@ Return your response in this JSON format:
 
 
       {/* Main content */}
-      <div className={`mac-content ${isTransitioning ? 'mac-transitioning' : ''}`}>
+      <div className={`flex-1 overflow-y-auto overflow-x-hidden flex flex-col relative ${isTransitioning ? 'overflow-hidden' : ''}`}>
         <div className="w-full space-y-6 flex-grow flex flex-col">
 
           {/* Jobs List */}
           <div className="space-y-4">
             {(!apiKey || jobs.length === 0) && !showNewJobForm && !editingJobId && !settingsView && (
-              <div className="flex flex-col items-center justify-center py-8 text-center px-8 mac-animate-in">
+              <div className="flex flex-col items-center justify-center py-8 text-center px-8 animate-in">
                 <div className="w-20 h-20 bg-primary/5 rounded-full flex items-center justify-center mb-6">
                   <Robot size={36} className="text-primary/60" />
                 </div>
@@ -1118,7 +1120,7 @@ Return your response in this JSON format:
                       <div className="py-4">
                         <label className="text-sm font-medium mb-2 block">Task Results</label>
                         {testResult && (
-                          <div className="mac-animate-in">
+                          <div className="animate-in">
                             <div className={`flex items-start gap-2 mb-4 p-3 rounded-md ${
                               testResult.matched === true 
                                 ? 'bg-green-50 border border-green-200 dark:bg-green-900/20 dark:border-green-800/30' 
@@ -1169,7 +1171,7 @@ Return your response in this JSON format:
                         )}
                         
                         {loading && (
-                          <div className="p-4 bg-muted border rounded-md flex items-center justify-center mac-animate-in">
+                          <div className="p-4 bg-muted border rounded-md flex items-center justify-center animate-in">
                             <SpinnerGap className="animate-spin h-5 w-5" />
                             <span className="text-sm">Running test...</span>
                           </div>
@@ -1178,7 +1180,7 @@ Return your response in this JSON format:
                     )}
                   </div>
                 </div>
-                <div className="sticky bottom-0 left-0 right-0 border-t border-border/60 px-8 py-4 flex justify-between items-center">
+                <div className="sticky bottom-0 left-0 right-0 border-t border-border/60 px-8 py-4 flex justify-between items-center bg-background">
                   <div className="flex gap-2">
                     <Button
                       variant="destructive"
@@ -1211,7 +1213,7 @@ Return your response in this JSON format:
               </div>
             ) : !showNewJobForm && settingsView ? (
               // Settings view (shown in place of task list)
-              <div className="flex flex-col h-full min-h-[calc(100vh-3rem)] mac-animate-in">
+              <div className="flex flex-col h-full min-h-[calc(100vh-3rem)] animate-in">
                 <div className="flex-1 overflow-auto">
                   <div className="px-8 pt-6 space-y-6">
                     <fieldset className="space-y-3">
@@ -1319,7 +1321,7 @@ Return your response in this JSON format:
                     </fieldset>
                   </div>
                 </div>
-                <div className="sticky bottom-0 left-0 right-0 border-t border-border/60 px-8 py-4 flex justify-end">
+                <div className="sticky bottom-0 left-0 right-0 border-t border-border/60 px-8 py-4 flex justify-end bg-background">
                   <Button 
                     type="button" 
                     onClick={async () => {
@@ -1411,11 +1413,11 @@ Return your response in this JSON format:
               // When not in edit mode, settings, or creating new job, and API key exists, show a Mac-style list
               jobs.length > 0 && (
                 <div className="pb-6">
-                  <div className="mac-list mac-animate-in border-x-0 rounded-none">
+                  <div className="rounded-lg border overflow-hidden animate-in border-x-0 rounded-none">
                     {jobs.map((job, index) => (
                       <div 
                         key={job.id}
-                        className={`mac-list-row ${index === 0 ? 'border-t-0' : ''}`}
+                        className={`flex items-center px-6 py-3 border-b border-border/50 hover:bg-accent cursor-pointer transition-colors ${index === 0 ? 'border-t-0' : ''}`}
                         onClick={(e) => {
                           // Only trigger if not clicking on buttons
                           if (!(e.target as HTMLElement).closest('button')) {
@@ -1581,7 +1583,7 @@ Return your response in this JSON format:
                       <div className="py-4">
                         <label className="text-sm font-medium mb-2 block">Task Results</label>
                         {testResult && (
-                          <div className="mac-animate-in">
+                          <div className="animate-in">
                             <div className={`flex items-start gap-2 mb-4 p-3 rounded-md ${
                               testResult.matched === true 
                                 ? 'bg-green-50 border border-green-200 dark:bg-green-900/20 dark:border-green-800/30' 
@@ -1632,7 +1634,7 @@ Return your response in this JSON format:
                         )}
                         
                         {loading && (
-                          <div className="p-4 bg-muted border rounded-md flex items-center justify-center mac-animate-in">
+                          <div className="p-4 bg-muted border rounded-md flex items-center justify-center animate-in">
                             <SpinnerGap className="animate-spin h-5 w-5" />
                             <span className="text-sm">Running test...</span>
                           </div>
@@ -1641,7 +1643,7 @@ Return your response in this JSON format:
                     )}
                   </div>
                 </div>
-                <div className="sticky bottom-0 left-0 right-0 border-t border-border/60 px-8 py-4 flex justify-between items-center">
+                <div className="sticky bottom-0 left-0 right-0 border-t border-border/60 px-8 py-4 flex justify-between items-center bg-background">
                   <div className="flex gap-2">
                     <Button
                       variant="destructive"
