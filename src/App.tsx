@@ -1114,12 +1114,9 @@ Return your response in this JSON format:
           {/* Tasks List */}
           <div className="space-y-4">
             {(!apiKey || tasks.length === 0) && !showNewJobForm && !editingJobId && !settingsView && (
-              <div className="flex flex-col items-center justify-center py-10 text-center px-6 animate-in">
-                <div className="w-20 h-20 bg-primary/5 rounded-full flex items-center justify-center mb-8">
-                  <div className="relative">
-                    <Eye size={36} className="text-primary/30" />
-                    <div className="absolute w-3.5 h-3.5 rounded-full shadow-[0_0_6px_rgba(0,185,246,0.7)]" style={{ top: '50%', left: '50%', transform: 'translate(-50%, -50%)', borderWidth: '2.5px', borderStyle: 'solid', borderColor: '#00B9F6' }}></div>
-                  </div>
+              <div className="flex flex-col items-center justify-center py-7 text-center px-6 animate-in">
+                <div className="w-28 h-28 flex items-center justify-center mb-4">
+                  <img src="app_icon.png" alt="Scout" className="w-full h-full object-contain" />
                 </div>
                 {!apiKey ? (
                   <>
