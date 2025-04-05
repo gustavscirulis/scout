@@ -1039,7 +1039,7 @@ Return your response in this JSON format:
             {editingJobId && jobs.find(job => job.id === editingJobId) ? (
               <div className="flex flex-col h-full min-h-[calc(100vh-3rem)]">
                 <div className="flex-1 overflow-auto">
-                  <div className="space-y-6 px-8 pt-6">
+                  <div className="space-y-6 px-8 pt-4">
                     <div>
                       <label className="text-sm font-medium mb-2 block">URL</label>
                       <Input
@@ -1096,9 +1096,9 @@ Return your response in this JSON format:
                       />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-6">
-                      <div>
-                        <label className="text-sm font-medium mb-2 block">Frequency</label>
+                    <div className="flex items-end gap-3">
+                      <div className="flex-1">
+                        <label className="text-sm font-medium mb-2 block">Check</label>
                         <Select
                           value={newJob.frequency}
                           onValueChange={(value) => setNewJob(prev => ({ ...prev, frequency: value as RecurringFrequency }))}
@@ -1114,8 +1114,7 @@ Return your response in this JSON format:
                         </Select>
                       </div>
 
-                      <div>
-                        <label className="text-sm font-medium mb-2 block">Time</label>
+                      <div className="flex-1">
                         <TimeInput
                           value={newJob.scheduledTime}
                           onChange={(time) => setNewJob(prev => ({ ...prev, scheduledTime: time }))}
@@ -1130,29 +1129,9 @@ Return your response in this JSON format:
                         <label className="text-sm font-medium mb-2 block">Result</label>
                         {testResult && (
                           <div className="animate-in">
-                            <div className={`flex items-start gap-2 mb-4 p-3 rounded-md ${
-                              testResult.matched === true 
-                                ? 'bg-[#E8F5E9] border border-[#C8E6C9] dark:bg-green-900/10 dark:border-green-800/20' 
-                                : testResult.matched === false 
-                                  ? 'bg-[#FAFAFA] border border-[#E0E0E0] dark:bg-rose-900/10 dark:border-rose-800/20'
-                                  : 'bg-muted/50 border border-input/50'
-                            }`}>
-                              <span className="flex-shrink-0 mt-0.5">
-                                {testResult.matched === true ? (
-                                  <CheckCircle className="w-4 h-4 text-[#43A047] dark:text-green-500" weight="fill" />
-                                ) : testResult.matched === false ? (
-                                  <XCircle className="w-4 h-4 text-[#757575] dark:text-rose-400" weight="fill" />
-                                ) : (
-                                  <WarningCircle className="w-4 h-4 text-destructive" weight="fill" />
-                                )}
-                              </span>
-                              <div className="text-xs whitespace-pre-wrap leading-relaxed">
-                                {testResult.result}
-                              </div>
-                            </div>
                             {testResult.screenshot && (
                               <div 
-                                className="border border-input rounded-md overflow-hidden cursor-zoom-in hover:opacity-90 hover:shadow-md relative group"
+                                className="border border-input rounded-md overflow-hidden cursor-zoom-in hover:shadow-md relative group transition-shadow duration-200"
                                 onClick={async (e) => {
                                   e.stopPropagation();
                                   try {
@@ -1169,11 +1148,23 @@ Return your response in this JSON format:
                                   alt="Screenshot of website" 
                                   className="w-full h-auto" 
                                 />
-                                {testResult.timestamp && (
-                                  <div className="px-3 py-2 text-xs text-muted-foreground bg-muted/30 border-t border-input">
-                                    Ran {formatTimeAgo(testResult.timestamp)}
+                                <div className="px-3 py-2 text-xs text-muted-foreground bg-muted/30 border-t border-input">
+                                  <div className="flex items-start gap-2 mb-1">
+                                    <span className="flex-shrink-0 mt-0.5">
+                                      {testResult.matched === true ? (
+                                        <CheckCircle className="w-4 h-4 text-[#43A047] dark:text-green-500" weight="fill" />
+                                      ) : testResult.matched === false ? (
+                                        <XCircle className="w-4 h-4 text-[#757575] dark:text-rose-400" weight="fill" />
+                                      ) : (
+                                        <WarningCircle className="w-4 h-4 text-destructive" weight="fill" />
+                                      )}
+                                    </span>
+                                    <span className="font-medium">{testResult.result}</span>
                                   </div>
-                                )}
+                                  {testResult.timestamp && (
+                                    <div className="text-muted-foreground/70">Ran {formatTimeAgo(testResult.timestamp)}</div>
+                                  )}
+                                </div>
                               </div>
                             )}
                           </div>
@@ -1491,7 +1482,7 @@ Return your response in this JSON format:
             {showNewJobForm && !editingJobId && (
               <div className="flex flex-col h-full min-h-[calc(100vh-3rem)]">
                 <div className="flex-1 overflow-auto">
-                  <div className="space-y-6 px-8 pt-6">
+                  <div className="space-y-6 px-8 pt-4">
                     <div>
                       <label className="text-sm font-medium mb-2 block">URL to Monitor</label>
                       <Input
@@ -1548,9 +1539,9 @@ Return your response in this JSON format:
                       />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-6">
-                      <div>
-                        <label className="text-sm font-medium mb-2 block">Check Frequency</label>
+                    <div className="flex items-end gap-3">
+                      <div className="flex-1">
+                        <label className="text-sm font-medium mb-2 block">Check</label>
                         <Select
                           value={newJob.frequency}
                           onValueChange={(value) => setNewJob(prev => ({ ...prev, frequency: value as RecurringFrequency }))}
@@ -1566,8 +1557,7 @@ Return your response in this JSON format:
                         </Select>
                       </div>
 
-                      <div>
-                        <label className="text-sm font-medium mb-2 block">Start Time</label>
+                      <div className="flex-1">
                         <TimeInput
                           value={newJob.scheduledTime}
                           onChange={(time) => setNewJob(prev => ({ ...prev, scheduledTime: time }))}
@@ -1582,29 +1572,9 @@ Return your response in this JSON format:
                         <label className="text-sm font-medium mb-2 block">Task Results</label>
                         {testResult && (
                           <div className="animate-in">
-                            <div className={`flex items-start gap-2 mb-4 p-3 rounded-md ${
-                              testResult.matched === true 
-                                ? 'bg-[#E8F5E9] border border-[#C8E6C9] dark:bg-green-900/10 dark:border-green-800/20' 
-                                : testResult.matched === false 
-                                  ? 'bg-[#FAFAFA] border border-[#E0E0E0] dark:bg-rose-900/10 dark:border-rose-800/20'
-                                  : 'bg-muted/50 border border-input/50'
-                            }`}>
-                              <span className="flex-shrink-0 mt-0.5">
-                                {testResult.matched === true ? (
-                                  <CheckCircle className="w-4 h-4 text-[#43A047] dark:text-green-500" weight="fill" />
-                                ) : testResult.matched === false ? (
-                                  <XCircle className="w-4 h-4 text-[#757575] dark:text-rose-400" weight="fill" />
-                                ) : (
-                                  <WarningCircle className="w-4 h-4 text-destructive" weight="fill" />
-                                )}
-                              </span>
-                              <div className="text-xs whitespace-pre-wrap leading-relaxed">
-                                {testResult.result}
-                              </div>
-                            </div>
                             {testResult.screenshot && (
                               <div 
-                                className="border border-input rounded-md overflow-hidden cursor-zoom-in hover:opacity-90 hover:shadow-md relative group"
+                                className="border border-input rounded-md overflow-hidden cursor-zoom-in hover:shadow-md relative group transition-shadow duration-200"
                                 onClick={async (e) => {
                                   e.stopPropagation();
                                   try {
@@ -1621,11 +1591,23 @@ Return your response in this JSON format:
                                   alt="Screenshot of website" 
                                   className="w-full h-auto" 
                                 />
-                                {testResult.timestamp && (
-                                  <div className="px-3 py-2 text-xs text-muted-foreground bg-muted/30 border-t border-input">
-                                    Ran {formatTimeAgo(testResult.timestamp)}
+                                <div className="px-3 py-2 text-xs text-muted-foreground bg-muted/30 border-t border-input">
+                                  <div className="flex items-start gap-2 mb-1">
+                                    <span className="flex-shrink-0 mt-0.5">
+                                      {testResult.matched === true ? (
+                                        <CheckCircle className="w-4 h-4 text-[#43A047] dark:text-green-500" weight="fill" />
+                                      ) : testResult.matched === false ? (
+                                        <XCircle className="w-4 h-4 text-[#757575] dark:text-rose-400" weight="fill" />
+                                      ) : (
+                                        <WarningCircle className="w-4 h-4 text-destructive" weight="fill" />
+                                      )}
+                                    </span>
+                                    <span className="font-medium">{testResult.result}</span>
                                   </div>
-                                )}
+                                  {testResult.timestamp && (
+                                    <div className="text-muted-foreground/70">Ran {formatTimeAgo(testResult.timestamp)}</div>
+                                  )}
+                                </div>
                               </div>
                             )}
                           </div>
