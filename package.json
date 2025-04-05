@@ -64,14 +64,15 @@
   },
   "build": {
     "appId": "com.electron.scout",
-    "icon": "public/app_icon.png",
+    "icon": "public/app_icon.icns",
     "mac": {
       "category": "public.app-category.productivity",
       "target": ["dmg"],
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
       "entitlements": "build/entitlements.mac.plist",
-      "entitlementsInherit": "build/entitlements.mac.plist"
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "icon": "public/app_icon.icns"
     },
     "files": [
       "dist/**/*",
