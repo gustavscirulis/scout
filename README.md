@@ -10,6 +10,32 @@ Scout is a desktop application that monitors websites and notifies you when spec
 - **Scheduling**: Set hourly, daily, or weekly checks
 - **Mac-Style Interface**: Clean, native-feeling UI
 
+## How It Works
+
+Scout uses AI vision to monitor websites for you:
+
+1. **Create a Task**: Enter the URL you want to monitor and define the condition you're looking for (e.g., "price drops below $500" or "tickets become available")
+2. **Set Schedule**: Choose how often to check - hourly, daily, or weekly
+3. **Test First**: Scout takes a screenshot and tests your condition before saving
+4. **Automatic Monitoring**: Once saved, Scout will check the website automatically according to your schedule
+5. **Get Notified**: When your condition is met, you'll receive a desktop notification
+
+## Getting Started
+
+1. **API Key**: You'll need an OpenAI API key with access to GPT-4o Vision. Enter it in the Settings screen.
+2. **Create Tasks**: Click the "+" icon to create a new monitoring task
+3. **Test Your Tasks**: Use the "Test" button to verify your condition works correctly
+4. **Run Tasks**: Tasks run automatically in the background according to your schedule
+
+## Example Use Cases
+
+- **Price Tracking**: Monitor product pages for price drops (e.g., "price is below $300")
+- **Stock Alerts**: Get notified when items come back in stock (e.g., "Add to Cart button is enabled")
+- **Limited Releases**: Monitor for ticket sales, product launches, or limited releases
+- **Job Listings**: Track career pages for specific job openings
+- **Content Updates**: Get notified when websites update with specific information
+- **Reservation Availability**: Monitor for available bookings at restaurants or venues
+
 ## Development
 
 ```bash
@@ -29,6 +55,14 @@ npm run build
 - **UI Components**: shadcn/ui
 - **Desktop**: Electron
 - **AI**: OpenAI Vision API (GPT-4o)
+
+## Privacy & Security
+
+- **Local-Only Processing**: Scout stores all your tasks and data locally on your device.
+- **API Key Security**: Your OpenAI API key is stored securely in your system's keychain.
+- **No Data Sharing**: Scout does not send any data to external servers beyond what's required for the OpenAI API.
+- **Secure Screenshots**: Website screenshots are processed by OpenAI's API but not stored long-term.
+- **No Tracking**: Scout does not include any analytics or tracking code.
 
 ## License
 
