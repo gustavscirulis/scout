@@ -6,6 +6,7 @@ import { Separator } from './components/ui/separator'
 import { Checkbox } from './components/ui/checkbox'
 import { validateApiKey } from './lib/utils'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './components/ui/tooltip'
+import signals from './lib/telemetry'
 import { 
   Gear, 
   Plus, 
@@ -239,6 +240,13 @@ function App() {
   // Track if user just added an API key for celebration
   const [showConfetti, setShowConfetti] = useState(false)
   
+  // Track settings view for telemetry
+  useEffect(() => {
+    if (settingsView) {
+      signals.settingsOpened()
+    }
+  }, [settingsView])
+  
   // Launch confetti when showConfetti state changes
   useEffect(() => {
     if (showConfetti) {
@@ -421,12 +429,17 @@ function App() {
 
     if (task.isRunning) {
       await stopTask(taskId)
+      // Track stopping a task
+      signals.taskStopped()
     } else {
       try {
         await toggleTaskRunningState(taskId, true)
         setTasks(tasks.map(t => 
           t.id === taskId ? { ...t, isRunning: true } : t
         ))
+        
+        // Track starting a task
+        signals.taskStarted()
         
         const updatedTask = { ...task, isRunning: true }
         scheduleTask(updatedTask)
@@ -447,6 +460,9 @@ function App() {
       
       // Delete the task from storage
       await deleteTask(taskId)
+      
+      // Track task deletion with telemetry
+      signals.taskDeleted()
       
       // Update local state *after* successful deletion
       setTasks(prevTasks => prevTasks.filter(task => task.id !== taskId))
@@ -594,6 +610,9 @@ function App() {
       // Save to storage
       await updateTask(updatedTask);
       
+      // Track task update with telemetry
+      signals.taskEdited(updatedTask.frequency);
+      
       // Update local state
       setTasks(tasks.map(t => t.id === editingJobId ? updatedTask : t));
       
@@ -656,6 +675,9 @@ function App() {
       
       // Add task to storage
       const newTask = await addTask(newTaskData);
+      
+      // Track task creation with telemetry
+      signals.taskCreated(taskData.frequency);
       
       // Update local state
       setTasks([...tasks, newTask]);
@@ -749,6 +771,9 @@ function App() {
     try {
       setLoading(true)
       setError('')
+      
+      // Track analysis start
+      signals.analysisRun()
 
       const { ipcRenderer } = window.require('electron')
       // Ensure URL has protocol prefix for the screenshot function
@@ -817,6 +842,9 @@ Return your response in this JSON format:
       try {
         parsedResult = JSON.parse(resultContent);
         criteriaMatched = parsedResult.criteriaMatched;
+        
+        // Track successful analysis with telemetry
+        signals.analysisRun(true);
         
         // Format the result to just show the analysis
         const formattedResult = parsedResult.analysis;
@@ -904,6 +932,9 @@ Return your response in this JSON format:
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
       setError(errorMessage);
+      
+      // Track analysis failure with telemetry
+      signals.analysisRun(false);
       
       // Also save the error in the task's result
       const now = new Date();
@@ -1441,6 +1472,9 @@ Return your response in this JSON format:
                                         localStorage.removeItem('windowFloating');
                                       }
                                       
+                                      // Track window floating toggle in telemetry
+                                      signals.toggleWindowFloating(isChecked);
+                                      
                                       // Send IPC message to main process
                                       try {
                                         const electron = window.require('electron');
@@ -1544,6 +1578,9 @@ Return your response in this JSON format:
                             // Save new API key using IPC
                             await electron.ipcRenderer.invoke('save-api-key', apiKey);
                             setHasExistingKey(true);
+                            
+                            // Track API key saving in telemetry
+                            signals.apiKeySaved();
                             
                             // Start all tasks when adding a new API key
                             setTimeout(async () => {

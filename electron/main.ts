@@ -471,10 +471,12 @@ ipcMain.handle('take-screenshot', async (_event, url: string) => {
     height: 1080,
     show: false,
     webPreferences: {
-      offscreen: true,
-      userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36'
+      offscreen: true
     }
   })
+  
+  // Set user agent separately
+  offscreenWindow.webContents.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36')
   
   // Set extra HTTP headers to avoid bot detection
   offscreenWindow.webContents.session.webRequest.onBeforeSendHeaders(

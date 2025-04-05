@@ -8,7 +8,7 @@
     "dev": "concurrently \"vite\" \"npm run start-electron\"",
     "build": "npm run build-electron && vite build && electron-builder",
     "build-electron": "tsc --sourceMap false -p electron",
-    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "lint": "eslint .",
     "preview": "vite preview",
     "start-electron": "tsc --sourceMap false -p electron && electron ."
   },
@@ -22,6 +22,7 @@
     "@radix-ui/react-separator": "^1.1.2",
     "@radix-ui/react-slot": "^1.1.2",
     "@radix-ui/themes": "^3.0.0",
+    "@telemetrydeck/sdk": "^2.0.4",
     "@types/node": "^20.11.0",
     "canvas-confetti": "^1.9.3",
     "class-variance-authority": "^0.7.1",
@@ -67,7 +68,9 @@
     "icon": "public/app_icon.icns",
     "mac": {
       "category": "public.app-category.productivity",
-      "target": ["dmg"],
+      "target": [
+        "dmg"
+      ],
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
       "entitlements": "build/entitlements.mac.plist",
