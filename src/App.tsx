@@ -512,10 +512,24 @@ function App() {
   };
   
   const addJob = (job: JobFormData) => {
+    // Create the new job with test result if available
     const newJob: AnalysisJob = {
       ...job,
       id: crypto.randomUUID(),
-      isRunning: true // Set to true by default
+      isRunning: true, // Set to true by default
+      // Include test result if available
+      ...(testResult && {
+        lastTestResult: {
+          result: testResult.result,
+          matched: testResult.matched,
+          timestamp: testResult.timestamp?.toISOString(),
+          screenshot: testResult.screenshot
+        },
+        // Also set these fields based on the test result
+        lastResult: testResult.result,
+        lastRun: testResult.timestamp,
+        lastMatchedCriteria: testResult.matched
+      })
     }
     
     // Add job to state

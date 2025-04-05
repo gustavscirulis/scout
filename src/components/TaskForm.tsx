@@ -102,7 +102,7 @@ export function TaskForm({
   return (
     <div className="flex flex-col h-full min-h-[calc(100vh-3rem)]">
       <div className="flex-1 overflow-auto">
-        <div className="px-8 pt-4">
+        <div className="px-8 pt-4 pb-8">
           <div>
             <label className="text-sm font-medium mb-2 block">Monitor</label>
             <div className="space-y-3">
