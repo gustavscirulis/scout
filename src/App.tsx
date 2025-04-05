@@ -1113,10 +1113,10 @@ Return your response in this JSON format:
                       </div>
                     </div>
                     
-                    {/* Test Results */}
+                    {/* Task Results */}
                     {(testResult || loading) && (
                       <div className="py-4">
-                        <label className="text-sm font-medium mb-2 block">Test Results</label>
+                        <label className="text-sm font-medium mb-2 block">Task Results</label>
                         {testResult && (
                           <div className="mac-animate-in">
                             <div className={`flex items-start gap-2 mb-4 p-3 rounded-md ${
@@ -1158,6 +1158,11 @@ Return your response in this JSON format:
                                   alt="Screenshot of website" 
                                   className="w-full h-auto" 
                                 />
+                                {testResult.timestamp && (
+                                  <div className="px-3 py-2 text-xs text-muted-foreground bg-muted/30 border-t border-input">
+                                    Ran {formatTimeAgo(testResult.timestamp)}
+                                  </div>
+                                )}
                               </div>
                             )}
                           </div>
@@ -1571,10 +1576,10 @@ Return your response in this JSON format:
                       </div>
                     </div>
                     
-                    {/* Test Results */}
+                    {/* Task Results */}
                     {(testResult || loading) && (
                       <div className="py-4">
-                        <label className="text-sm font-medium mb-2 block">Test Results</label>
+                        <label className="text-sm font-medium mb-2 block">Task Results</label>
                         {testResult && (
                           <div className="mac-animate-in">
                             <div className={`flex items-start gap-2 mb-4 p-3 rounded-md ${
@@ -1616,6 +1621,11 @@ Return your response in this JSON format:
                                   alt="Screenshot of website" 
                                   className="w-full h-auto" 
                                 />
+                                {testResult.timestamp && (
+                                  <div className="px-3 py-2 text-xs text-muted-foreground bg-muted/30 border-t border-input">
+                                    Ran {formatTimeAgo(testResult.timestamp)}
+                                  </div>
+                                )}
                               </div>
                             )}
                           </div>
