@@ -109,6 +109,34 @@ function App() {
   // Store job intervals
   const intervals = useRef<Record<string, { interval: NodeJS.Timeout | null, timeout: NodeJS.Timeout | null }>>({})
 
+  const checkForMissedRuns = (job: AnalysisJob) => {
+    if (!job.lastRun) return false;
+    
+    const now = new Date();
+    const lastRun = new Date(job.lastRun);
+    const intervalTimes: Record<RecurringFrequency, number> = {
+      hourly: 60 * 60 * 1000,
+      daily: 24 * 60 * 60 * 1000,
+      weekly: 7 * 24 * 60 * 60 * 1000
+    };
+    
+    const interval = intervalTimes[job.frequency];
+    const timeSinceLastRun = now.getTime() - lastRun.getTime();
+    
+    // If more than one interval has passed since the last run
+    return timeSinceLastRun > interval;
+  };
+
+  // Check for missed runs on startup and when jobs are resumed
+  useEffect(() => {
+    jobs.forEach(job => {
+      if (job.isRunning && checkForMissedRuns(job)) {
+        // Run the analysis immediately for missed jobs
+        runAnalysis(job);
+      }
+    });
+  }, [jobs]);
+
   // Request notification permission immediately on app launch
   useEffect(() => {
     const requestNotificationPermission = async () => {
@@ -1423,11 +1451,11 @@ Return your response in this JSON format:
                     </div>
 
                     <div>
-                      <label className="text-sm font-medium mb-2 block">Notify me when...</label>
+                      <label className="text-sm font-medium mb-2 block">Notify Me When...</label>
                       <textarea
                         value={newJob.notificationCriteria || ''}
                         className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none min-h-[100px]"
-                        placeholder="e.g., 'Dyson V15 drops below $650' or 'Coldplay tickets are in stock'"
+                        placeholder="e.g., 'product price drops below target price' or 'PS5 is back in stock'"
                         onChange={(e: ChangeEvent<HTMLTextAreaElement>) => {
                           const criteria = e.target.value;
                           const analysisPrompt = criteria ? 
@@ -1442,7 +1470,7 @@ Return your response in this JSON format:
                         }}
                       />
                       <p className="text-xs text-muted-foreground mt-2">
-                      Describe what about the webpage needs to be true for you to get notified.
+                        Describe what about the webpage needs to be true for you to get notified.
                       </p>
                     </div>
 
@@ -1473,7 +1501,7 @@ Return your response in this JSON format:
                         />
                       </div>
                     </div>
-
+                    
                     {/* Test Results */}
                     {(testResult || loading) && (
                       <div className="py-4">
@@ -1498,16 +1526,11 @@ Return your response in this JSON format:
                               <div className="ml-2 flex flex-col">
                                 <span className="text-sm font-medium">
                                   {testResult.matched === true
-                                    ? 'Condition matched! Notification would trigger.'
+                                    ? 'Notification would trigger'
                                     : testResult.matched === false
-                                      ? 'Condition not matched. No notification would be sent.'
+                                      ? 'Notification would not send'
                                       : 'Error running test'}
                                 </span>
-                                {testResult.timestamp && (
-                                  <span className="text-xs text-muted-foreground">
-                                    Tested: {testResult.timestamp.toLocaleString()}
-                                  </span>
-                                )}
                               </div>
                             </div>
                             <div className="text-xs whitespace-pre-wrap leading-relaxed max-h-32 overflow-y-auto rounded-md bg-background p-3 font-mono border border-input">
@@ -1527,46 +1550,39 @@ Return your response in this JSON format:
                   </div>
                 </div>
                 <div className="sticky bottom-0 left-0 right-0 border-t border-border/60 px-8 py-4 flex justify-between items-center">
-                  <Button
-                    variant="outline"
-                    onClick={() => testJob(newJob)}
-                    disabled={!newJob.websiteUrl || !newJob.notificationCriteria || loading}
-                    className=""
-                    size="sm"
-                  >
-                    {loading ? 'Testing...' : 'Test'}
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="destructive"
+                      onClick={() => deleteJob(editingJobId)}
+                      size="sm"
+                    >
+                      <Trash size={14} className="mr-1.5" />
+                      Delete
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => testJob(newJob)}
+                      disabled={!newJob.websiteUrl || !newJob.notificationCriteria || loading}
+                      size="sm"
+                    >
+                      {loading ? 'Testing...' : 'Test'}
+                    </Button>
+                  </div>
                   <Button
                     onClick={() => {
                       if (newJob.websiteUrl && newJob.notificationCriteria) {
-                        if (editingJobId) {
-                          updateJob(newJob)
-                        } else {
-                          addJob(newJob)
-                        }
-                        setTestResult(null)
+                        updateJob(newJob)
                       }
                     }}
                     disabled={!newJob.websiteUrl || !newJob.notificationCriteria || loading}
                     size="sm"
                   >
-                    {editingJobId ? 'Save' : 'Create Task'}
+                    Save
                   </Button>
                 </div>
               </div>
             )}
-
           </div>
-
-          {/* Error message - Don't show API key errors in the toast */}
-          {error && !error.startsWith('_API_KEY_') && error !== '_API_KEY_REQUIRED_' && (
-            <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 mac-animate-in">
-              <div className="bg-background/80 backdrop-blur-md border border-destructive/20 rounded-lg shadow-lg px-4 py-3 text-sm text-destructive dark:text-destructive-foreground flex items-center">
-                <WarningCircle className="w-4 h-4 mr-2 flex-shrink-0" weight="fill" />
-                {error}
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>
