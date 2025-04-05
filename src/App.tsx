@@ -668,7 +668,7 @@ function App() {
       const urlObj = new URL(task.websiteUrl.startsWith('http') ? task.websiteUrl : `http://${task.websiteUrl}`);
       const domain = urlObj.hostname;
       
-      const title = `${domain} matched your condition: ${task.notificationCriteria}`;
+      const title = `${domain} Matched Your Condition`;
       
       // Create a notification body that just includes the rationale (analysis)
       let body = analysis;
