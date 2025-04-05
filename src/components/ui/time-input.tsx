@@ -19,14 +19,14 @@ export function TimeInput({ value, onChange, className, ...props }: TimeInputPro
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className={cn(
-          "pl-8 [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-datetime-edit]:text-foreground dark:[&::selection]:text-white dark:[&::selection]:bg-primary", 
+          "[&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-datetime-edit]:ml-4 [&::-webkit-datetime-edit]:text-foreground dark:[&::selection]:text-white dark:[&::selection]:bg-primary", 
           className
         )}
         {...props}
       />
       <Clock 
-        className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" 
-        size={16} 
+        className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" 
+        size={13} 
       />
     </div>
   )

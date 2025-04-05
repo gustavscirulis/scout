@@ -230,6 +230,16 @@ ipcMain.on('set-temporary-floating', (_event, floating: boolean) => {
 })
 
 ipcMain.handle('take-screenshot', async (_event, url: string) => {
+  // Clean up previous screenshot file if it exists before taking a new one
+  if (latestScreenshotPath && fs.existsSync(latestScreenshotPath)) {
+    try {
+      fs.unlinkSync(latestScreenshotPath);
+      latestScreenshotPath = null;
+    } catch (err) {
+      console.error('Failed to delete previous screenshot during capture:', err);
+    }
+  }
+
   const offscreenWindow = new BrowserWindow({
     width: 1920,
     height: 1080,
@@ -266,6 +276,9 @@ ipcMain.handle('delete-api-key', () => {
   return true
 })
 
+// Keep track of the latest temporary screenshot file
+let latestScreenshotPath: string | null = null;
+
 // Handle opening images in preview window
 ipcMain.handle('open-image-preview', async (_event, dataUrl: string) => {
   if (!dataUrl || !dataUrl.startsWith('data:image/')) {
@@ -277,14 +290,27 @@ ipcMain.handle('open-image-preview', async (_event, dataUrl: string) => {
     const base64Data = dataUrl.replace(/^data:image\/png;base64,/, '');
     const imageBuffer = Buffer.from(base64Data, 'base64');
     
-    // Create temp file
+    // Create temp file directory if it doesn't exist
     const tempDir = path.join(os.tmpdir(), 'scout-app');
     if (!fs.existsSync(tempDir)) {
       fs.mkdirSync(tempDir, { recursive: true });
     }
     
+    // Clean up previous screenshot if it exists
+    if (latestScreenshotPath && fs.existsSync(latestScreenshotPath)) {
+      try {
+        fs.unlinkSync(latestScreenshotPath);
+      } catch (err) {
+        console.error('Failed to delete previous screenshot:', err);
+      }
+    }
+    
+    // Create new screenshot file
     const tempFilePath = path.join(tempDir, `screenshot-${Date.now()}.png`);
     fs.writeFileSync(tempFilePath, imageBuffer);
+    
+    // Update the latest screenshot path
+    latestScreenshotPath = tempFilePath;
 
     // Open with the system's default app
     shell.openPath(tempFilePath);
@@ -297,6 +323,18 @@ ipcMain.handle('open-image-preview', async (_event, dataUrl: string) => {
 
 
 app.whenReady().then(createWindow)
+
+// Clean up any screenshot when app quits
+app.on('before-quit', () => {
+  if (latestScreenshotPath && fs.existsSync(latestScreenshotPath)) {
+    try {
+      fs.unlinkSync(latestScreenshotPath);
+      latestScreenshotPath = null;
+    } catch (err) {
+      console.error('Failed to delete screenshot on app quit:', err);
+    }
+  }
+})
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {

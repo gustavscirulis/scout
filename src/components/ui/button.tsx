@@ -5,25 +5,26 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+  "mac-native-button inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground",
+        default:
+          "bg-transparent text-black hover:bg-black/5 active:bg-black/10",
         destructive:
-          "bg-destructive text-destructive-foreground hover:bg-destructive/90 hover:text-destructive-foreground",
+          "text-red-600 hover:bg-red-50",
         outline:
-          "border border-input bg-input text-foreground hover:bg-input/90 hover:text-foreground",
+          "border border-gray-200 bg-white hover:bg-gray-50",
         secondary:
-          "bg-secondary text-secondary-foreground hover:bg-secondary/80 hover:text-secondary-foreground",
-        ghost: "hover:bg-accent hover:text-accent-foreground",
-        link: "text-primary underline-offset-4 hover:underline",
+          "bg-gray-50 text-black hover:bg-gray-100",
+        ghost: "hover:bg-black/5",
+        link: "text-[#007AFF] hover:underline",
       },
       size: {
-        default: "h-9 px-3 py-2",
-        sm: "h-9 px-3 py-2",
-        lg: "h-11 rounded-md px-8",
-        icon: "h-10 w-10",
+        default: "h-9 px-3 py-1.5",
+        sm: "h-8 px-2.5 text-xs",
+        lg: "h-10 px-4",
+        icon: "h-9 w-9",
       },
     },
     defaultVariants: {

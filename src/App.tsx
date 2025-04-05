@@ -23,9 +23,11 @@ import {
   Trash,
   SpinnerGap,
   CaretLeft,
-  CaretRight
+  CaretRight,
+  ChevronLeft
 } from '@phosphor-icons/react'
 import './App.css'
+import { Textarea } from "@/components/ui/textarea"
 
 // Function to format time in a simple "ago" format
 const formatTimeAgo = (date: Date): string => {
@@ -55,7 +57,7 @@ interface AnalysisJob {
   isRunning: boolean
   lastResult?: string
   lastRun?: Date
-  notificationCriteria?: string
+  notificationCriteria: string
   lastMatchedCriteria?: boolean
   lastTestResult?: {
     result: string
@@ -806,7 +808,7 @@ Return your response in this JSON format:
   return appWithTooltips(
     <div className="flex flex-col h-full w-full">
       {/* Titlebar - macOS style */}
-      <div className="h-12 -webkit-app-region-drag w-full flex items-center justify-between border-b">
+      <div className="h-12 -webkit-app-region-drag w-full flex items-center justify-between border-b bg-white">
         <div className="w-10 h-full flex items-center justify-center">
           {(showNewJobForm || editingJobId || settingsView) ? (
             <Button
@@ -848,18 +850,29 @@ Return your response in this JSON format:
               size="icon"
               onClick={() => apiKey ? setShowNewJobForm(true) : setSettingsView(true)}
               title={apiKey ? "New Task" : "Add API Key"}
+              className="-webkit-app-region-no-drag"
             >
               {apiKey ? <Plus size={16} /> : <Plus size={16} />}
             </Button>
-          ) : settingsView ? (
+          ) : editingJobId ? (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => deleteJob(editingJobId)}
+              title="Delete"
+              className="-webkit-app-region-no-drag"
+            >
+              <Trash size={16} />
+            </Button>
+          ) : (
             <div></div> // Empty div to maintain layout
-          ) : null}
+          )}
         </div>
       </div>
 
 
       {/* Main content */}
-      <div className={`flex-1 overflow-y-auto overflow-x-hidden flex flex-col relative ${isTransitioning ? 'overflow-hidden' : ''}`}>
+      <div className={`flex-1 overflow-y-auto overflow-x-hidden flex flex-col relative bg-[#F9FAFB] ${isTransitioning ? 'overflow-hidden' : ''}`}>
         <div className="w-full space-y-6 flex-grow flex flex-col">
 
           {/* Jobs List */}
@@ -1028,7 +1041,7 @@ Return your response in this JSON format:
                 <div className="flex-1 overflow-auto">
                   <div className="space-y-6 px-8 pt-6">
                     <div>
-                      <label className="text-sm font-medium mb-2 block">URL to Monitor</label>
+                      <label className="text-sm font-medium mb-2 block">URL</label>
                       <Input
                         type="url"
                         value={newJob.websiteUrl}
@@ -1065,9 +1078,8 @@ Return your response in this JSON format:
 
                     <div>
                       <label className="text-sm font-medium mb-2 block">Notify Me When...</label>
-                      <textarea
-                        value={newJob.notificationCriteria || ''}
-                        className="flex w-full rounded-md border border-input bg-input px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none min-h-[100px]"
+                      <Textarea
+                        value={newJob.notificationCriteria}
                         placeholder="e.g., 'product price drops below target price' or 'PS5 is back in stock'"
                         onChange={(e: ChangeEvent<HTMLTextAreaElement>) => {
                           const criteria = e.target.value;
@@ -1082,14 +1094,11 @@ Return your response in this JSON format:
                           }));
                         }}
                       />
-                      <p className="text-xs text-muted-foreground mt-2">
-                        Describe what about the webpage needs to be true for you to get notified.
-                      </p>
                     </div>
 
                     <div className="grid grid-cols-2 gap-6">
                       <div>
-                        <label className="text-sm font-medium mb-2 block">Check Frequency</label>
+                        <label className="text-sm font-medium mb-2 block">Frequency</label>
                         <Select
                           value={newJob.frequency}
                           onValueChange={(value) => setNewJob(prev => ({ ...prev, frequency: value as RecurringFrequency }))}
@@ -1106,7 +1115,7 @@ Return your response in this JSON format:
                       </div>
 
                       <div>
-                        <label className="text-sm font-medium mb-2 block">Start Time</label>
+                        <label className="text-sm font-medium mb-2 block">Time</label>
                         <TimeInput
                           value={newJob.scheduledTime}
                           onChange={(time) => setNewJob(prev => ({ ...prev, scheduledTime: time }))}
@@ -1117,22 +1126,22 @@ Return your response in this JSON format:
                     
                     {/* Task Results */}
                     {(testResult || loading) && (
-                      <div className="py-4">
-                        <label className="text-sm font-medium mb-2 block">Task Results</label>
+                      <div>
+                        <label className="text-sm font-medium mb-2 block">Result</label>
                         {testResult && (
                           <div className="animate-in">
                             <div className={`flex items-start gap-2 mb-4 p-3 rounded-md ${
                               testResult.matched === true 
-                                ? 'bg-green-50 border border-green-200 dark:bg-green-900/20 dark:border-green-800/30' 
+                                ? 'bg-[#E8F5E9] border border-[#C8E6C9] dark:bg-green-900/10 dark:border-green-800/20' 
                                 : testResult.matched === false 
-                                  ? 'bg-rose-50 border border-rose-200 dark:bg-rose-900/20 dark:border-rose-800/30'
+                                  ? 'bg-[#FAFAFA] border border-[#E0E0E0] dark:bg-rose-900/10 dark:border-rose-800/20'
                                   : 'bg-muted/50 border border-input/50'
                             }`}>
                               <span className="flex-shrink-0 mt-0.5">
                                 {testResult.matched === true ? (
-                                  <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-500" weight="fill" />
+                                  <CheckCircle className="w-4 h-4 text-[#43A047] dark:text-green-500" weight="fill" />
                                 ) : testResult.matched === false ? (
-                                  <XCircle className="w-4 h-4 text-rose-500 dark:text-rose-400" weight="fill" />
+                                  <XCircle className="w-4 h-4 text-[#757575] dark:text-rose-400" weight="fill" />
                                 ) : (
                                   <WarningCircle className="w-4 h-4 text-destructive" weight="fill" />
                                 )}
@@ -1180,25 +1189,18 @@ Return your response in this JSON format:
                     )}
                   </div>
                 </div>
-                <div className="sticky bottom-0 left-0 right-0 border-t border-border/60 px-8 py-4 flex justify-between items-center bg-background">
-                  <div className="flex gap-2">
-                    <Button
-                      variant="destructive"
-                      onClick={() => deleteJob(editingJobId)}
-                      size="icon"
-                    >
-                      <Trash size={14} />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => testJob(newJob)}
-                      disabled={!newJob.websiteUrl || !newJob.notificationCriteria || loading}
-                      size="sm"
-                    >
-                      {loading ? 'Testing...' : 'Test'}
-                    </Button>
-                  </div>
+                <div className="sticky bottom-0 left-0 right-0 border-t border-border/60 h-12 px-8 flex justify-center items-center gap-2 bg-white">
                   <Button
+                    variant="secondary"
+                    onClick={() => testJob(newJob)}
+                    disabled={!newJob.websiteUrl || !newJob.notificationCriteria || loading}
+                    size="sm"
+                  >
+                    <SpinnerGap className="w-4 h-4 mr-2" />
+                    {loading ? 'Testing...' : 'Test'}
+                  </Button>
+                  <Button
+                    variant="default"
                     onClick={() => {
                       if (newJob.websiteUrl && newJob.notificationCriteria) {
                         updateJob(newJob)
@@ -1207,6 +1209,7 @@ Return your response in this JSON format:
                     disabled={!newJob.websiteUrl || !newJob.notificationCriteria || loading}
                     size="sm"
                   >
+                    <CheckCircle className="w-4 h-4 mr-2" />
                     Save
                   </Button>
                 </div>
@@ -1528,9 +1531,8 @@ Return your response in this JSON format:
 
                     <div>
                       <label className="text-sm font-medium mb-2 block">Notify Me When...</label>
-                      <textarea
-                        value={newJob.notificationCriteria || ''}
-                        className="flex w-full rounded-md border border-input bg-input px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none min-h-[100px]"
+                      <Textarea
+                        value={newJob.notificationCriteria}
                         placeholder="e.g., 'product price drops below target price' or 'PS5 is back in stock'"
                         onChange={(e: ChangeEvent<HTMLTextAreaElement>) => {
                           const criteria = e.target.value;
@@ -1545,9 +1547,6 @@ Return your response in this JSON format:
                           }));
                         }}
                       />
-                      <p className="text-xs text-muted-foreground mt-2">
-                        Describe what about the webpage needs to be true for you to get notified.
-                      </p>
                     </div>
 
                     <div className="grid grid-cols-2 gap-6">
@@ -1586,16 +1585,16 @@ Return your response in this JSON format:
                           <div className="animate-in">
                             <div className={`flex items-start gap-2 mb-4 p-3 rounded-md ${
                               testResult.matched === true 
-                                ? 'bg-green-50 border border-green-200 dark:bg-green-900/20 dark:border-green-800/30' 
+                                ? 'bg-[#E8F5E9] border border-[#C8E6C9] dark:bg-green-900/10 dark:border-green-800/20' 
                                 : testResult.matched === false 
-                                  ? 'bg-rose-50 border border-rose-200 dark:bg-rose-900/20 dark:border-rose-800/30'
+                                  ? 'bg-[#FAFAFA] border border-[#E0E0E0] dark:bg-rose-900/10 dark:border-rose-800/20'
                                   : 'bg-muted/50 border border-input/50'
                             }`}>
                               <span className="flex-shrink-0 mt-0.5">
                                 {testResult.matched === true ? (
-                                  <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-500" weight="fill" />
+                                  <CheckCircle className="w-4 h-4 text-[#43A047] dark:text-green-500" weight="fill" />
                                 ) : testResult.matched === false ? (
-                                  <XCircle className="w-4 h-4 text-rose-500 dark:text-rose-400" weight="fill" />
+                                  <XCircle className="w-4 h-4 text-[#757575] dark:text-rose-400" weight="fill" />
                                 ) : (
                                   <WarningCircle className="w-4 h-4 text-destructive" weight="fill" />
                                 )}
@@ -1643,25 +1642,18 @@ Return your response in this JSON format:
                     )}
                   </div>
                 </div>
-                <div className="sticky bottom-0 left-0 right-0 border-t border-border/60 px-8 py-4 flex justify-between items-center bg-background">
-                  <div className="flex gap-2">
-                    <Button
-                      variant="destructive"
-                      onClick={() => deleteJob(editingJobId)}
-                      size="icon"
-                    >
-                      <Trash size={14} />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => testJob(newJob)}
-                      disabled={!newJob.websiteUrl || !newJob.notificationCriteria || loading}
-                      size="sm"
-                    >
-                      {loading ? 'Testing...' : 'Test'}
-                    </Button>
-                  </div>
+                <div className="sticky bottom-0 left-0 right-0 border-t border-border/60 h-12 px-8 flex justify-center items-center gap-2 bg-white">
                   <Button
+                    variant="secondary"
+                    onClick={() => testJob(newJob)}
+                    disabled={!newJob.websiteUrl || !newJob.notificationCriteria || loading}
+                    size="sm"
+                  >
+                    <SpinnerGap className="w-4 h-4 mr-2" />
+                    {loading ? 'Testing...' : 'Test'}
+                  </Button>
+                  <Button
+                    variant="default"
                     onClick={() => {
                       if (newJob.websiteUrl && newJob.notificationCriteria) {
                         updateJob(newJob)
@@ -1670,6 +1662,7 @@ Return your response in this JSON format:
                     disabled={!newJob.websiteUrl || !newJob.notificationCriteria || loading}
                     size="sm"
                   >
+                    <CheckCircle className="w-4 h-4 mr-2" />
                     Save
                   </Button>
                 </div>
