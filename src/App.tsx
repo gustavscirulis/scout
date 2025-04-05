@@ -70,7 +70,14 @@ function App() {
   )
   const [jobs, setJobs] = useState<AnalysisJob[]>(() => {
     const savedJobs = localStorage.getItem('analysisJobs')
-    return savedJobs ? JSON.parse(savedJobs) : []
+    if (!savedJobs) return []
+    
+    // Parse the JSON and properly convert lastRun from string to Date object
+    const parsedJobs = JSON.parse(savedJobs)
+    return parsedJobs.map((job: any) => ({
+      ...job,
+      lastRun: job.lastRun ? new Date(job.lastRun) : undefined
+    }))
   })
   const [apiKey, setApiKey] = useState('')
   const [hasExistingKey, setHasExistingKey] = useState(false)
@@ -385,7 +392,7 @@ function App() {
     setEditingJobId(jobId);
     setShowNewJobForm(false);
     
-    // Load the last test result if available
+    // First check if there's a last test result available
     if (job.lastTestResult) {
       setTestResult({
         result: job.lastTestResult.result,
@@ -393,9 +400,26 @@ function App() {
         timestamp: job.lastTestResult.timestamp ? new Date(job.lastTestResult.timestamp) : undefined,
         screenshot: job.lastTestResult.screenshot
       });
-    } else {
+      
+      // Log for debugging
+      console.log('Found lastTestResult:', job.lastTestResult);
+    } 
+    // If no test result, but there's a last scheduled run result, use that instead
+    else if (job.lastResult) {
+      setTestResult({
+        result: job.lastResult,
+        matched: job.lastMatchedCriteria,
+        timestamp: job.lastRun,
+        screenshot: undefined // We don't store screenshots for scheduled runs
+      });
+      
+      // Log for debugging
+      console.log('Using lastResult:', job.lastResult, 'lastRun:', job.lastRun);
+    } 
+    else {
       // Clear any previous test results if no saved result exists
       setTestResult(null);
+      console.log('No result found for job:', job.id);
     }
   };
   
@@ -565,14 +589,24 @@ Return your response in this JSON format:
         
         // Format the result to just show the analysis
         const formattedResult = parsedResult.analysis;
+        const now = new Date();
+        
+        // Create lastTestResult-compatible object for scheduled runs
+        const resultData = {
+          result: formattedResult,
+          matched: criteriaMatched,
+          timestamp: now.toISOString(),
+          screenshot: screenshot
+        };
         
         setJobs(jobs.map(j => 
           j.id === job.id 
             ? { 
                 ...j, 
                 lastResult: formattedResult,
-                lastRun: new Date(),
-                lastMatchedCriteria: criteriaMatched
+                lastRun: now,
+                lastMatchedCriteria: criteriaMatched,
+                lastTestResult: resultData // Store full result data including screenshot
               }
             : j
         ));
@@ -583,21 +617,52 @@ Return your response in this JSON format:
         }
       } catch (error) {
         console.error("Failed to parse response:", error);
+        const now = new Date();
+        const errorResult = `Error parsing response: ${resultContent.slice(0, 200)}...`;
+        
+        // Create error result data
+        const errorResultData = {
+          result: errorResult,
+          timestamp: now.toISOString(),
+          screenshot: screenshot
+        };
+        
         setJobs(jobs.map(j => 
           j.id === job.id 
             ? { 
                 ...j, 
-                lastResult: `Error parsing response: ${resultContent.slice(0, 200)}...`,
-                lastRun: new Date()
+                lastResult: errorResult,
+                lastRun: now,
+                lastTestResult: errorResultData
               }
             : j
         ));
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'An unknown error occurred')
-      stopJob(job.id)
+      const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
+      setError(errorMessage);
+      
+      // Also save the error in the job's result
+      const now = new Date();
+      const errorResultData = {
+        result: errorMessage,
+        timestamp: now.toISOString()
+      };
+      
+      setJobs(jobs.map(j => 
+        j.id === job.id 
+          ? { 
+              ...j, 
+              lastResult: errorMessage,
+              lastRun: now,
+              lastTestResult: errorResultData
+            }
+          : j
+      ));
+      
+      stopJob(job.id);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
@@ -762,11 +827,11 @@ Return your response in this JSON format:
   return appWithTooltips(
     <div className="flex flex-col h-full w-full">
       {/* Titlebar - macOS style */}
-      <div className="h-12 -webkit-app-region-drag w-full flex items-center justify-between border-b bg-white">
-        <div className="w-10 h-full flex items-center justify-center">
+      <div className="h-12 -webkit-app-region-drag w-full flex items-center justify-between border-b bg-white px-2">
+        <div className="flex items-center justify-center">
           {(showNewJobForm || editingJobId || settingsView) ? (
             <Button
-              variant="ghost"
+              variant="headerIcon"
               size="icon"
               onClick={() => {
                 setShowNewJobForm(false);
@@ -780,7 +845,7 @@ Return your response in this JSON format:
             </Button>
           ) : (
             <Button
-              variant="ghost"
+              variant="headerIcon"
               size="icon"
               onClick={() => setSettingsView(true)}
               title="Settings"
@@ -797,10 +862,10 @@ Return your response in this JSON format:
             (settingsView ? 'Settings' : 'Scout')}
         </div>
         
-        <div className="w-10 h-full flex items-center justify-center">
+        <div className="flex items-center justify-center">
           {!showNewJobForm && !editingJobId && !settingsView ? (
             <Button
-              variant="ghost"
+              variant="headerIcon"
               size="icon"
               onClick={() => apiKey ? setShowNewJobForm(true) : setSettingsView(true)}
               title={apiKey ? "New Task" : "Add API Key"}
@@ -810,7 +875,7 @@ Return your response in this JSON format:
             </Button>
           ) : editingJobId ? (
             <Button
-              variant="ghost"
+              variant="headerIcon"
               size="icon"
               onClick={() => deleteJob(editingJobId)}
               title="Delete"
@@ -832,7 +897,7 @@ Return your response in this JSON format:
           {/* Jobs List */}
           <div className="space-y-4">
             {(!apiKey || jobs.length === 0) && !showNewJobForm && !editingJobId && !settingsView && (
-              <div className="flex flex-col items-center justify-center py-8 text-center px-8 animate-in">
+              <div className="flex flex-col items-center justify-center py-8 text-center px-4 animate-in">
                 <div className="w-20 h-20 bg-primary/5 rounded-full flex items-center justify-center mb-6">
                   <Robot size={36} className="text-primary/60" />
                 </div>
@@ -1113,7 +1178,7 @@ Return your response in this JSON format:
                     </fieldset>
                   </div>
                 </div>
-                <div className="sticky bottom-0 left-0 right-0 border-t border-border/60 h-12 px-8 flex justify-end items-center gap-3 bg-white">
+                <div className="sticky bottom-0 left-0 right-0 border-t border-border/60 h-12 px-2 flex justify-center items-center gap-3 bg-white">
                   <Button
                     variant="default"
                     onClick={async () => {
@@ -1196,7 +1261,7 @@ Return your response in this JSON format:
                         setSettingsView(false)
                       }
                     }}
-                    className="h-8 px-4"
+                    className="h-8 w-24"
                   >
                     Save
                   </Button>
@@ -1253,13 +1318,13 @@ Return your response in this JSON format:
                                 <span className={job.lastMatchedCriteria ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}>
                                   {job.lastMatchedCriteria ? (
                                     <span className="flex items-center">
-                                      <CheckCircle className="w-3 h-3 mr-0.5" weight="fill" />
                                       <span>Matched</span>
+                                      <CheckCircle className="w-3 h-3 ml-0.5" weight="fill" />
                                     </span>
                                   ) : (
                                     <span className="flex items-center">
-                                      <XCircle className="w-3 h-3 mr-0.5" weight="fill" />
                                       <span>Not matched</span>
+                                      <XCircle className="w-3 h-3 ml-0.5" weight="fill" />
                                     </span>
                                   )}
                                 </span>
@@ -1269,7 +1334,7 @@ Return your response in this JSON format:
                         </div>
                         
                         <div className="flex items-center ml-4">
-                          <CaretRight className="text-muted-foreground/40 flex-shrink-0" size={16} />
+                          <CaretRight className="text-muted-foreground/70 flex-shrink-0" size={16} />
                         </div>
                       </div>
                     ))}

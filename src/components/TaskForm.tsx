@@ -3,7 +3,9 @@ import {
   WarningCircle,
   CheckCircle,
   XCircle,
-  SpinnerGap
+  SpinnerGap,
+  Check,
+  X
 } from '@phosphor-icons/react'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
@@ -100,29 +102,57 @@ export function TaskForm({
   return (
     <div className="flex flex-col h-full min-h-[calc(100vh-3rem)]">
       <div className="flex-1 overflow-auto">
-        <div className="space-y-6 px-8 pt-4">
+        <div className="px-8 pt-4">
           <div>
-            <label className="text-sm font-medium mb-2 block">URL</label>
-            <Input
-              type="url"
-              value={formData.websiteUrl}
-              placeholder="https://example.com"
-              className={`h-9 ${urlError ? 'border-destructive' : ''}`}
-              autoFocus
-              onChange={handleUrlChange}
-              onBlur={handleUrlBlur}
-            />
-            {urlError && (
-              <div className="mt-2 rounded-md px-3 py-1.5 bg-destructive/10 border border-destructive/20 dark:bg-destructive/20">
-                <p className="text-[0.8rem] font-medium text-destructive dark:text-destructive-foreground flex items-center">
-                  <WarningCircle className="w-3.5 h-3.5 mr-1.5 flex-shrink-0" weight="fill" />
-                  {urlError}
-                </p>
+            <label className="text-sm font-medium mb-2 block">Monitor</label>
+            <div className="space-y-3">
+              <Input
+                type="url"
+                value={formData.websiteUrl}
+                placeholder="https://example.com"
+                className={`h-9 ${urlError ? 'border-destructive' : ''}`}
+                autoFocus
+                onChange={handleUrlChange}
+                onBlur={handleUrlBlur}
+              />
+              {urlError && (
+                <div className="mt-2 rounded-md px-3 py-1.5 bg-destructive/10 border border-destructive/20 dark:bg-destructive/20">
+                  <p className="text-[0.8rem] font-medium text-destructive dark:text-destructive-foreground flex items-center">
+                    <WarningCircle className="w-3.5 h-3.5 mr-1.5 flex-shrink-0" weight="fill" />
+                    {urlError}
+                  </p>
+                </div>
+              )}
+            
+              <div className="flex items-end gap-3">
+                <div className="flex-1">
+                  <Select
+                    value={formData.frequency}
+                    onValueChange={(value) => onFormChange({ ...formData, frequency: value as RecurringFrequency })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select frequency" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="hourly">Every Hour</SelectItem>
+                      <SelectItem value="daily">Every Day</SelectItem>
+                      <SelectItem value="weekly">Every Week</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex-1">
+                  <TimeInput
+                    value={formData.scheduledTime}
+                    onChange={(time) => onFormChange({ ...formData, scheduledTime: time })}
+                    className="h-9"
+                  />
+                </div>
               </div>
-            )}
+            </div>
           </div>
 
-          <div>
+          <div className="mt-6">
             <label className="text-sm font-medium mb-2 block">Notify Me When...</label>
             <Textarea
               value={formData.notificationCriteria}
@@ -130,37 +160,10 @@ export function TaskForm({
               onChange={handleCriteriaChange}
             />
           </div>
-
-          <div className="flex items-end gap-3">
-            <div className="flex-1">
-              <label className="text-sm font-medium mb-2 block">Check</label>
-              <Select
-                value={formData.frequency}
-                onValueChange={(value) => onFormChange({ ...formData, frequency: value as RecurringFrequency })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select frequency" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="hourly">Every Hour</SelectItem>
-                  <SelectItem value="daily">Every Day</SelectItem>
-                  <SelectItem value="weekly">Every Week</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex-1">
-              <TimeInput
-                value={formData.scheduledTime}
-                onChange={(time) => onFormChange({ ...formData, scheduledTime: time })}
-                className="h-9"
-              />
-            </div>
-          </div>
           
           {/* Task Results */}
           {(testResult || loading) && (
-            <div>
+            <div className="mt-6">
               <label className="text-sm font-medium mb-2 block">Result</label>
               {testResult && (
                 <div className="animate-in">
@@ -184,21 +187,32 @@ export function TaskForm({
                         className="w-full h-auto" 
                       />
                       <div className="px-3 py-2 text-xs text-muted-foreground bg-muted/30 border-t border-input">
-                        <div className="flex items-start gap-2 mb-1">
-                          <span className="flex-shrink-0 mt-0.5">
-                            {testResult.matched === true ? (
-                              <CheckCircle className="w-4 h-4 text-[#43A047] dark:text-green-500" weight="fill" />
-                            ) : testResult.matched === false ? (
-                              <XCircle className="w-4 h-4 text-[#757575] dark:text-rose-400" weight="fill" />
-                            ) : (
-                              <WarningCircle className="w-4 h-4 text-destructive" weight="fill" />
-                            )}
-                          </span>
-                          <span className="font-medium">{testResult.result}</span>
+                        <div className="flex flex-col">
+                          <div className="text-sm text-foreground mb-1">{testResult.result}</div>
+                          {testResult.timestamp && (
+                            <div className="flex items-center text-xs">
+                              {testResult.matched !== undefined && (
+                                <>
+                                  <span className={testResult.matched ? "text-green-600 dark:text-green-500 font-medium flex items-center" : "text-gray-500 dark:text-gray-400 font-medium flex items-center"}>
+                                    {testResult.matched ? (
+                                      <>
+                                        <Check className="w-3 h-3 mr-1 text-gray-400" weight="bold" />
+                                        Matched
+                                      </>
+                                    ) : (
+                                      <>
+                                        <X className="w-3 h-3 mr-1 text-gray-400" weight="bold" />
+                                        Not matched
+                                      </>
+                                    )}
+                                  </span>
+                                  <span className="mx-1.5 text-muted-foreground/40">•</span>
+                                </>
+                              )}
+                              <span className="text-muted-foreground/70">{formatTimeAgo(testResult.timestamp)}</span>
+                            </div>
+                          )}
                         </div>
-                        {testResult.timestamp && (
-                          <div className="text-muted-foreground/70">Ran {formatTimeAgo(testResult.timestamp)}</div>
-                        )}
                       </div>
                     </div>
                   )}
@@ -207,20 +221,21 @@ export function TaskForm({
               
               {loading && (
                 <div className="p-4 bg-muted border rounded-md flex items-center justify-center animate-in">
-                  <SpinnerGap className="animate-spin h-5 w-5" />
-                  <span className="text-sm">Running test...</span>
+                  <div className="relative w-5 h-5">
+                    <div className="absolute top-0 left-0 w-full h-full border-[2px] border-t-primary border-r-primary/40 border-b-primary/20 border-l-primary/10 rounded-full animate-spin"></div>
+                  </div>
                 </div>
               )}
             </div>
           )}
         </div>
       </div>
-      <div className="sticky bottom-0 left-0 right-0 border-t border-border/60 h-12 px-8 flex justify-end items-center gap-3 bg-white">
+      <div className="sticky bottom-0 left-0 right-0 border-t border-border/60 h-12 px-2 flex justify-center items-center gap-3 bg-white">
         <Button
           variant="outline"
           onClick={() => onTest(formData)}
           disabled={!formData.websiteUrl || !formData.notificationCriteria || loading}
-          className="h-8 px-4"
+          className="h-8 w-24"
         >
           {loading ? 'Testing...' : 'Test'}
         </Button>
@@ -228,7 +243,7 @@ export function TaskForm({
           variant="default"
           onClick={() => onSave(formData)}
           disabled={!formData.websiteUrl || !formData.notificationCriteria || loading}
-          className="h-8 px-4"
+          className="h-8 w-24"
         >
           Save
         </Button>
