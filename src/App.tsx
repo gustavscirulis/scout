@@ -161,21 +161,8 @@ function App() {
     loadTasks()
   }, [])
 
-  // Request notification permission immediately on app launch
+  // Set up electron IPC event listeners and window settings
   useEffect(() => {
-    const requestNotificationPermission = async () => {
-      try {
-        const permission = await Notification.requestPermission()
-        setNotificationPermission(permission)
-        if (permission === 'denied') {
-          console.warn('Notification permission denied. Some features will be limited.')
-        }
-      } catch (error) {
-        console.error('Error requesting notification permission:', error)
-      }
-    }
-    requestNotificationPermission()
-    
     // Set up electron IPC event listeners
     try {
       const electron = window.require('electron');
@@ -675,6 +662,19 @@ function App() {
       
       // Schedule the task
       scheduleTask(newTask);
+      
+      // Request notification permission when a task is added
+      if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+        try {
+          const permission = await Notification.requestPermission();
+          setNotificationPermission(permission);
+          if (permission === 'denied') {
+            console.warn('Notification permission denied. Some features will be limited.');
+          }
+        } catch (error) {
+          console.error('Error requesting notification permission:', error);
+        }
+      }
       
       // Close form and reset
       setShowNewJobForm(false);
