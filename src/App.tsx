@@ -941,15 +941,19 @@ Return your response in this JSON format:
         
         <div className="flex items-center justify-end w-12 pr-2">
           {!showNewJobForm && !editingJobId && !settingsView ? (
-            <Button
-              variant="headerIcon"
-              size="icon"
-              onClick={() => apiKey ? setShowNewJobForm(true) : setSettingsView(true)}
-              title={apiKey ? "New Task" : "Add API Key"}
-              className="-webkit-app-region-no-drag"
-            >
-              {apiKey ? <Plus size={16} /> : <Plus size={16} />}
-            </Button>
+            apiKey ? (
+              <Button
+                variant="headerIcon"
+                size="icon"
+                onClick={() => setShowNewJobForm(true)}
+                title="New Task"
+                className="-webkit-app-region-no-drag"
+              >
+                <Plus size={16} />
+              </Button>
+            ) : (
+              <div></div> // Empty div when no API key
+            )
           ) : editingJobId ? (
             <Button
               variant="headerIcon"
@@ -974,8 +978,8 @@ Return your response in this JSON format:
           {/* Jobs List */}
           <div className="space-y-4">
             {(!apiKey || jobs.length === 0) && !showNewJobForm && !editingJobId && !settingsView && (
-              <div className="flex flex-col items-center justify-center py-8 text-center px-4 animate-in">
-                <div className="w-20 h-20 bg-primary/5 rounded-full flex items-center justify-center mb-6">
+              <div className="flex flex-col items-center justify-center py-10 text-center px-6 animate-in">
+                <div className="w-20 h-20 bg-primary/5 rounded-full flex items-center justify-center mb-8">
                   <div className="relative">
                     <Eye size={36} className="text-primary/30" />
                     <div className="absolute w-3.5 h-3.5 rounded-full shadow-[0_0_6px_rgba(0,185,246,0.7)]" style={{ top: '50%', left: '50%', transform: 'translate(-50%, -50%)', borderWidth: '2.5px', borderStyle: 'solid', borderColor: '#00B9F6' }}></div>
@@ -984,9 +988,9 @@ Return your response in this JSON format:
                 {!apiKey ? (
                   <>
                     <h3 className="text-lg font-medium mb-2">Welcome to Scout!</h3>
-                    <div className="max-w-xl mx-auto mb-6">
+                    <div className="max-w-xl mx-auto mb-8">
                       <p className="text-muted-foreground text-sm text-center">
-                        Scout uses AI vision to analyze websites and notify you of changes. Add your OpenAI API key to get started.
+                      Scout uses AI to detect website changes.<br />Get started by adding your OpenAI API key.
                       </p>
                     </div>
                   </>
@@ -1003,8 +1007,8 @@ Return your response in this JSON format:
                 
                 {!apiKey ? (
                   <>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-left mb-8 w-full">
-                      <div className="bg-card border p-4 rounded-lg opacity-70 text-left flex items-start -webkit-app-region-no-drag shadow-sm">
+                    <div className="w-full overflow-hidden border rounded-lg shadow-sm opacity-70 -webkit-app-region-no-drag mb-8">
+                      <div className="bg-card p-4 text-left flex items-start border-b">
                         <ShoppingBag size={18} className="text-primary mr-3 mt-0.5 flex-shrink-0" />
                         <div>
                           <div className="font-medium text-sm">Price Drops</div>
@@ -1014,7 +1018,7 @@ Return your response in this JSON format:
                         </div>
                       </div>
                       
-                      <div className="bg-card border p-4 rounded-lg opacity-70 text-left flex items-start -webkit-app-region-no-drag shadow-sm">
+                      <div className="bg-card p-4 text-left flex items-start border-b">
                         <Ticket size={18} className="text-primary mr-3 mt-0.5 flex-shrink-0" />
                         <div>
                           <div className="font-medium text-sm">Back in Stock</div>
@@ -1024,7 +1028,7 @@ Return your response in this JSON format:
                         </div>
                       </div>
                       
-                      <div className="bg-card border p-4 rounded-lg opacity-70 text-left flex items-start -webkit-app-region-no-drag shadow-sm">
+                      <div className="bg-card p-4 text-left flex items-start">
                         <Briefcase size={18} className="text-primary mr-3 mt-0.5 flex-shrink-0" />
                         <div>
                           <div className="font-medium text-sm">New Content</div>
@@ -1057,7 +1061,7 @@ Return your response in this JSON format:
                   </>
                 ) : (
                   <>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-left mb-8 w-full">
+                    <div className="w-full overflow-hidden border rounded-lg shadow-sm -webkit-app-region-no-drag mb-8">
                       <button 
                         onClick={() => {
                           setNewJob(prev => ({
@@ -1067,7 +1071,7 @@ Return your response in this JSON format:
                           }));
                           setShowNewJobForm(true);
                         }}
-                        className="bg-card border p-4 rounded-lg hover:bg-muted/30 transition-colors text-left flex items-start -webkit-app-region-no-drag shadow-sm"
+                        className="w-full bg-card p-4 hover:bg-muted/30 transition-colors text-left flex items-start border-b"
                       >
                         <ShoppingBag size={18} className="text-primary mr-3 mt-0.5 flex-shrink-0" />
                         <div>
@@ -1087,7 +1091,7 @@ Return your response in this JSON format:
                           }));
                           setShowNewJobForm(true);
                         }}
-                        className="bg-card border p-4 rounded-lg hover:bg-muted/30 transition-colors text-left flex items-start -webkit-app-region-no-drag shadow-sm"
+                        className="w-full bg-card p-4 hover:bg-muted/30 transition-colors text-left flex items-start border-b"
                       >
                         <Ticket size={18} className="text-primary mr-3 mt-0.5 flex-shrink-0" />
                         <div>
@@ -1107,7 +1111,7 @@ Return your response in this JSON format:
                           }));
                           setShowNewJobForm(true);
                         }}
-                        className="bg-card border p-4 rounded-lg hover:bg-muted/30 transition-colors text-left flex items-start -webkit-app-region-no-drag shadow-sm"
+                        className="w-full bg-card p-4 hover:bg-muted/30 transition-colors text-left flex items-start"
                       >
                         <Briefcase size={18} className="text-primary mr-3 mt-0.5 flex-shrink-0" />
                         <div>
