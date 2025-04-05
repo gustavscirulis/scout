@@ -447,17 +447,24 @@ function App() {
   }
 
   const removeTask = async (taskId: string) => {
-    stopTask(taskId)
-    
     try {
-      await deleteTask(taskId)
-      setTasks(tasks.filter(task => task.id !== taskId))
-      
-      // If we're deleting the last task, or the task we're currently editing,
-      // exit edit mode to show the empty state
-      if (tasks.length === 1 || taskId === editingJobId) {
-        resetNewJobForm()
+      // First stop the task if it's running
+      if (intervals.current[taskId]) {
+        if (intervals.current[taskId].interval) clearInterval(intervals.current[taskId].interval)
+        if (intervals.current[taskId].timeout) clearTimeout(intervals.current[taskId].timeout)
+        delete intervals.current[taskId]
       }
+      
+      // Delete the task from storage
+      await deleteTask(taskId)
+      
+      // Update local state *after* successful deletion
+      setTasks(prevTasks => prevTasks.filter(task => task.id !== taskId))
+      
+      // Clear form and reset editing mode
+      resetNewJobForm()
+      setEditingJobId(null)
+      setShowNewJobForm(false)
     } catch (error) {
       console.error('Failed to delete task:', error)
     }
@@ -490,6 +497,22 @@ function App() {
       }
     }
   }, [newJob.notificationCriteria, editingJobId, testResult, tasks]);
+  
+  // Clean up any tasks that might have been deleted but still have timers
+  useEffect(() => {
+    // Get all currently valid task IDs
+    const validTaskIds = new Set(tasks.map(task => task.id));
+    
+    // Clean up any timer for tasks that no longer exist
+    Object.keys(intervals.current).forEach(taskId => {
+      if (!validTaskIds.has(taskId)) {
+        console.log(`Cleaning up timer for deleted task: ${taskId}`);
+        if (intervals.current[taskId].interval) clearInterval(intervals.current[taskId].interval);
+        if (intervals.current[taskId].timeout) clearTimeout(intervals.current[taskId].timeout);
+        delete intervals.current[taskId];
+      }
+    });
+  }, [tasks]);
   
   const startEditingTask = (taskId: string) => {
     const task = tasks.find(t => t.id === taskId);
