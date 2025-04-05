@@ -1,13 +1,10 @@
-import { useState, useEffect, useRef, ChangeEvent } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import confetti from 'canvas-confetti'
 import { Button } from './components/ui/button'
 import { Input } from './components/ui/input'
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './components/ui/card'
 import { Separator } from './components/ui/separator'
 import { Checkbox } from './components/ui/checkbox'
-import { validateApiKey, validateUrl } from './lib/utils'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './components/ui/select'
-import { TimeInput } from './components/ui/time-input'
+import { validateApiKey } from './lib/utils'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './components/ui/tooltip'
 import { 
   Gear, 
@@ -16,18 +13,15 @@ import {
   ShoppingBag, 
   Ticket, 
   Briefcase, 
-  Bell, 
   CheckCircle, 
   XCircle, 
   WarningCircle,
   Trash,
-  SpinnerGap,
   CaretLeft,
-  CaretRight,
-  ChevronLeft
+  CaretRight
 } from '@phosphor-icons/react'
 import './App.css'
-import { Textarea } from "@/components/ui/textarea"
+import { TaskForm, JobFormData, RecurringFrequency } from './components/TaskForm'
 
 // Function to format time in a simple "ago" format
 const formatTimeAgo = (date: Date): string => {
@@ -45,8 +39,6 @@ const formatTimeAgo = (date: Date): string => {
   
   return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
-
-type RecurringFrequency = 'hourly' | 'daily' | 'weekly'
 
 interface AnalysisJob {
   id: string
@@ -67,16 +59,7 @@ interface AnalysisJob {
   }
 }
 
-type NewJobFormData = Omit<AnalysisJob, 'id' | 'isRunning' | 'lastResult' | 'lastRun' | 'lastMatchedCriteria'>
-
-// Add type for the job form
-interface JobForm {
-  websiteUrl: string;
-  notificationCriteria: string;
-  frequency: RecurringFrequency;
-  scheduledTime: string;
-  analysisPrompt: string;
-}
+type NewJobFormData = JobFormData
 
 function App() {
   // Wrap with TooltipProvider at the app level for all tooltips
@@ -101,7 +84,6 @@ function App() {
   const [windowIsFloating, setWindowIsFloating] = useState<boolean>(() => 
     !!localStorage.getItem('windowFloating')
   )
-  const [temporaryFloating, setTemporaryFloating] = useState<boolean>(false)
   const [newJob, setNewJob] = useState<NewJobFormData>(() => ({
     websiteUrl: '',
     analysisPrompt: '',
@@ -112,7 +94,6 @@ function App() {
     })(),
     notificationCriteria: ''
   }))
-  const [urlError, setUrlError] = useState<string | null>(null)
   
   // Store job intervals
   const intervals = useRef<Record<string, { interval: NodeJS.Timeout | null, timeout: NodeJS.Timeout | null }>>({})
@@ -170,8 +151,8 @@ function App() {
       });
       
       // Set up an event listener for temporary floating mode
-      electron.ipcRenderer.on('temporary-floating-updated', (_event: any, value: boolean) => {
-        setTemporaryFloating(value);
+      electron.ipcRenderer.on('temporary-floating-updated', (_event: any, _value: boolean) => {
+        // No longer using temporaryFloating state
       });
       
       // Set window floating preference on startup
@@ -384,7 +365,6 @@ function App() {
     });
     setTestResult(null);
     setEditingJobId(null);
-    setUrlError(null);
   };
   
   const startEditingJob = (jobId: string) => {
@@ -421,13 +401,6 @@ function App() {
   
   const updateJob = (updatedJob: NewJobFormData) => {
     if (!editingJobId) return;
-    
-    // Validate URL before updating the job
-    const urlValidation = validateUrl(updatedJob.websiteUrl);
-    if (!urlValidation.isValid) {
-      setUrlError(urlValidation.message || 'Invalid URL');
-      return;
-    }
     
     // Find the job being edited
     const job = jobs.find(j => j.id === editingJobId);
@@ -470,14 +443,7 @@ function App() {
     resetNewJobForm();
   };
   
-  const addJob = (job: Omit<AnalysisJob, 'id' | 'isRunning' | 'lastResult' | 'lastRun'>) => {
-    // Validate URL before adding the job
-    const urlValidation = validateUrl(job.websiteUrl);
-    if (!urlValidation.isValid) {
-      setUrlError(urlValidation.message || 'Invalid URL');
-      return;
-    }
-    
+  const addJob = (job: JobFormData) => {
     const newJob: AnalysisJob = {
       ...job,
       id: crypto.randomUUID(),
@@ -639,14 +605,6 @@ Return your response in this JSON format:
     setLoading(true)
     setTestResult(null)
     
-    // Validate URL before testing
-    const urlValidation = validateUrl(job.websiteUrl);
-    if (!urlValidation.isValid) {
-      setUrlError(urlValidation.message || 'Invalid URL');
-      setLoading(false);
-      return;
-    }
-    
     // Validate API key before testing
     if (!apiKey) {
       setError('Please set your OpenAI API key in settings')
@@ -662,11 +620,7 @@ Return your response in this JSON format:
       return
     }
     
-    const testJobData: AnalysisJob = {
-      ...job,
-      id: 'test',
-      isRunning: false
-    }
+    // Set up for testing
     
     try {
       // Create a modified version of runAnalysis that returns the result instead of updating jobs
@@ -1037,172 +991,18 @@ Return your response in this JSON format:
 
             {/* When in edit mode or creating a new job, only show that form */}
             {editingJobId && jobs.find(job => job.id === editingJobId) ? (
-              <div className="flex flex-col h-full min-h-[calc(100vh-3rem)]">
-                <div className="flex-1 overflow-auto">
-                  <div className="space-y-6 px-8 pt-4">
-                    <div>
-                      <label className="text-sm font-medium mb-2 block">URL</label>
-                      <Input
-                        type="url"
-                        value={newJob.websiteUrl}
-                        placeholder="https://example.com"
-                        className={`h-9 ${urlError ? 'border-destructive' : ''}`}
-                        autoFocus
-                        onChange={(e: ChangeEvent<HTMLInputElement>) => {
-                          const url = e.target.value;
-                          setNewJob(prev => ({ ...prev, websiteUrl: url }));
-                          
-                          // Clear error when user is typing
-                          if (urlError) setUrlError(null);
-                        }}
-                        onBlur={() => {
-                          if (newJob.websiteUrl) {
-                            const validation = validateUrl(newJob.websiteUrl);
-                            if (!validation.isValid) {
-                              setUrlError(validation.message || 'Invalid URL');
-                            } else {
-                              setUrlError(null);
-                            }
-                          }
-                        }}
-                      />
-                      {urlError && (
-                        <div className="mt-2 rounded-md px-3 py-1.5 bg-destructive/10 border border-destructive/20 dark:bg-destructive/20">
-                          <p className="text-[0.8rem] font-medium text-destructive dark:text-destructive-foreground flex items-center">
-                            <WarningCircle className="w-3.5 h-3.5 mr-1.5 flex-shrink-0" weight="fill" />
-                            {urlError}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-
-                    <div>
-                      <label className="text-sm font-medium mb-2 block">Notify Me When...</label>
-                      <Textarea
-                        value={newJob.notificationCriteria}
-                        placeholder="e.g., 'product price drops below target price' or 'PS5 is back in stock'"
-                        onChange={(e: ChangeEvent<HTMLTextAreaElement>) => {
-                          const criteria = e.target.value;
-                          const analysisPrompt = criteria ? 
-                            `Analyze this webpage to determine if the following is true: "${criteria}". Check elements like prices, availability, text content, and other visible information.` : 
-                            '';
-                          
-                          setNewJob(prev => ({ 
-                            ...prev, 
-                            notificationCriteria: criteria,
-                            analysisPrompt: analysisPrompt
-                          }));
-                        }}
-                      />
-                    </div>
-
-                    <div className="flex items-end gap-3">
-                      <div className="flex-1">
-                        <label className="text-sm font-medium mb-2 block">Check</label>
-                        <Select
-                          value={newJob.frequency}
-                          onValueChange={(value) => setNewJob(prev => ({ ...prev, frequency: value as RecurringFrequency }))}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select frequency" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="hourly">Every Hour</SelectItem>
-                            <SelectItem value="daily">Every Day</SelectItem>
-                            <SelectItem value="weekly">Every Week</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div className="flex-1">
-                        <TimeInput
-                          value={newJob.scheduledTime}
-                          onChange={(time) => setNewJob(prev => ({ ...prev, scheduledTime: time }))}
-                          className="h-9"
-                        />
-                      </div>
-                    </div>
-                    
-                    {/* Task Results */}
-                    {(testResult || loading) && (
-                      <div>
-                        <label className="text-sm font-medium mb-2 block">Result</label>
-                        {testResult && (
-                          <div className="animate-in">
-                            {testResult.screenshot && (
-                              <div 
-                                className="border border-input rounded-md overflow-hidden cursor-zoom-in hover:shadow-md relative group transition-shadow duration-200"
-                                onClick={async (e) => {
-                                  e.stopPropagation();
-                                  try {
-                                    const { ipcRenderer } = window.require('electron')
-                                    await ipcRenderer.invoke('open-image-preview', testResult.screenshot)
-                                  } catch (error) {
-                                    console.error('Error opening image preview:', error)
-                                  }
-                                }}
-                                title="Click to enlarge"
-                              >
-                                <img 
-                                  src={testResult.screenshot} 
-                                  alt="Screenshot of website" 
-                                  className="w-full h-auto" 
-                                />
-                                <div className="px-3 py-2 text-xs text-muted-foreground bg-muted/30 border-t border-input">
-                                  <div className="flex items-start gap-2 mb-1">
-                                    <span className="flex-shrink-0 mt-0.5">
-                                      {testResult.matched === true ? (
-                                        <CheckCircle className="w-4 h-4 text-[#43A047] dark:text-green-500" weight="fill" />
-                                      ) : testResult.matched === false ? (
-                                        <XCircle className="w-4 h-4 text-[#757575] dark:text-rose-400" weight="fill" />
-                                      ) : (
-                                        <WarningCircle className="w-4 h-4 text-destructive" weight="fill" />
-                                      )}
-                                    </span>
-                                    <span className="font-medium">{testResult.result}</span>
-                                  </div>
-                                  {testResult.timestamp && (
-                                    <div className="text-muted-foreground/70">Ran {formatTimeAgo(testResult.timestamp)}</div>
-                                  )}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                        
-                        {loading && (
-                          <div className="p-4 bg-muted border rounded-md flex items-center justify-center animate-in">
-                            <SpinnerGap className="animate-spin h-5 w-5" />
-                            <span className="text-sm">Running test...</span>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <div className="sticky bottom-0 left-0 right-0 border-t border-border/60 h-12 px-8 flex justify-end items-center gap-3 bg-white">
-                  <Button
-                    variant="outline"
-                    onClick={() => testJob(newJob)}
-                    disabled={!newJob.websiteUrl || !newJob.notificationCriteria || loading}
-                    className="h-8 px-4"
-                  >
-                    {loading ? 'Testing...' : 'Test'}
-                  </Button>
-                  <Button
-                    variant="default"
-                    onClick={() => {
-                      if (newJob.websiteUrl && newJob.notificationCriteria) {
-                        updateJob(newJob)
-                      }
-                    }}
-                    disabled={!newJob.websiteUrl || !newJob.notificationCriteria || loading}
-                    className="h-8 px-4"
-                  >
-                    Save
-                  </Button>
-                </div>
-              </div>
+              <TaskForm
+                formData={newJob}
+                testResult={testResult}
+                loading={loading}
+                onFormChange={setNewJob}
+                onTest={testJob}
+                onSave={(data) => {
+                  if (data.websiteUrl && data.notificationCriteria) {
+                    updateJob(data);
+                  }
+                }}
+              />
             ) : !showNewJobForm && settingsView ? (
               // Settings view (shown in place of task list)
               <div className="flex flex-col h-full min-h-[calc(100vh-3rem)] animate-in">
@@ -1480,172 +1280,18 @@ Return your response in this JSON format:
 
             {/* New Job Form (only shown when not editing any job) */}
             {showNewJobForm && !editingJobId && (
-              <div className="flex flex-col h-full min-h-[calc(100vh-3rem)]">
-                <div className="flex-1 overflow-auto">
-                  <div className="space-y-6 px-8 pt-4">
-                    <div>
-                      <label className="text-sm font-medium mb-2 block">URL to Monitor</label>
-                      <Input
-                        type="url"
-                        value={newJob.websiteUrl}
-                        placeholder="https://example.com"
-                        className={`h-9 ${urlError ? 'border-destructive' : ''}`}
-                        autoFocus
-                        onChange={(e: ChangeEvent<HTMLInputElement>) => {
-                          const url = e.target.value;
-                          setNewJob(prev => ({ ...prev, websiteUrl: url }));
-                          
-                          // Clear error when user is typing
-                          if (urlError) setUrlError(null);
-                        }}
-                        onBlur={() => {
-                          if (newJob.websiteUrl) {
-                            const validation = validateUrl(newJob.websiteUrl);
-                            if (!validation.isValid) {
-                              setUrlError(validation.message || 'Invalid URL');
-                            } else {
-                              setUrlError(null);
-                            }
-                          }
-                        }}
-                      />
-                      {urlError && (
-                        <div className="mt-2 rounded-md px-3 py-1.5 bg-destructive/10 border border-destructive/20 dark:bg-destructive/20">
-                          <p className="text-[0.8rem] font-medium text-destructive dark:text-destructive-foreground flex items-center">
-                            <WarningCircle className="w-3.5 h-3.5 mr-1.5 flex-shrink-0" weight="fill" />
-                            {urlError}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-
-                    <div>
-                      <label className="text-sm font-medium mb-2 block">Notify Me When...</label>
-                      <Textarea
-                        value={newJob.notificationCriteria}
-                        placeholder="e.g., 'product price drops below target price' or 'PS5 is back in stock'"
-                        onChange={(e: ChangeEvent<HTMLTextAreaElement>) => {
-                          const criteria = e.target.value;
-                          const analysisPrompt = criteria ? 
-                            `Analyze this webpage to determine if the following is true: "${criteria}". Check elements like prices, availability, text content, and other visible information.` : 
-                            '';
-                          
-                          setNewJob(prev => ({ 
-                            ...prev, 
-                            notificationCriteria: criteria,
-                            analysisPrompt: analysisPrompt
-                          }));
-                        }}
-                      />
-                    </div>
-
-                    <div className="flex items-end gap-3">
-                      <div className="flex-1">
-                        <label className="text-sm font-medium mb-2 block">Check</label>
-                        <Select
-                          value={newJob.frequency}
-                          onValueChange={(value) => setNewJob(prev => ({ ...prev, frequency: value as RecurringFrequency }))}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select frequency" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="hourly">Every Hour</SelectItem>
-                            <SelectItem value="daily">Every Day</SelectItem>
-                            <SelectItem value="weekly">Every Week</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div className="flex-1">
-                        <TimeInput
-                          value={newJob.scheduledTime}
-                          onChange={(time) => setNewJob(prev => ({ ...prev, scheduledTime: time }))}
-                          className="h-9"
-                        />
-                      </div>
-                    </div>
-                    
-                    {/* Task Results */}
-                    {(testResult || loading) && (
-                      <div className="py-4">
-                        <label className="text-sm font-medium mb-2 block">Task Results</label>
-                        {testResult && (
-                          <div className="animate-in">
-                            {testResult.screenshot && (
-                              <div 
-                                className="border border-input rounded-md overflow-hidden cursor-zoom-in hover:shadow-md relative group transition-shadow duration-200"
-                                onClick={async (e) => {
-                                  e.stopPropagation();
-                                  try {
-                                    const { ipcRenderer } = window.require('electron')
-                                    await ipcRenderer.invoke('open-image-preview', testResult.screenshot)
-                                  } catch (error) {
-                                    console.error('Error opening image preview:', error)
-                                  }
-                                }}
-                                title="Click to enlarge"
-                              >
-                                <img 
-                                  src={testResult.screenshot} 
-                                  alt="Screenshot of website" 
-                                  className="w-full h-auto" 
-                                />
-                                <div className="px-3 py-2 text-xs text-muted-foreground bg-muted/30 border-t border-input">
-                                  <div className="flex items-start gap-2 mb-1">
-                                    <span className="flex-shrink-0 mt-0.5">
-                                      {testResult.matched === true ? (
-                                        <CheckCircle className="w-4 h-4 text-[#43A047] dark:text-green-500" weight="fill" />
-                                      ) : testResult.matched === false ? (
-                                        <XCircle className="w-4 h-4 text-[#757575] dark:text-rose-400" weight="fill" />
-                                      ) : (
-                                        <WarningCircle className="w-4 h-4 text-destructive" weight="fill" />
-                                      )}
-                                    </span>
-                                    <span className="font-medium">{testResult.result}</span>
-                                  </div>
-                                  {testResult.timestamp && (
-                                    <div className="text-muted-foreground/70">Ran {formatTimeAgo(testResult.timestamp)}</div>
-                                  )}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                        
-                        {loading && (
-                          <div className="p-4 bg-muted border rounded-md flex items-center justify-center animate-in">
-                            <SpinnerGap className="animate-spin h-5 w-5" />
-                            <span className="text-sm">Running test...</span>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <div className="sticky bottom-0 left-0 right-0 border-t border-border/60 h-12 px-8 flex justify-end items-center gap-3 bg-white">
-                  <Button
-                    variant="outline"
-                    onClick={() => testJob(newJob)}
-                    disabled={!newJob.websiteUrl || !newJob.notificationCriteria || loading}
-                    className="h-8 px-4"
-                  >
-                    {loading ? 'Testing...' : 'Test'}
-                  </Button>
-                  <Button
-                    variant="default"
-                    onClick={() => {
-                      if (newJob.websiteUrl && newJob.notificationCriteria) {
-                        updateJob(newJob)
-                      }
-                    }}
-                    disabled={!newJob.websiteUrl || !newJob.notificationCriteria || loading}
-                    className="h-8 px-4"
-                  >
-                    Save
-                  </Button>
-                </div>
-              </div>
+              <TaskForm
+                formData={newJob}
+                testResult={testResult}
+                loading={loading}
+                onFormChange={setNewJob}
+                onTest={testJob}
+                onSave={(data) => {
+                  if (data.websiteUrl && data.notificationCriteria) {
+                    addJob(data);
+                  }
+                }}
+              />
             )}
           </div>
         </div>
