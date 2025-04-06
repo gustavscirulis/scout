@@ -2,15 +2,21 @@
   "name": "Scout",
   "private": true,
   "version": "0.1.0",
+  "description": "Scout is a desktop app for managing and analyzing data.",
+  "author": {
+    "name": "Gustavs Cirulis",
+    "email": "gustavs.cirulis@gmail.com"
+  },
   "main": "dist-electron/main.js",
   "type": "module",
   "scripts": {
     "dev": "concurrently \"vite\" \"npm run start-electron\"",
-    "build": "npm run build-electron && vite build && electron-builder",
+    "build": "npm run build-electron && vite build",
     "build-electron": "tsc --sourceMap false -p electron",
     "lint": "eslint .",
     "preview": "vite preview",
-    "start-electron": "tsc --sourceMap false -p electron && electron ."
+    "start-electron": "tsc --sourceMap false -p electron && electron .",
+    "electron:build": "npm run build && electron-builder build"
   },
   "dependencies": {
     "@hookform/resolvers": "^4.1.3",
@@ -41,6 +47,7 @@
     "zod": "^3.22.0"
   },
   "devDependencies": {
+    "@electron/notarize": "^3.0.1",
     "@eslint/js": "^8.56.0",
     "@shadcn/ui": "^0.0.4",
     "@types/canvas-confetti": "^1.9.0",
@@ -51,8 +58,11 @@
     "@typescript-eslint/parser": "^6.17.0",
     "@vitejs/plugin-react": "^4.2.0",
     "autoprefixer": "^10.4.16",
-    "electron": "^28.0.0",
-    "electron-builder": "^24.9.0",
+    "dotenv": "^16.4.7",
+    "electron": "^35.0.0",
+    "electron-builder": "^25.1.8",
+    "electron-is-dev": "^3.0.1",
+    "electron-notarize": "^1.2.2",
     "eslint": "^8.56.0",
     "eslint-plugin-react-dom": "^1.38.4",
     "eslint-plugin-react-hooks": "^4.6.0",
@@ -66,7 +76,7 @@
     "vite": "^5.0.0"
   },
   "build": {
-    "appId": "com.electron.scout",
+    "appId": "com.gustavscirulis.scout",
     "icon": "public/app_icon.icns",
     "publish": [
       {
@@ -78,13 +88,21 @@
     "mac": {
       "category": "public.app-category.productivity",
       "target": [
-        "dmg"
+        {
+          "target": "dmg",
+          "arch": "x64"
+        },
+        {
+          "target": "dmg",
+          "arch": "arm64"
+        }
       ],
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
       "entitlements": "build/entitlements.mac.plist",
       "entitlementsInherit": "build/entitlements.mac.plist",
-      "icon": "public/app_icon.icns"
+      "icon": "public/app_icon.icns",
+      "notarize": true
     },
     "files": [
       "dist/**/*",
@@ -97,6 +115,7 @@
     "dmg": {
       "writeUpdateInfo": true,
       "sign": false
-    }
+    },
+    "afterSign": "build/notarize.cjs"
   }
 }
