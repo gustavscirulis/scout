@@ -7,6 +7,8 @@ import fs from 'fs'
 import os from 'os'
 import path from 'path'
 import crypto from 'crypto'
+import pkg from 'electron-updater'
+const { autoUpdater } = pkg
 
 const { app, BrowserWindow, nativeTheme, ipcMain, Tray, screen, shell } = electron
 
@@ -587,7 +589,76 @@ ipcMain.handle('open-image-preview', async (_event, dataUrl: string) => {
 })
 
 
-app.whenReady().then(createWindow)
+// Setup auto-updater
+function setupAutoUpdater() {
+  // Allow updates check in development mode for testing
+  autoUpdater.forceDevUpdateConfig = true
+  
+  // Configure for GitHub
+  autoUpdater.setFeedURL({
+    provider: 'github',
+    owner: 'gustavscirulis',
+    repo: 'scout'
+  })
+
+  // No debug logging in production
+
+  // Check for updates silently on startup
+  autoUpdater.checkForUpdatesAndNotify()
+
+  // Setup update events
+  autoUpdater.on('update-available', () => {
+    if (mainWindow) {
+      mainWindow.webContents.send('update-available')
+    }
+  })
+
+  autoUpdater.on('update-downloaded', () => {
+    if (mainWindow) {
+      mainWindow.webContents.send('update-downloaded')
+    }
+  })
+
+  autoUpdater.on('error', () => {
+    if (mainWindow) {
+      mainWindow.webContents.send('update-error')
+    }
+  })
+}
+
+// IPC handlers for updates
+ipcMain.handle('check-for-updates', async () => {
+  try {
+    const checkResult = await autoUpdater.checkForUpdatesAndNotify()
+    return { 
+      success: true,
+      updateAvailable: !!checkResult?.updateInfo
+    }
+  } catch (error) {
+    if (mainWindow) {
+      mainWindow.webContents.send('update-error')
+    }
+    return { 
+      success: false
+    }
+  }
+})
+
+ipcMain.handle('install-update', () => {
+  try {
+    autoUpdater.quitAndInstall(false, true)
+    return { success: true }
+  } catch (error) {
+    return { 
+      success: false
+    }
+  }
+})
+
+app.whenReady().then(() => {
+  createWindow()
+  setupAutoUpdater()
+})
 
 // Clean up any screenshot when app quits
 app.on('before-quit', () => {

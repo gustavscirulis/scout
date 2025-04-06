@@ -29,7 +29,9 @@
     "clsx": "^2.1.1",
     "concurrently": "^8.2.0",
     "electron-is-dev": "^2.0.0",
+    "electron-log": "^5.3.3",
     "electron-store": "^10.0.1",
+    "electron-updater": "^6.6.2",
     "lucide-react": "^0.300.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
@@ -66,6 +68,13 @@
   "build": {
     "appId": "com.electron.scout",
     "icon": "public/app_icon.icns",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "gustavscirulis",
+        "repo": "scout"
+      }
+    ],
     "mac": {
       "category": "public.app-category.productivity",
       "target": [
@@ -86,7 +95,7 @@
       "output": "release"
     },
     "dmg": {
-      "writeUpdateInfo": false,
+      "writeUpdateInfo": true,
       "sign": false
     }
   }

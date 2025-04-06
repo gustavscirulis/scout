@@ -20,7 +20,8 @@ import {
   Trash,
   CaretLeft,
   CaretRight,
-  Eye
+  Eye,
+  ArrowClockwise
 } from '@phosphor-icons/react'
 import './App.css'
 import { TaskForm, JobFormData, RecurringFrequency, DayOfWeek } from './components/TaskForm'
@@ -239,6 +240,92 @@ function App() {
   
   // Track if user just added an API key for celebration
   const [showConfetti, setShowConfetti] = useState(false)
+  const [updateAvailable, setUpdateAvailable] = useState(false)
+  const [updateDownloaded, setUpdateDownloaded] = useState(false)
+  
+  // Listen for update availability messages from main process
+  useEffect(() => {
+    try {
+      const electron = window.require('electron')
+      
+      // Listen for update events from main process
+      electron.ipcRenderer.on('update-available', () => {
+        setUpdateAvailable(true)
+      })
+      
+      electron.ipcRenderer.on('update-downloaded', () => {
+        setUpdateDownloaded(true)
+      })
+      
+      return () => {
+        electron.ipcRenderer.removeAllListeners('update-available')
+        electron.ipcRenderer.removeAllListeners('update-downloaded')
+      }
+    } catch (error) {
+      // Silent fail if electron is not available
+    }
+  }, [])
+  
+  // Handle checking for updates
+  const [checkingForUpdate, setCheckingForUpdate] = useState(false)
+  const [updateError, setUpdateError] = useState<string | null>(null)
+  
+  const checkForUpdates = () => {
+    try {
+      setCheckingForUpdate(true)
+      setUpdateError(null)
+      const electron = window.require('electron')
+      electron.ipcRenderer.invoke('check-for-updates')
+        .finally(() => {
+          // Set a timeout to reset checking state, in case no response is received
+          setTimeout(() => setCheckingForUpdate(false), 5000)
+        })
+    } catch (error) {
+      // Silent fail if electron is not available
+      setCheckingForUpdate(false)
+    }
+  }
+  
+  // Handle installing updates
+  const installUpdate = () => {
+    try {
+      const electron = window.require('electron')
+      electron.ipcRenderer.invoke('install-update')
+    } catch (error) {
+      // Silent fail if electron is not available
+    }
+  }
+  
+  // Listen for update error messages
+  useEffect(() => {
+    try {
+      const electron = window.require('electron')
+      
+      // Listen for update error events
+      electron.ipcRenderer.on('update-error', () => {
+        setUpdateError('error')
+        setCheckingForUpdate(false)
+      })
+      
+      // Listen for update-not-available event to reset checking state
+      electron.ipcRenderer.on('update-not-available', () => {
+        setCheckingForUpdate(false)
+      })
+      
+      // Listen for update-available to reset checking state
+      electron.ipcRenderer.on('update-available', () => {
+        setCheckingForUpdate(false)
+      })
+      
+      return () => {
+        electron.ipcRenderer.removeAllListeners('update-error')
+        electron.ipcRenderer.removeAllListeners('update-not-available')
+        electron.ipcRenderer.removeAllListeners('update-available')
+      }
+    } catch (error) {
+      // Silent fail if electron is not available
+    }
+  }, [])
   
   // Track settings view for telemetry
   useEffect(() => {
@@ -1360,6 +1447,26 @@ Return your response in this JSON format:
                         Create Task
                       </Button>
                     </div>
+                    
+                    {/* Update UI */}
+                    {(updateAvailable || updateDownloaded) && (
+                      <div className="mt-4 text-center">
+                        <Button
+                          variant={updateDownloaded ? "default" : "outline"}
+                          size="sm"
+                          onClick={updateDownloaded ? installUpdate : checkForUpdates}
+                          className="text-xs"
+                          disabled={checkingForUpdate}
+                        >
+                          <ArrowClockwise className={`mr-1 h-3 w-3 ${checkingForUpdate ? 'animate-spin' : ''}`} />
+                          {checkingForUpdate
+                            ? "Checking..."
+                            : updateDownloaded 
+                              ? "Install update" 
+                              : "Download update"}
+                        </Button>
+                      </div>
+                    )}
                   </>
                 )}
               </div>
@@ -1438,6 +1545,36 @@ Return your response in this JSON format:
                           >here</a>. Stored locally only.
                         </p>
                       </div>
+                    </fieldset>
+                    
+                    <Separator />
+                    
+                    {/* Updates section */}
+                    <fieldset className="space-y-3">
+                      <legend className="text-sm font-medium">Updates</legend>
+                      
+                      <Button
+                        variant={updateDownloaded ? "default" : "outline"}
+                        size="sm"
+                        onClick={updateDownloaded ? installUpdate : checkForUpdates}
+                        className="text-xs h-8 w-full justify-center"
+                        disabled={checkingForUpdate}
+                      >
+                        <ArrowClockwise className={`mr-1.5 h-3.5 w-3.5 ${checkingForUpdate ? 'animate-spin' : ''}`} />
+                        {checkingForUpdate
+                          ? "Checking for updates..."
+                          : updateDownloaded 
+                            ? "Install update now" 
+                            : updateAvailable 
+                              ? "Download available update"
+                              : "Check for updates"}
+                      </Button>
+                      
+                      {updateError && (
+                        <p className="text-xs text-destructive mt-2">
+                          Unable to check for updates
+                        </p>
+                      )}
                     </fieldset>
                     
                     {(() => {
