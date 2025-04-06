@@ -1323,7 +1323,7 @@ Return your response in this JSON format:
                 {!apiKey ? (
                   <>
                     <div className="w-full overflow-hidden border rounded-lg shadow-sm opacity-70 -webkit-app-region-no-drag mb-8">
-                      <div className="bg-card p-4 text-left flex items-start border-b">
+                      <div className="bg-accent p-4 text-left flex items-start border-b">
                         <ShoppingBag size={18} className="text-primary mr-3 mt-0.5 flex-shrink-0" />
                         <div>
                           <div className="font-medium text-sm">Price Drops</div>
@@ -1333,7 +1333,7 @@ Return your response in this JSON format:
                         </div>
                       </div>
                       
-                      <div className="bg-card p-4 text-left flex items-start border-b">
+                      <div className="bg-accent p-4 text-left flex items-start border-b">
                         <Ticket size={18} className="text-primary mr-3 mt-0.5 flex-shrink-0" />
                         <div>
                           <div className="font-medium text-sm">Back in Stock</div>
@@ -1343,7 +1343,7 @@ Return your response in this JSON format:
                         </div>
                       </div>
                       
-                      <div className="bg-card p-4 text-left flex items-start">
+                      <div className="bg-accent p-4 text-left flex items-start">
                         <Briefcase size={18} className="text-primary mr-3 mt-0.5 flex-shrink-0" />
                         <div>
                           <div className="font-medium text-sm">New Content</div>
@@ -1386,7 +1386,7 @@ Return your response in this JSON format:
                           }));
                           setShowNewJobForm(true);
                         }}
-                        className="w-full bg-card p-4 hover:bg-muted/30 transition-colors text-left flex items-start border-b"
+                        className="w-full bg-accent p-4 hover:bg-muted/30 transition-colors text-left flex items-start border-b"
                       >
                         <ShoppingBag size={18} className="text-primary mr-3 mt-0.5 flex-shrink-0" />
                         <div>
@@ -1406,7 +1406,7 @@ Return your response in this JSON format:
                           }));
                           setShowNewJobForm(true);
                         }}
-                        className="w-full bg-card p-4 hover:bg-muted/30 transition-colors text-left flex items-start border-b"
+                        className="w-full bg-accent p-4 hover:bg-muted/30 transition-colors text-left flex items-start border-b"
                       >
                         <Ticket size={18} className="text-primary mr-3 mt-0.5 flex-shrink-0" />
                         <div>
@@ -1426,7 +1426,7 @@ Return your response in this JSON format:
                           }));
                           setShowNewJobForm(true);
                         }}
-                        className="w-full bg-card p-4 hover:bg-muted/30 transition-colors text-left flex items-start"
+                        className="w-full bg-accent p-4 hover:bg-muted/30 transition-colors text-left flex items-start"
                       >
                         <Briefcase size={18} className="text-primary mr-3 mt-0.5 flex-shrink-0" />
                         <div>
