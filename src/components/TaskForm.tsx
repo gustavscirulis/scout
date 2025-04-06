@@ -281,7 +281,7 @@ export function TaskForm({
               
               {loading && (
                 <div className="border border-input rounded-md overflow-hidden animate-in">
-                  <div className="px-3 py-2 text-xs text-muted-foreground bg-accent border-t border-input flex items-center justify-center" style={{ height: "100px" }}>
+                  <div className="px-3 py-2 text-xs text-muted-foreground bg-accent flex items-center justify-center" style={{ height: "100px" }}>
                     <div className="relative w-5 h-5">
                       <div className="absolute top-0 left-0 w-full h-full border-[2px] border-t-primary border-r-primary/40 border-b-primary/20 border-l-primary/10 rounded-full animate-spin"></div>
                     </div>
