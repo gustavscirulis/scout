@@ -83,6 +83,7 @@ interface Task {
   isRunning: boolean
   lastResult?: string
   lastRun?: string
+  nextScheduledRun?: string
   notificationCriteria: string
   lastMatchedCriteria?: boolean
   lastTestResult?: {
@@ -112,6 +113,7 @@ const validateTask = (task: any): Task => {
     isRunning: Boolean(task.isRunning),
     lastResult: task.lastResult,
     lastRun: task.lastRun,
+    nextScheduledRun: task.nextScheduledRun,  // Add this field to preserve it
     notificationCriteria: task.notificationCriteria,
     lastMatchedCriteria: task.lastMatchedCriteria,
     lastTestResult: task.lastTestResult

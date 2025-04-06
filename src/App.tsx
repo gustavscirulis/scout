@@ -25,7 +25,17 @@ import {
 } from '@phosphor-icons/react'
 import './App.css'
 import { TaskForm, JobFormData, RecurringFrequency, DayOfWeek } from './components/TaskForm'
-import { Task, getAllTasks, addTask, updateTask, deleteTask, toggleTaskRunningState, updateTaskResults, TaskFormData } from './lib/storage/tasks'
+import { 
+  Task, 
+  getAllTasks, 
+  addTask, 
+  updateTask, 
+  deleteTask, 
+  toggleTaskRunningState, 
+  updateTaskResults, 
+  TaskFormData,
+  getTaskById
+} from './lib/storage/tasks'
 
 // Function to format time in a simple "ago" format
 const formatTimeAgo = (date: Date): string => {
@@ -121,9 +131,12 @@ function App() {
     notificationCriteria: ''
   }))
   
-  // Store job intervals
-  const intervals = useRef<Record<string, { interval: NodeJS.Timeout | null, timeout: NodeJS.Timeout | null }>>({})
-
+  // Store job polling interval
+  const pollingInterval = useRef<NodeJS.Timeout | null>(null)
+  
+  // Constant for polling frequency (check every minute)
+  const POLLING_INTERVAL = 60 * 1000
+  
   const checkForMissedRuns = (task: Task) => {
     if (!task.lastRun) return false;
     
@@ -142,25 +155,57 @@ function App() {
     return timeSinceLastRun > interval;
   };
 
-  // Load tasks from storage and check for missed runs on startup
+  // Load tasks from storage and check for tasks to run
   useEffect(() => {
     const loadTasks = async () => {
       try {
+        console.log('[Scheduler] Loading tasks')
         const loadedTasks = await getAllTasks()
+        console.log(`[Scheduler] Loaded ${loadedTasks.length} tasks`)
         setTasks(loadedTasks)
         
-        // Check for missed runs for running tasks
-        loadedTasks.forEach(task => {
-          if (task.isRunning && checkForMissedRuns(task)) {
-            runAnalysis(task)
+        // Process running tasks for missed runs and scheduling
+        const promises = loadedTasks.map(async (task) => {
+          if (task.isRunning) {
+            console.log(`[Scheduler] Processing running task ${task.id}`)
+            
+            // Check if task has missed its scheduled run
+            if (checkForMissedRuns(task)) {
+              console.log(`[Scheduler] Task ${task.id} missed a run, executing now`)
+              await runAnalysis(task)
+            }
+            
+            // Calculate next run time if not already set
+            if (!task.nextScheduledRun) {
+              console.log(`[Scheduler] Setting next run time for task ${task.id}`)
+              const nextRun = getNextRunTime(task)
+              await updateTaskNextRunTime(task.id, nextRun)
+            } else {
+              console.log(`[Scheduler] Task ${task.id} next run already scheduled for ${new Date(task.nextScheduledRun).toLocaleString()}`)
+            }
           }
         })
+        
+        // Wait for all task processing to complete
+        await Promise.all(promises)
+        
+        // Start the polling mechanism
+        console.log('[Scheduler] All tasks processed, starting polling mechanism')
+        startTaskPolling()
       } catch (error) {
-        console.error('Failed to load tasks:', error)
+        console.error('[Scheduler] Failed to load tasks:', error)
       }
     }
     
     loadTasks()
+    
+    // Cleanup polling on unmount
+    return () => {
+      if (pollingInterval.current) {
+        console.log('[Scheduler] Cleaning up polling interval on unmount')
+        clearInterval(pollingInterval.current)
+      }
+    }
   }, [])
 
   // Set up electron IPC event listeners and window settings
@@ -388,17 +433,9 @@ function App() {
     return () => clearTimeout(timer)
   }, [showNewJobForm, editingJobId, settingsView])
 
-  // Cleanup intervals on unmount
-  useEffect(() => {
-    return () => {
-      Object.values(intervals.current).forEach(({ interval, timeout }) => {
-        if (interval) clearInterval(interval)
-        if (timeout) clearTimeout(timeout)
-      })
-    }
-  }, [])
-
   const getNextRunTime = (task: Task) => {
+    console.log(`[Scheduler] Calculating next run time for task ${task.id} (${task.frequency} at ${task.scheduledTime})`)
+    
     const [hours, minutes] = task.scheduledTime.split(':').map(Number)
     const now = new Date()
     const next = new Date()
@@ -407,9 +444,17 @@ function App() {
     if (task.frequency === 'hourly') {
       if (next <= now) {
         next.setHours(next.getHours() + 1);
+        console.log(`[Scheduler] Hourly task ${task.id} scheduled for next hour: ${next.toLocaleString()}`)
+      } else {
+        console.log(`[Scheduler] Hourly task ${task.id} scheduled for this hour: ${next.toLocaleString()}`)
       }
     } else if (task.frequency === 'daily') {
-      if (next <= now) next.setDate(next.getDate() + 1)
+      if (next <= now) {
+        next.setDate(next.getDate() + 1)
+        console.log(`[Scheduler] Daily task ${task.id} scheduled for tomorrow: ${next.toLocaleString()}`)
+      } else {
+        console.log(`[Scheduler] Daily task ${task.id} scheduled for today: ${next.toLocaleString()}`)
+      }
     } else if (task.frequency === 'weekly') {
       // Handle day of week for weekly jobs
       const dayMap: Record<string, number> = {
@@ -425,81 +470,147 @@ function App() {
       if (daysToAdd === 0 && next <= now) daysToAdd = 7
       
       next.setDate(next.getDate() + daysToAdd)
+      console.log(`[Scheduler] Weekly task ${task.id} scheduled for ${next.toLocaleString()} (${task.dayOfWeek} at ${task.scheduledTime})`)
     }
 
+    console.log(`[Scheduler] Task ${task.id} next run time set to: ${next.toLocaleString()}`)
     return next
   }
-
-  const scheduleTask = (task: Task) => {
-    const nextRun = getNextRunTime(task)
-    const delay = nextRun.getTime() - Date.now()
-
-    if (intervals.current[task.id]?.timeout) {
-      clearTimeout(intervals.current[task.id].timeout!)
+  
+  // Update the next scheduled run time for a task
+  const updateTaskNextRunTime = async (taskId: string, nextRun: Date): Promise<Task | null> => {
+    try {
+      console.log(`[Scheduler] updateTaskNextRunTime called for task ${taskId}, next run: ${nextRun.toLocaleString()}`)
+      
+      const task = await getTaskById(taskId)
+      if (!task) {
+        console.error(`[Scheduler] Task ${taskId} not found when updating next run time`)
+        return null
+      }
+      
+      const updatedTask: Task = {
+        ...task,
+        nextScheduledRun: nextRun
+      }
+      
+      console.log(`[Scheduler] Saving task ${taskId} with next run time: ${nextRun.toLocaleString()}`)
+      await updateTask(updatedTask)
+      
+      // Update local state
+      setTasks(prevTasks => 
+        prevTasks.map(t => t.id === taskId ? updatedTask : t)
+      )
+      
+      console.log(`[Scheduler] Task ${taskId} next run time updated successfully`)
+      return updatedTask
+    } catch (error) {
+      console.error(`[Scheduler] Failed to update next run time for task ${taskId}:`, error)
+      return null
     }
-
-    const intervalTimes: Record<RecurringFrequency, number> = {
-      hourly: 60 * 60 * 1000,
-      daily: 24 * 60 * 60 * 1000,
-      weekly: 7 * 24 * 60 * 60 * 1000
+  }
+  
+  // Start the task polling mechanism
+  const startTaskPolling = () => {
+    console.log('[Scheduler] Starting task polling')
+    
+    // Clear any existing polling interval
+    if (pollingInterval.current) {
+      console.log('[Scheduler] Clearing existing polling interval')
+      clearInterval(pollingInterval.current)
     }
-
-    intervals.current[task.id] = {
-      interval: null,
-      timeout: setTimeout(() => {
-        runAnalysis(task)
+    
+    // Create a polling interval that checks every minute
+    pollingInterval.current = setInterval(() => {
+      console.log('[Scheduler] Polling interval triggered')
+      checkTasksToRun()
+    }, POLLING_INTERVAL)
+    
+    // Run immediately on start
+    console.log('[Scheduler] Running initial task check')
+    checkTasksToRun()
+  }
+  
+  // Check for any tasks that need to run
+  const checkTasksToRun = async () => {
+    try {
+      // First, reload tasks from storage to ensure we have the latest data
+      console.log(`[Scheduler] Reloading tasks from storage before checking`)
+      const loadedTasks = await getAllTasks()
+      console.log(`[Scheduler] Reloaded ${loadedTasks.length} tasks from storage`)
+      
+      // Dump task details for debugging
+      loadedTasks.forEach(task => {
+        console.log(`[Scheduler] Task ${task.id} details:`)
+        console.log(`  isRunning: ${task.isRunning}`)
+        console.log(`  scheduledTime: ${task.scheduledTime}`)
+        console.log(`  frequency: ${task.frequency}`)
+        console.log(`  nextScheduledRun: ${task.nextScheduledRun ? new Date(task.nextScheduledRun).toLocaleString() : 'not set'}`)
+      })
+      
+      // Update our state with the fresh data
+      setTasks(loadedTasks)
+      
+      const now = new Date()
+      console.log(`[Scheduler] Checking tasks at ${now.toLocaleTimeString()}`)
+      
+      // Log all running tasks and their next scheduled runs
+      const runningTasks = loadedTasks.filter(t => t.isRunning)
+      console.log(`[Scheduler] There are ${runningTasks.length} running tasks of ${loadedTasks.length} total tasks`)
+      
+      if (runningTasks.length === 0) {
+        console.log(`[Scheduler] No running tasks to check`)
+        return
+      }
+      
+      for (const task of runningTasks) {
+        console.log(`[Scheduler] Processing task ${task.id}, isRunning=${task.isRunning}`)
         
-        // Setup recurring interval
-        const interval = setInterval(async () => {
+        // If no nextScheduledRun is set, we need to calculate it first
+        if (!task.nextScheduledRun) {
+          console.log(`[Scheduler] Task ${task.id} has no next run time, calculating it now`)
+          const nextRun = getNextRunTime(task)
+          await updateTaskNextRunTime(task.id, nextRun)
+          
+          // Update our local copy of the task with the new nextScheduledRun time
+          task.nextScheduledRun = nextRun
+        }
+        
+        // Now check if it's time to run
+        const nextRun = new Date(task.nextScheduledRun)
+        const timeToRun = nextRun.getTime() - now.getTime()
+        
+        console.log(`[Scheduler] Task ${task.id} next run: ${nextRun.toLocaleString()} (in ${Math.floor(timeToRun/1000/60)} minutes ${Math.floor(timeToRun/1000) % 60} seconds)`)
+        
+        // Check if it's time to run (or past time)
+        if (nextRun <= now) {
+          console.log(`[Scheduler] TIME TO RUN task ${task.id} - scheduled: ${nextRun.toLocaleString()}, now: ${now.toLocaleString()}`)
+          console.log(`[Scheduler] =================================================`)
+          console.log(`[Scheduler] EXECUTING TASK ${task.id} NOW`)
+          console.log(`[Scheduler] =================================================`)
+          
           try {
-            // Get the latest task data from storage
-            const currentTask = await getTaskById(task.id)
-            
-            if (currentTask?.isRunning) {
-              // Make sure our local state is updated with the latest task data
-              setTasks(prevTasks => {
-                const taskExists = prevTasks.some(t => t.id === currentTask.id)
-                if (!taskExists) {
-                  return [...prevTasks, currentTask]
-                }
-                return prevTasks.map(t => t.id === currentTask.id ? currentTask : t)
-              })
-              
-              runAnalysis(currentTask)
-            } else if (currentTask) {
-              // Task exists but is not running
-              clearInterval(interval)
-              delete intervals.current[task.id]
-              
-              // Make sure our local state reflects that the task is not running
-              setTasks(prevTasks => 
-                prevTasks.map(t => t.id === currentTask.id ? currentTask : t)
-              )
-            } else {
-              // Task doesn't exist anymore
-              clearInterval(interval)
-              delete intervals.current[task.id]
-              
-              // Remove the task from our local state if it's gone from storage
-              setTasks(prevTasks => prevTasks.filter(t => t.id !== task.id))
-            }
+            // Run the task
+            await runAnalysis(task)
+            console.log(`[Scheduler] Task ${task.id} completed successfully`)
           } catch (error) {
-            console.error(`Error in task interval for ${task.id}:`, error)
+            console.error(`[Scheduler] Error running task ${task.id}:`, error)
+          } finally {
+            // Always calculate and set the next run time, even if the run failed
+            // This prevents continuous retries of a failing task
+            console.log(`[Scheduler] Calculating next run time after task execution`)
+            const newNextRun = getNextRunTime(task)
+            await updateTaskNextRunTime(task.id, newNextRun)
           }
-        }, intervalTimes[task.frequency])
-        
-        intervals.current[task.id].interval = interval
-      }, delay)
+        } else {
+          console.log(`[Scheduler] Task ${task.id} not yet due to run`)
+        }
+      }
+    } catch (error) {
+      console.error('[Scheduler] Error in checkTasksToRun:', error)
     }
   }
 
   const stopTask = async (taskId: string) => {
-    if (intervals.current[taskId]) {
-      if (intervals.current[taskId].interval) clearInterval(intervals.current[taskId].interval)
-      if (intervals.current[taskId].timeout) clearTimeout(intervals.current[taskId].timeout)
-      delete intervals.current[taskId]
-    }
-
     try {
       await toggleTaskRunningState(taskId, false)
       setTasks(tasks.map(task => 
@@ -511,16 +622,27 @@ function App() {
   }
 
   const toggleTaskState = async (taskId: string) => {
+    console.log(`[Scheduler] Toggling task state for ${taskId}`)
     const task = tasks.find(t => t.id === taskId)
-    if (!task) return
+    
+    if (!task) {
+      console.error(`[Scheduler] Task ${taskId} not found for toggle`)
+      return
+    }
 
     if (task.isRunning) {
+      console.log(`[Scheduler] Stopping running task ${taskId}`)
       await stopTask(taskId)
       // Track stopping a task
       signals.taskStopped()
     } else {
       try {
+        console.log(`[Scheduler] Starting task ${taskId}`)
+        
+        // Set the task to running state
         await toggleTaskRunningState(taskId, true)
+        
+        // Update local state
         setTasks(tasks.map(t => 
           t.id === taskId ? { ...t, isRunning: true } : t
         ))
@@ -528,21 +650,26 @@ function App() {
         // Track starting a task
         signals.taskStarted()
         
-        const updatedTask = { ...task, isRunning: true }
-        scheduleTask(updatedTask)
+        // Calculate next run time and update
+        console.log(`[Scheduler] Calculating initial next run time for task ${taskId}`)
+        const nextRun = getNextRunTime(task)
+        await updateTaskNextRunTime(taskId, nextRun)
+        
+        // Check if it needs to run immediately
+        console.log(`[Scheduler] Checking if task ${taskId} needs to run immediately`)
+        await checkTasksToRun()
       } catch (error) {
-        console.error('Failed to start task:', error)
+        console.error(`[Scheduler] Failed to start task ${taskId}:`, error)
       }
     }
   }
 
   const removeTask = async (taskId: string) => {
     try {
-      // First stop the task if it's running
-      if (intervals.current[taskId]) {
-        if (intervals.current[taskId].interval) clearInterval(intervals.current[taskId].interval)
-        if (intervals.current[taskId].timeout) clearTimeout(intervals.current[taskId].timeout)
-        delete intervals.current[taskId]
+      const task = tasks.find(t => t.id === taskId)
+      // If task is running, stop it first
+      if (task && task.isRunning) {
+        await stopTask(taskId)
       }
       
       // Delete the task from storage
@@ -601,20 +728,14 @@ function App() {
     }
   }, [newJob.notificationCriteria, editingJobId, testResult, tasks]);
   
-  // Clean up any tasks that might have been deleted but still have timers
+  // Update polling when tasks change
   useEffect(() => {
-    // Get all currently valid task IDs
-    const validTaskIds = new Set(tasks.map(task => task.id));
+    // If there are running tasks, make sure polling is active
+    const hasRunningTasks = tasks.some(task => task.isRunning)
     
-    // Clean up any timer for tasks that no longer exist
-    Object.keys(intervals.current).forEach(taskId => {
-      if (!validTaskIds.has(taskId)) {
-        console.log(`Cleaning up timer for deleted task: ${taskId}`);
-        if (intervals.current[taskId].interval) clearInterval(intervals.current[taskId].interval);
-        if (intervals.current[taskId].timeout) clearTimeout(intervals.current[taskId].timeout);
-        delete intervals.current[taskId];
-      }
-    });
+    if (hasRunningTasks && !pollingInterval.current) {
+      startTaskPolling()
+    }
   }, [tasks]);
   
   const startEditingTask = (taskId: string) => {
@@ -664,12 +785,18 @@ function App() {
     if (!editingJobId) return;
     
     try {
+      console.log(`[Scheduler] Updating task ${editingJobId} with new settings`)
+      
       // Find the task being edited
       const task = tasks.find(t => t.id === editingJobId);
-      if (!task) return;
+      if (!task) {
+        console.error(`[Scheduler] Task ${editingJobId} not found for updating`)
+        return;
+      }
       
       // Check if the task is currently running
       const wasRunning = task.isRunning;
+      console.log(`[Scheduler] Task ${editingJobId} was running: ${wasRunning}`)
       
       // If it was running, stop it first
       if (wasRunning) {
@@ -678,6 +805,19 @@ function App() {
       
       // Check if criteria changed
       const criteriaChanged = task.notificationCriteria !== updatedTaskData.notificationCriteria;
+      
+      // Log schedule changes
+      const scheduleChanged = 
+        task.frequency !== updatedTaskData.frequency ||
+        task.scheduledTime !== updatedTaskData.scheduledTime ||
+        task.dayOfWeek !== updatedTaskData.dayOfWeek;
+        
+      if (scheduleChanged) {
+        console.log(`[Scheduler] Task ${editingJobId} schedule changed:`)
+        console.log(`[Scheduler] - Frequency: ${task.frequency} -> ${updatedTaskData.frequency}`)
+        console.log(`[Scheduler] - Time: ${task.scheduledTime} -> ${updatedTaskData.scheduledTime}`)
+        console.log(`[Scheduler] - Day: ${task.dayOfWeek} -> ${updatedTaskData.dayOfWeek}`)
+      }
       
       // Update the task with new data
       const updatedTask: Task = {
@@ -691,9 +831,12 @@ function App() {
         // Clear lastResult and lastMatchedCriteria if criteria changed
         lastResult: criteriaChanged ? undefined : task.lastResult,
         lastMatchedCriteria: criteriaChanged ? undefined : task.lastMatchedCriteria,
-        lastTestResult: criteriaChanged ? undefined : task.lastTestResult
+        lastTestResult: criteriaChanged ? undefined : task.lastTestResult,
+        // Reset next scheduled run time since schedule changed
+        nextScheduledRun: undefined
       };
       
+      console.log(`[Scheduler] Saving updated task ${editingJobId} to storage`)
       // Save to storage
       await updateTask(updatedTask);
       
@@ -705,9 +848,10 @@ function App() {
       
       // If it was running, restart it with the new settings
       if (wasRunning) {
-        const freshTask = { ...updatedTask, isRunning: true };
+        console.log(`[Scheduler] Restarting task ${editingJobId} after update`)
         await toggleTaskRunningState(editingJobId, true);
-        scheduleTask(freshTask);
+      } else {
+        console.log(`[Scheduler] Task ${editingJobId} was not running, leaving it stopped after update`)
       }
       
       // Clear form and editing mode
@@ -762,15 +906,25 @@ function App() {
       
       // Add task to storage
       const newTask = await addTask(newTaskData);
+      console.log(`[Scheduler] Created new task ${newTask.id}, isRunning=${newTask.isRunning}`)
       
       // Track task creation with telemetry
       signals.taskCreated(taskData.frequency);
       
       // Update local state
-      setTasks([...tasks, newTask]);
+      setTasks(prevTasks => {
+        console.log(`[Scheduler] Updating tasks state with new task ${newTask.id}`)
+        return [...prevTasks, newTask]
+      });
       
-      // Schedule the task
-      scheduleTask(newTask);
+      // Calculate next run time and set it
+      console.log(`[Scheduler] Setting initial next run time for new task ${newTask.id}`)
+      const nextRun = getNextRunTime(newTask)
+      await updateTaskNextRunTime(newTask.id, nextRun);
+      
+      // Make sure tasks get checked again after adding
+      console.log(`[Scheduler] Checking tasks after creating new task ${newTask.id}`)
+      await checkTasksToRun();
       
       // Request notification permission when a task is added
       if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
@@ -812,7 +966,7 @@ function App() {
       const urlObj = new URL(task.websiteUrl.startsWith('http') ? task.websiteUrl : `http://${task.websiteUrl}`);
       const domain = urlObj.hostname;
       
-      const title = `${domain} Matched your condition`;
+      const title = `${domain} matched your condition`;
       
       // Create a notification body that just includes the rationale (analysis)
       let body = analysis;
@@ -843,19 +997,56 @@ function App() {
   }
 
   const runAnalysis = async (task: Task) => {
+    console.log(`[Analysis] ========================================`)
+    console.log(`[Analysis] STARTING ANALYSIS FOR TASK ${task.id}`)
+    console.log(`[Analysis] ========================================`)
+    console.log(`[Analysis] Website URL: ${task.websiteUrl}`)
+    console.log(`[Analysis] Prompt: ${task.analysisPrompt}`)
+    console.log(`[Analysis] Criteria: ${task.notificationCriteria}`)
+    
+    // Get the API key if not already loaded
     if (!apiKey) {
+      try {
+        console.log('[Analysis] No API key in state, trying to load from storage')
+        const electron = window.require('electron')
+        const storedApiKey = await electron.ipcRenderer.invoke('get-api-key')
+        if (storedApiKey) {
+          console.log('[Analysis] Found stored API key')
+          setApiKey(storedApiKey)
+        } else {
+          console.error('[Analysis] No API key available')
+          setError('Please set your OpenAI API key in settings')
+          return
+        }
+      } catch (error) {
+        console.error('[Analysis] Error loading API key:', error)
+        setError('Failed to load API key')
+        return
+      }
+    }
+    
+    // Re-check API key after potential loading
+    const currentApiKey = apiKey || await window.require('electron').ipcRenderer.invoke('get-api-key')
+    
+    if (!currentApiKey) {
+      console.error('[Analysis] No API key available after loading attempt')
       setError('Please set your OpenAI API key in settings')
       return
     }
     
     // Validate API key
-    const validation = validateApiKey(apiKey);
+    console.log('[Analysis] Validating API key')
+    const validation = validateApiKey(currentApiKey)
     if (!validation.isValid) {
+      console.error('[Analysis] Invalid API key:', validation.message)
       setError(validation.message || 'Invalid API key')
       return
     }
+    
+    console.log(`[Analysis] API key validated for task ${task.id}, proceeding with analysis`)
 
     try {
+      console.log(`[Analysis] Starting analysis execution for task ${task.id}`)
       setLoading(true)
       setError('')
       
@@ -868,11 +1059,13 @@ function App() {
         ? `http://${task.websiteUrl}` 
         : task.websiteUrl
       
+      console.log(`[Analysis] Taking screenshot of ${websiteUrl}`)
       let screenshot
       try {
         screenshot = await ipcRenderer.invoke('take-screenshot', websiteUrl)
+        console.log(`[Analysis] Screenshot captured successfully, length: ${screenshot.length} chars`)
       } catch (error) {
-        console.error('Screenshot failed:', error)
+        console.error('[Analysis] Screenshot failed:', error)
         // Instead of failing the entire analysis, continue with a fallback message
         throw new Error(`Could not capture screenshot from ${websiteUrl}. Please check if the website is accessible.`)
       }
@@ -886,10 +1079,11 @@ Return your response in this JSON format:
   "criteriaMatched": true/false
 }`;
       
+      console.log(`[Analysis] Sending OpenAI request with criteria: "${task.notificationCriteria}"`)
       const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${apiKey}`,
+          'Authorization': `Bearer ${currentApiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -917,9 +1111,11 @@ Return your response in this JSON format:
 
       if (!openaiResponse.ok) {
         const errorData = await openaiResponse.json().catch(() => ({}))
+        console.error('[Analysis] OpenAI API error:', errorData)
         throw new Error(errorData.error?.message || 'Failed to analyze website')
       }
 
+      console.log('[Analysis] Received successful response from OpenAI')
       const data = await openaiResponse.json()
       const resultContent = data.choices[0].message.content
       
@@ -927,8 +1123,11 @@ Return your response in this JSON format:
       let criteriaMatched: boolean | undefined = undefined;
       
       try {
+        console.log('[Analysis] Parsing result content:', resultContent.substring(0, 100) + '...')
         parsedResult = JSON.parse(resultContent);
         criteriaMatched = parsedResult.criteriaMatched;
+        
+        console.log(`[Analysis] Analysis result parsed. Criteria matched: ${criteriaMatched}`)
         
         // Track successful analysis with telemetry
         signals.analysisRun(true);
@@ -945,6 +1144,7 @@ Return your response in this JSON format:
           screenshot: screenshot
         };
         
+        console.log(`[Analysis] Updating task ${task.id} with results`)
         // Update the task with results
         const updatedTask = await updateTaskResults(task.id, {
           lastResult: formattedResult,
@@ -954,41 +1154,51 @@ Return your response in this JSON format:
         });
         
         if (updatedTask) {
+          console.log(`[Analysis] Task ${task.id} updated successfully with results`)
+          
           // Update local state using functional update to avoid stale state
           setTasks(prevTasks => {
             // Double check the task still exists in our local state
             const taskExists = prevTasks.some(t => t.id === task.id)
             if (!taskExists) {
               // If it doesn't exist anymore, add it back
+              console.log(`[Analysis] Task ${task.id} not found in state, adding it`)
               return [...prevTasks, updatedTask]
             }
             // Otherwise update it
+            console.log(`[Analysis] Updating task ${task.id} in state`)
             return prevTasks.map(t => t.id === task.id ? updatedTask : t)
           });
           
           // Only send notification if criteria matched
           if (criteriaMatched === true) {
+            console.log(`[Analysis] Criteria matched for task ${task.id}, sending notification`)
             sendNotification(updatedTask, parsedResult.analysis);
+          } else {
+            console.log(`[Analysis] Criteria not matched for task ${task.id}, no notification`)
           }
           
           // Update tray icon if criteria matched state changed
           try {
+            console.log(`[Analysis] Updating tray icon for task ${task.id}`)
             const electron = window.require('electron');
             electron.ipcRenderer.invoke('update-tray-icon').catch(err => {
-              console.error('Failed to update tray icon:', err)
+              console.error('[Analysis] Failed to update tray icon:', err)
             });
           } catch (error) {
+            console.error('[Analysis] Error updating tray icon:', error)
             // Silent fail if electron is not available in dev mode
           }
         } else {
           // Log error if we couldn't update the task
-          console.error(`Failed to update task results for ${task.id}`);
+          console.error(`[Analysis] Failed to update task results for ${task.id}`);
         }
       } catch (error) {
-        console.error("Failed to parse response:", error);
+        console.error("[Analysis] Failed to parse response:", error);
         const now = new Date();
         const errorResult = `Error parsing response: ${resultContent.slice(0, 200)}...`;
         
+        console.log(`[Analysis] Creating error result for task ${task.id}`)
         // Create error result data
         const errorResultData = {
           result: errorResult,
@@ -996,6 +1206,7 @@ Return your response in this JSON format:
           screenshot: screenshot
         };
         
+        console.log(`[Analysis] Updating task ${task.id} with error result`)
         // Update task with error result
         const updatedTask = await updateTaskResults(task.id, {
           lastResult: errorResult,
@@ -1004,6 +1215,7 @@ Return your response in this JSON format:
         });
         
         if (updatedTask) {
+          console.log(`[Analysis] Task ${task.id} updated with error result`)
           // Update using functional update to avoid stale state
           setTasks(prevTasks => {
             const taskExists = prevTasks.some(t => t.id === task.id)
@@ -1013,11 +1225,12 @@ Return your response in this JSON format:
             return prevTasks.map(t => t.id === task.id ? updatedTask : t)
           });
         } else {
-          console.error(`Failed to update task error results for ${task.id}`);
+          console.error(`[Analysis] Failed to update task error results for ${task.id}`);
         }
       }
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
+      console.error(`[Analysis] Error in analysis:`, err);
       setError(errorMessage);
       
       // Track analysis failure with telemetry
@@ -1025,11 +1238,13 @@ Return your response in this JSON format:
       
       // Also save the error in the task's result
       const now = new Date();
+      console.log(`[Analysis] Creating error record for task ${task.id}: ${errorMessage}`)
       const errorResultData = {
         result: errorMessage,
         timestamp: now.toISOString()
       };
       
+      console.log(`[Analysis] Updating task ${task.id} with error`)
       // Update task with error
       const updatedTask = await updateTaskResults(task.id, {
         lastResult: errorMessage,
@@ -1038,6 +1253,7 @@ Return your response in this JSON format:
       });
       
       if (updatedTask) {
+        console.log(`[Analysis] Task ${task.id} updated with error`)
         // Update using functional update to avoid stale state
         setTasks(prevTasks => {
           const taskExists = prevTasks.some(t => t.id === task.id)
@@ -1047,9 +1263,10 @@ Return your response in this JSON format:
           return prevTasks.map(t => t.id === task.id ? updatedTask : t)
         });
       } else {
-        console.error(`Failed to update task with global error for ${task.id}`);
+        console.error(`[Analysis] Failed to update task with global error for ${task.id}`);
       }
     } finally {
+      console.log(`[Analysis] Analysis for task ${task.id} completed`)
       setLoading(false);
     }
   }

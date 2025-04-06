@@ -10,6 +10,7 @@ export interface Task {
   isRunning: boolean
   lastResult?: string
   lastRun?: Date
+  nextScheduledRun?: Date
   notificationCriteria: string
   lastMatchedCriteria?: boolean
   lastTestResult?: {
@@ -33,7 +34,8 @@ export interface TaskFormData {
 const serializeTask = (task: Task): any => {
   return {
     ...task,
-    lastRun: task.lastRun ? task.lastRun.toISOString() : undefined
+    lastRun: task.lastRun ? task.lastRun.toISOString() : undefined,
+    nextScheduledRun: task.nextScheduledRun ? task.nextScheduledRun.toISOString() : undefined
   }
 }
 
@@ -41,7 +43,8 @@ const serializeTask = (task: Task): any => {
 const deserializeTask = (task: any): Task => {
   return {
     ...task,
-    lastRun: task.lastRun ? new Date(task.lastRun) : undefined
+    lastRun: task.lastRun ? new Date(task.lastRun) : undefined,
+    nextScheduledRun: task.nextScheduledRun ? new Date(task.nextScheduledRun) : undefined
   }
 }
 
@@ -115,6 +118,7 @@ export const updateTaskResults = async (
   results: {
     lastResult?: string,
     lastRun?: Date,
+    nextScheduledRun?: Date,
     lastMatchedCriteria?: boolean,
     lastTestResult?: {
       result: string,
@@ -134,6 +138,7 @@ export const updateTaskResults = async (
       ...task,
       lastResult: results.lastResult !== undefined ? results.lastResult : task.lastResult,
       lastRun: results.lastRun !== undefined ? results.lastRun : task.lastRun,
+      nextScheduledRun: results.nextScheduledRun !== undefined ? results.nextScheduledRun : task.nextScheduledRun,
       lastMatchedCriteria: results.lastMatchedCriteria !== undefined ? results.lastMatchedCriteria : task.lastMatchedCriteria,
       lastTestResult: results.lastTestResult ? {
         ...task.lastTestResult,
