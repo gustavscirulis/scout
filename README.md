@@ -2,6 +2,10 @@
 
 Scout is a desktop application that monitors websites and notifies you when specified conditions are met. Perfect for tracking price drops, availability changes, or any other visual changes on websites you care about.
 
+| Welcome Screen | Task List | Task Details |
+|:-------------:|:---------:|:------------:|
+| ![Welcome Screen](/public/01_welcome@2x.png) | ![Task List](/public/02_list@2x.png) | ![Task Details](/public/03_task@2x.png) |
+
 ## Features
 
 - **Website Tracking**: Set up tasks to track changes on websites
