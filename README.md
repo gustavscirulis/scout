@@ -1,6 +1,6 @@
 # Scout
 
-Scout is a desktop application that monitors websites and notifies you when specified conditions are met. Perfect for tracking price drops, availability changes, or any other visual changes on websites you care about.
+Scout is a desktop application that monitors websites and notifies you when specified conditions are met. It's perfect for tracking price drops, availability changes, or other visual updates on websites you care about.
 
 | Welcome Screen | Task List | Task Details |
 |:-------------:|:---------:|:------------:|
@@ -8,21 +8,21 @@ Scout is a desktop application that monitors websites and notifies you when spec
 
 ## Features
 
-- **Website Tracking**: Set up tasks to track changes on websites
-- **Visual Analysis**: Uses OpenAI's Vision API to analyze screenshots
-- **Custom Conditions**: Define specific conditions that trigger notifications
-- **Scheduling**: Set hourly, daily, or weekly checks
-- **Mac-Style Interface**: Clean, native-feeling UI
+- **Website Monitoring** – Track visual changes on any webpage
+- **AI-Powered Analysis** – Uses OpenAI’s Vision API to understand page content
+- **Custom Conditions** – Get notified when your specific condition is met
+- **Scheduled Checks** – Monitor hourly, daily, or weekly
+- **Native Mac Interface** – Clean, minimal, and feels at home on macOS
 
 ## How It Works
 
-Scout uses AI vision to monitor websites for you:
+Scout uses AI to visually analyze webpages and alert you when your condition is met:
 
-1. **Create a Task**: Enter the URL you want to monitor and define the condition you're looking for (e.g., "price drops below $500" or "tickets become available")
-2. **Set Schedule**: Choose how often to check - hourly, daily, or weekly
-3. **Test First**: Scout takes a screenshot and tests your condition before saving
-4. **Automatic Monitoring**: Once saved, Scout will check the website automatically according to your schedule
-5. **Get Notified**: When your condition is met, you'll receive a desktop notification
+1. **Create a Task** – Enter a URL and describe what you're watching for (e.g. “price drops below $500” or “tickets available”)
+2. **Set a Schedule** – Choose how often Scout checks the page
+3. **Test It First** – Preview a screenshot and test your condition before saving
+4. **Let It Run** – Scout checks the site automatically in the background
+5. **Get Notified** – When your condition is met, you’ll receive a desktop notification
 
 ## Installation
 
@@ -30,19 +30,19 @@ Download and install Scout from the [releases page](https://github.com/gustavsci
 
 ## Getting Started
 
-1. **API Key**: You'll need an OpenAI API key with access to GPT-4o Vision. Enter it in the Settings screen.
-2. **Create Tasks**: Click the "+" icon to create a new monitoring task
-3. **Test Your Tasks**: Use the "Test" button to verify your condition works correctly
-4. **Run Tasks**: Tasks run automatically in the background according to your schedule
+1. **API Key** – You'll need an OpenAI API key with access to GPT-4o Vision. Enter it under Settings.
+2. **Create a Task** – Click the "+" icon to start monitoring a new page
+3. **Test the Task** – Use the "Test" button to verify your condition
+4. **Run Automatically** – Tasks will run in the background based on your schedule
 
 ## Example Use Cases
 
-- **Price Tracking**: Monitor product pages for price drops (e.g., "price is below $300")
-- **Stock Alerts**: Get notified when items come back in stock (e.g., "Add to Cart button is enabled")
-- **Limited Releases**: Monitor for ticket sales, product launches, or limited releases
-- **Job Listings**: Track career pages for specific job openings
-- **Content Updates**: Get notified when websites update with specific information
-- **Reservation Availability**: Monitor for available bookings at restaurants or venues
+- **Price Tracking** – Get notified when a product drops below your target price
+- **Stock Alerts** – Monitor for “Add to Cart” buttons or availability text
+- **Limited Releases** – Catch product launches, ticket drops, and flash sales
+- **Job Listings** – Track career pages for specific job titles
+- **Content Updates** – Watch for new articles, headlines, or page changes
+- **Reservation Availability** – Monitor booking sites for open time slots
 
 ## Development
 
@@ -57,21 +57,24 @@ npm run dev
 npm run build
 ```
 
-## Technology Stack
-
-- **Frontend**: React, TypeScript, TailwindCSS
-- **UI Components**: shadcn/ui
-- **Desktop**: Electron
-- **AI**: OpenAI Vision API (GPT-4o)
-
 ## Privacy & Security
 
-- **Local-Only Processing**: Scout stores all your tasks and data locally on your device.
-- **API Key Security**: Your OpenAI API key is stored securely in your system's keychain.
-- **No Data Sharing**: Scout does not send any data to external servers beyond what's required for the OpenAI API.
-- **Secure Screenshots**: Website screenshots are processed by OpenAI's API but not stored long-term.
-- **Anonymous Analytics**: Scout uses TelemetryDeck to collect anonymous usage data to help us improve the application. This data includes app launches, feature usage, and error reports. No personally identifiable information is collected, and all data is anonymized. You can learn more about TelemetryDeck's privacy practices at [telemetrydeck.com/privacy](https://telemetrydeck.com/privacy).
+- **Local-Only Processing** – All tasks and data are stored locally on your device
+- **Secure API Key Storage** – Your OpenAI API key is saved in your system keychain
+- **No Unnecessary Data Sharing** – Scout only communicates with OpenAI's API
+- **Secure Screenshots** – Screenshots are sent to OpenAI for analysis, but not stored
+- **Anonymous Analytics** – Scout uses TelemetryDeck to collect anonymized usage data (e.g. app launches, errors, feature use). No personal information is collected. Learn more at [telemetrydeck.com/privacy](https://telemetrydeck.com/privacy)
+
+## Acknowledgements
+
+- **Claude Code** – For helping me build the app without coding skills
+- **OpenAI GPT-4o** – For powering the Vision API and generating the app icon
+- **shadcn/ui** – For accessible, elegant UI components
+- **Phosphor Icons** – For the icon set used in the app
+- **TelemetryDeck** – For privacy-first analytics
+- **Electron** – For cross-platform desktop app support
+- **React & TypeScript** – For frontend development and type safety
 
 ## License
 
-This project is licensed under the GNU General Public License v3.0 (GPL-3.0) - see the LICENSE file for details. This license ensures that all modifications to this code remain open source.
+This project is licensed under the GNU General Public License v3.0 (GPL-3.0). See the LICENSE file for details. This license ensures that all modifications remain open source.
