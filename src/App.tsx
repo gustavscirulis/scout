@@ -1582,10 +1582,10 @@ Return your response in this JSON format:
                       // Check if app is in development mode
                       try {
                         const electron = window.require('electron');
-                        const isDev = !electron.app?.isPackaged;
                         
-                        // Only render window options in dev mode
-                        if (isDev) {
+                        // Get the packaged state from the electron remote
+                        const isPackaged = electron.ipcRenderer.sendSync('is-app-packaged');
+                        if (!isPackaged) {
                           return (
                             <>
                               <Separator />

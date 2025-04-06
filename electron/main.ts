@@ -548,6 +548,11 @@ ipcMain.handle('update-tray-icon', () => {
 // Keep track of the latest temporary screenshot file
 let latestScreenshotPath: string | null = null;
 
+// Handler to check if app is packaged (for UI decisions)
+ipcMain.on('is-app-packaged', (event) => {
+  event.returnValue = app.isPackaged
+})
+
 // Handle opening images in preview window
 ipcMain.handle('open-image-preview', async (_event, dataUrl: string) => {
   if (!dataUrl || !dataUrl.startsWith('data:image/')) {
