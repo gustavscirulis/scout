@@ -1156,10 +1156,11 @@ Return your response in this JSON format:
           screenshot: screenshot
         });
         
-        // If we're testing an existing task, update its lastRun timestamp and test results
+        // If we're testing an existing task, update its lastRun timestamp, matched criteria, and test results
         if (editingJobId) {
           const updatedTask = await updateTaskResults(editingJobId, {
             lastRun: now,
+            lastMatchedCriteria: criteriaMatched,
             lastTestResult: testResultData
           });
           
@@ -1788,7 +1789,7 @@ Return your response in this JSON format:
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center">
                             {task.isRunning && (
-                              <span className={`mr-2 inline-block h-1.5 w-1.5 rounded-full ${task.lastMatchedCriteria 
+                              <span className={`mr-2 inline-block h-1.5 w-1.5 rounded-full ${(task.lastMatchedCriteria || task.lastTestResult?.matched)
                                 ? 'bg-emerald-500 dark:bg-emerald-500 shadow-[0_0_4px_rgba(16,185,129,0.7)]' 
                                 : 'bg-[#007AFF] dark:bg-[#007AFF] shadow-[0_0_4px_rgba(0,122,255,0.7)]'} 
                                 animate-[subtle-pulse_1.5s_ease-in-out_infinite,scale_1.5s_ease-in-out_infinite] flex-shrink-0 origin-center`}></span>
@@ -1811,7 +1812,8 @@ Return your response in this JSON format:
                             
                             <span className="mx-1.5 text-muted-foreground/40">•</span>
                             
-                            {task.lastMatchedCriteria ? (
+                            {/* Display matched state from either regular run or test run */}
+                            {(task.lastMatchedCriteria || task.lastTestResult?.matched) ? (
                               <span className="truncate" title={task.notificationCriteria}>
                                 Matched: {task.notificationCriteria}
                               </span>

@@ -20,6 +20,10 @@ Scout uses AI vision to monitor websites for you:
 4. **Automatic Monitoring**: Once saved, Scout will check the website automatically according to your schedule
 5. **Get Notified**: When your condition is met, you'll receive a desktop notification
 
+## Installation
+
+Download and install Scout from the [releases page](https://github.com/gustavscirulis/scout/releases).
+
 ## Getting Started
 
 1. **API Key**: You'll need an OpenAI API key with access to GPT-4o Vision. Enter it in the Settings screen.

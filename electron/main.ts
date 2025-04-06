@@ -148,7 +148,9 @@ const getTaskById = (taskId: string): Task | undefined => {
 // Check if any tasks have matched their criteria
 const checkForSuccessfulTasks = (): boolean => {
   const tasks = getAllTasks()
-  const hasSuccess = tasks.some(task => task.lastMatchedCriteria === true)
+  const hasSuccess = tasks.some(task => 
+    task.lastMatchedCriteria === true || task.lastTestResult?.matched === true
+  )
   
   // Update tray icon if success state has changed
   if (hasSuccess !== hasSuccessfulTasks) {
