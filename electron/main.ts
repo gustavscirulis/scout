@@ -9,6 +9,7 @@ import path from 'path'
 import crypto from 'crypto'
 import http from 'http'
 import pkg from 'electron-updater'
+import { exec } from 'child_process'
 const { autoUpdater } = pkg
 
 const { app, BrowserWindow, nativeTheme, ipcMain, Tray, screen, shell } = electron
@@ -811,6 +812,45 @@ ipcMain.handle('install-update', () => {
   } catch (error) {
     return { 
       success: false
+    }
+  }
+})
+
+// Check for Llama model
+ipcMain.handle('check-llama-model', async () => {
+  try {
+    // First check if Ollama is installed
+    await new Promise<void>((resolve, reject) => {
+      execFile('which', ['ollama'], (error) => {
+        if (error) {
+          reject(new Error('Ollama not found'))
+        } else {
+          resolve()
+        }
+      })
+    })
+
+    // Then check if the model is installed
+    const result = await new Promise<string>((resolve, reject) => {
+      exec('ollama list', (error: Error | null, stdout: string) => {
+        if (error) {
+          reject(error)
+        } else {
+          resolve(stdout)
+        }
+      })
+    })
+
+    // Check if llama3.2-vision:latest is in the list
+    const hasModel = result.includes('llama3.2-vision:latest')
+    return { 
+      installed: true,
+      hasModel
+    }
+  } catch (error) {
+    return { 
+      installed: false,
+      hasModel: false
     }
   }
 })

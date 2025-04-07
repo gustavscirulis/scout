@@ -1234,6 +1234,31 @@ function App() {
     }
   };
 
+  const [llamaModelStatus, setLlamaModelStatus] = useState<{ installed: boolean; hasModel: boolean } | null>(null)
+  const [checkingLlamaModel, setCheckingLlamaModel] = useState(false)
+
+  // Check Llama model status when provider is set to llama
+  useEffect(() => {
+    if (settings.visionProvider === 'llama') {
+      const checkModel = async () => {
+        setCheckingLlamaModel(true)
+        try {
+          const electron = window.require('electron')
+          const status = await electron.ipcRenderer.invoke('check-llama-model')
+          setLlamaModelStatus(status)
+        } catch (error) {
+          console.error('Failed to check Llama model:', error)
+          setLlamaModelStatus({ installed: false, hasModel: false })
+        } finally {
+          setCheckingLlamaModel(false)
+        }
+      }
+      checkModel()
+    } else {
+      setLlamaModelStatus(null)
+    }
+  }, [settings.visionProvider])
+
   return appWithTooltips(
     <div className="flex flex-col h-full w-full">
       {/* Titlebar - macOS style */}
@@ -1525,7 +1550,7 @@ function App() {
                             console.error('Failed to update vision provider setting:', err)
                           })
                         }}
-                        className="grid grid-cols-2 gap-4"
+                        className="grid grid-cols-2 gap-3"
                       >
                         <RadioGroupItem
                           value="llama"
@@ -1575,29 +1600,38 @@ function App() {
                       </RadioGroup>
                       
                       {settings.visionProvider === 'llama' && (
-                        <div className="rounded-md px-3 py-1.5 bg-blue-500/10 border border-blue-500/20 dark:bg-blue-500/20">
-                          <p className="text-[0.8rem] font-medium flex items-start">
-                            <img 
-                              src="/llama@2x.png" 
-                              alt="Llama" 
-                              className="h-3.5 w-3.5 mr-1.5 flex-shrink-0 mt-0.5" 
-                            />
-                            <span>
-                              Llama requires <a 
-                                href="#" 
-                                onClick={(e) => {
-                                  e.preventDefault()
-                                  try {
-                                    const { shell } = window.require('electron')
-                                    shell.openExternal('https://ollama.com')
-                                  } catch (error) {
-                                    window.open('https://ollama.com', '_blank')
-                                  }
-                                }}
-                                className="text-primary hover:underline"
-                              >Ollama</a> installed with the llava model
-                            </span>
-                          </p>
+                        <div className="space-y-3 -mt-1">
+                          {checkingLlamaModel ? (
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                              <ArrowClockwise className="h-3.5 w-3.5 animate-spin" />
+                              Checking for Llama model...
+                            </div>
+                          ) : llamaModelStatus && (
+                            <div className="space-y-2">
+                              {!llamaModelStatus.installed ? (
+                                <div className="rounded-md px-3 py-1.5 bg-destructive/10 border border-destructive/20 dark:bg-destructive/20">
+                                  <p className="text-[0.8rem] font-medium text-destructive dark:text-destructive-foreground flex items-center">
+                                    <WarningCircle className="w-3.5 h-3.5 mr-1.5 flex-shrink-0" weight="fill" />
+                                    Ollama is not installed. Please install it to use Llama.
+                                  </p>
+                                </div>
+                              ) : !llamaModelStatus.hasModel ? (
+                                <div className="rounded-md px-3 py-1.5 bg-destructive/10 border border-destructive/20 dark:bg-destructive/20">
+                                  <p className="text-[0.8rem] font-medium text-destructive dark:text-destructive-foreground flex items-center">
+                                    <WarningCircle className="w-3.5 h-3.5 mr-1.5 flex-shrink-0" weight="fill" />
+                                    Required model not found. Run: <code className="ml-1 bg-muted px-1 py-0.5 rounded">ollama pull llama3.2-vision</code>
+                                  </p>
+                                </div>
+                              ) : (
+                                <div className="rounded-md px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 dark:bg-emerald-500/20">
+                                  <p className="text-[0.8rem] font-medium text-emerald-500 dark:text-emerald-500 flex items-center">
+                                    <CheckCircle className="w-3.5 h-3.5 mr-1.5 flex-shrink-0" weight="fill" />
+                                    Llama model is ready to use!
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       )}
                     </fieldset>
