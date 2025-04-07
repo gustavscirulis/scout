@@ -216,7 +216,7 @@ export function TaskForm({
             <label className="text-sm font-medium mb-2 block">Notify Me When...</label>
             <Textarea
               value={formData.notificationCriteria}
-              placeholder="e.g., 'product price drops below target price' or 'PS5 is back in stock'"
+              placeholder="e.g., 'product price drops below target price' or 'tickets are back in stock'"
               onChange={handleCriteriaChange}
             />
           </div>
