@@ -1639,8 +1639,25 @@ function App() {
                                 <div className="rounded-md px-3 py-1.5 bg-destructive/10 border border-destructive/20 dark:bg-destructive/20">
                                   <p className="text-[0.8rem] font-medium text-destructive dark:text-destructive-foreground flex items-center">
                                     <WarningCircle className="w-3.5 h-3.5 mr-1.5 flex-shrink-0" weight="fill" />
-                                    Ollama is not installed. Please install it to use Llama.
+                                    Install Ollama to use Llama 3.2
                                   </p>
+                                  <div className="mt-2">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="text-xs h-7"
+                                      onClick={() => {
+                                        try {
+                                          const { shell } = window.require('electron');
+                                          shell.openExternal('https://ollama.com/download');
+                                        } catch (error) {
+                                          window.open('https://ollama.com/download', '_blank');
+                                        }
+                                      }}
+                                    >
+                                      Download Ollama
+                                    </Button>
+                                  </div>
                                 </div>
                               ) : !llamaModelStatus.hasModel ? (
                                 <div className="rounded-md px-3 py-1.5 bg-destructive/10 border border-destructive/20 dark:bg-destructive/20">
