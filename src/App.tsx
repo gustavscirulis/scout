@@ -1535,10 +1535,12 @@ function App() {
                             "data-[state=checked]:ring-2 data-[state=checked]:ring-primary"
                           )}
                         >
-                          <CheckCircle 
-                            className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 h-5 w-5 text-primary fill-primary stroke-background group-data-[state=unchecked]:hidden" 
-                            weight="fill"
-                          />
+                          <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 h-5 w-5 rounded-full bg-background flex items-center justify-center group-data-[state=unchecked]:hidden">
+                            <CheckCircle 
+                              className="h-5 w-5 text-primary fill-primary stroke-background" 
+                              weight="fill"
+                            />
+                          </div>
                           <div className="flex items-center gap-2 mb-2.5">
                             <img 
                               src="/llama@2x.png" 
@@ -1558,10 +1560,12 @@ function App() {
                             "data-[state=checked]:ring-2 data-[state=checked]:ring-primary"
                           )}
                         >
-                          <CheckCircle 
-                            className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 h-5 w-5 text-primary fill-primary stroke-background group-data-[state=unchecked]:hidden" 
-                            weight="fill"
-                          />
+                          <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 h-5 w-5 rounded-full bg-background flex items-center justify-center group-data-[state=unchecked]:hidden">
+                            <CheckCircle 
+                              className="h-5 w-5 text-primary fill-primary stroke-background" 
+                              weight="fill"
+                            />
+                          </div>
                           <div className="flex items-center gap-2 mb-2.5">
                             <OpenAiLogo className="h-4 w-4 text-muted-foreground" />
                           </div>
@@ -1597,8 +1601,6 @@ function App() {
                         </div>
                       )}
                     </fieldset>
-                    
-                    <Separator />
                     
                     {/* API Key section - only show for OpenAI */}
                     {settings.visionProvider === 'openai' && (
@@ -1658,8 +1660,6 @@ function App() {
                             </p>
                           </div>
                         </fieldset>
-                        
-                        <Separator />
                       </>
                     )}
                     
@@ -1701,8 +1701,6 @@ function App() {
                         if (!isPackaged) {
                           return (
                             <>
-                              <Separator />
-                              
                               <fieldset className="space-y-3">
                                 <legend className="text-sm font-medium">Window Options</legend>
                                 
