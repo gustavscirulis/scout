@@ -296,6 +296,7 @@ function App() {
   const [updateAvailable, setUpdateAvailable] = useState(false)
   const [updateDownloaded, setUpdateDownloaded] = useState(false)
   const [settings, setSettings] = useState<Settings>({ visionProvider: 'openai' })
+  const [tempSettings, setTempSettings] = useState<Settings>({ visionProvider: 'openai' })
   
   // Listen for update availability messages from main process
   useEffect(() => {
@@ -394,6 +395,7 @@ function App() {
       try {
         const loadedSettings = await getSettings()
         setSettings(loadedSettings)
+        setTempSettings(loadedSettings)
       } catch (error) {
         console.error('Failed to load settings:', error)
       }
@@ -1296,6 +1298,8 @@ function App() {
               variant="headerIcon"
               size="icon"
               onClick={() => {
+                // Revert settings to their saved state when pressing back
+                setSettings(tempSettings)
                 setShowNewJobForm(false);
                 resetNewJobForm();
                 setSettingsView(false);
@@ -1570,11 +1574,6 @@ function App() {
                           setSettings({
                             ...settings,
                             visionProvider: newProvider
-                          })
-                          updateSettings({
-                            visionProvider: newProvider
-                          }).catch((err: Error) => {
-                            console.error('Failed to update vision provider setting:', err)
                           })
                         }}
                         className="grid grid-cols-2 gap-3"
@@ -1956,12 +1955,16 @@ function App() {
                               }
                             }, 50);
                           }
+
+                          // Save the vision provider setting
+                          await updateSettings(settings);
+                          setTempSettings(settings);
+                          
+                          setSettingsView(false)
                         } catch (error) {
-                          console.error('Failed to save/delete API key:', error);
-                          setError('Failed to save API key settings');
+                          console.error('Failed to save settings:', error);
+                          setError('Failed to save settings');
                         }
-                        
-                        setSettingsView(false)
                       }
                     }}
                     className="h-8 w-24"
