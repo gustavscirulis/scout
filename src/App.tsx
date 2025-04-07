@@ -24,7 +24,8 @@ import {
   CaretLeft,
   CaretRight,
   Eye,
-  ArrowClockwise
+  ArrowClockwise,
+  OpenAiLogo
 } from '@phosphor-icons/react'
 import './App.css'
 import { TaskForm, JobFormData, RecurringFrequency, DayOfWeek } from './components/TaskForm'
@@ -39,6 +40,8 @@ import {
   TaskFormData,
   getTaskById
 } from './lib/storage/tasks'
+import { RadioGroup, RadioGroupItem } from './components/ui/radio-group'
+import { cn } from './lib/utils'
 
 // Function to format time in a simple "ago" format
 const formatTimeAgo = (date: Date): string => {
@@ -233,7 +236,7 @@ function App() {
       }
       
       // Request tray icon update on startup
-      electron.ipcRenderer.invoke('update-tray-icon').catch(err => {
+      electron.ipcRenderer.invoke('update-tray-icon').catch((err: Error) => {
         console.error('Failed to update tray icon on startup:', err)
       });
       
@@ -707,7 +710,7 @@ function App() {
       // Update tray icon after deletion in case we removed a successful task
       try {
         const electron = window.require('electron');
-        electron.ipcRenderer.invoke('update-tray-icon').catch(err => {
+        electron.ipcRenderer.invoke('update-tray-icon').catch((err: Error) => {
           console.error('Failed to update tray icon after task deletion:', err)
         });
       } catch (error) {
@@ -884,7 +887,7 @@ function App() {
       // Update tray icon if criteria might have changed
       try {
         const electron = window.require('electron');
-        electron.ipcRenderer.invoke('update-tray-icon').catch(err => {
+        electron.ipcRenderer.invoke('update-tray-icon').catch((err: Error) => {
           console.error('Failed to update tray icon after task update:', err)
         });
       } catch (error) {
@@ -970,7 +973,7 @@ function App() {
       if (testResult?.matched) {
         try {
           const electron = window.require('electron');
-          electron.ipcRenderer.invoke('update-tray-icon').catch(err => {
+          electron.ipcRenderer.invoke('update-tray-icon').catch((err: Error) => {
             console.error('Failed to update tray icon after task creation:', err)
           });
         } catch (error) {
@@ -1135,7 +1138,7 @@ function App() {
         try {
           console.log(`[Analysis] Updating tray icon for task ${task.id}`)
           const electron = window.require('electron')
-          electron.ipcRenderer.invoke('update-tray-icon').catch(err => {
+          electron.ipcRenderer.invoke('update-tray-icon').catch((err: Error) => {
             console.error('[Analysis] Failed to update tray icon:', err)
           })
         } catch (error) {
@@ -1504,71 +1507,13 @@ function App() {
               <div className="flex flex-col h-full min-h-[calc(100vh-3rem)] animate-in">
                 <div className="flex-1 overflow-auto">
                   <div className="px-8 pt-6 space-y-6">
-                    <fieldset className="space-y-3">
-                      <div className="flex flex-col">
-                        <label htmlFor="apiKey" className="text-sm font-medium mb-1.5">
-                          OpenAI API Key
-                        </label>
-                        <Input
-                          id="apiKey"
-                          type="password"
-                          value={apiKey}
-                          onChange={(e) => {
-                            const newApiKey = e.target.value;
-                            setApiKey(newApiKey);
-                            
-                            // Clear any previous error when user is typing
-                            if (error && error.includes('API key')) {
-                              setError('');
-                            }
-                          }}
-                          placeholder="sk-..."
-                          autoComplete="off"
-                        />
-                        {((apiKey && !validateApiKey(apiKey).isValid) || 
-                          (error && error.startsWith('_API_KEY_'))) && (
-                          <div className="mt-2 rounded-md px-3 py-1.5 bg-destructive/10 border border-destructive/20 dark:bg-destructive/20">
-                            <p className="text-[0.8rem] font-medium text-destructive dark:text-destructive-foreground flex items-center">
-                              <WarningCircle className="w-3.5 h-3.5 mr-1.5 flex-shrink-0" weight="fill" />
-                              {error && error.startsWith('_API_KEY_') 
-                                ? error.replace('_API_KEY_', '') 
-                                : validateApiKey(apiKey).message}
-                            </p>
-                          </div>
-                        )}
-                        
-                        {!apiKey && hasExistingKey && (
-                          <p className="text-[0.8rem] text-muted-foreground mt-2">
-                            Saving with an empty field will remove your API key.
-                          </p>
-                        )}
-                        <p className="text-[0.8rem] text-muted-foreground mt-2">
-                          Get your API key from <a 
-                            href="#" 
-                            onClick={(e) => {
-                              e.preventDefault();
-                              try {
-                                const { shell } = window.require('electron');
-                                shell.openExternal('https://platform.openai.com/api-keys');
-                              } catch (error) {
-                                window.open('https://platform.openai.com/api-keys', '_blank');
-                              }
-                            }}
-                            className="text-primary hover:underline"
-                          >here</a>. Stored locally only.
-                        </p>
-                      </div>
-                    </fieldset>
-                    
-                    <Separator />
-                    
                     {/* Vision Provider section */}
                     <fieldset className="space-y-3">
-                      <legend className="text-sm font-medium">Vision Provider</legend>
+                      <legend className="text-sm font-medium">AI Model</legend>
                       
-                      <Select
+                      <RadioGroup
                         value={settings.visionProvider}
-                        onValueChange={(value) => {
+                        onValueChange={(value: string) => {
                           const newProvider = value as VisionProvider
                           setSettings({
                             ...settings,
@@ -1576,24 +1521,63 @@ function App() {
                           })
                           updateSettings({
                             visionProvider: newProvider
-                          }).catch(err => {
+                          }).catch((err: Error) => {
                             console.error('Failed to update vision provider setting:', err)
                           })
                         }}
+                        className="grid grid-cols-2 gap-4"
                       >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select AI provider" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="openai">OpenAI (API Key Required)</SelectItem>
-                          <SelectItem value="llama">Llama via Ollama (Local)</SelectItem>
-                        </SelectContent>
-                      </Select>
+                        <RadioGroupItem
+                          value="llama"
+                          className={cn(
+                            "relative group ring-[1px] ring-border rounded-lg py-4 px-4 text-start h-auto w-auto",
+                            "hover:bg-accent hover:text-accent-foreground",
+                            "data-[state=checked]:ring-2 data-[state=checked]:ring-primary"
+                          )}
+                        >
+                          <CheckCircle 
+                            className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 h-5 w-5 text-primary fill-primary stroke-background group-data-[state=unchecked]:hidden" 
+                            weight="fill"
+                          />
+                          <div className="flex items-center gap-2 mb-2.5">
+                            <img 
+                              src="/llama@2x.png" 
+                              alt="Llama" 
+                              className="h-4 w-4 text-muted-foreground filter brightness-0 invert opacity-70" 
+                            />
+                          </div>
+                          <span className="font-semibold tracking-tight">Llama 3.2</span>
+                          <p className="text-xs text-muted-foreground mt-1">Free but slower and less accurate</p>
+                        </RadioGroupItem>
+
+                        <RadioGroupItem
+                          value="openai"
+                          className={cn(
+                            "relative group ring-[1px] ring-border rounded-lg py-4 px-4 text-start h-auto w-auto",
+                            "hover:bg-accent hover:text-accent-foreground",
+                            "data-[state=checked]:ring-2 data-[state=checked]:ring-primary"
+                          )}
+                        >
+                          <CheckCircle 
+                            className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 h-5 w-5 text-primary fill-primary stroke-background group-data-[state=unchecked]:hidden" 
+                            weight="fill"
+                          />
+                          <div className="flex items-center gap-2 mb-2.5">
+                            <OpenAiLogo className="h-4 w-4 text-muted-foreground" />
+                          </div>
+                          <span className="font-semibold tracking-tight">GPT-4o</span>
+                          <p className="text-xs text-muted-foreground mt-1">Fast and accurate but paid</p>
+                        </RadioGroupItem>
+                      </RadioGroup>
                       
                       {settings.visionProvider === 'llama' && (
                         <div className="rounded-md px-3 py-1.5 bg-blue-500/10 border border-blue-500/20 dark:bg-blue-500/20">
                           <p className="text-[0.8rem] font-medium flex items-start">
-                            <Robot className="w-3.5 h-3.5 mr-1.5 flex-shrink-0 mt-0.5" weight="fill" />
+                            <img 
+                              src="/llama@2x.png" 
+                              alt="Llama" 
+                              className="h-3.5 w-3.5 mr-1.5 flex-shrink-0 mt-0.5" 
+                            />
                             <span>
                               Llama requires <a 
                                 href="#" 
@@ -1615,6 +1599,69 @@ function App() {
                     </fieldset>
                     
                     <Separator />
+                    
+                    {/* API Key section - only show for OpenAI */}
+                    {settings.visionProvider === 'openai' && (
+                      <>
+                        <fieldset className="space-y-3">
+                          <div className="flex flex-col">
+                            <label htmlFor="apiKey" className="text-sm font-medium mb-1.5">
+                              OpenAI API Key
+                            </label>
+                            <Input
+                              id="apiKey"
+                              type="password"
+                              value={apiKey}
+                              onChange={(e) => {
+                                const newApiKey = e.target.value;
+                                setApiKey(newApiKey);
+                                
+                                // Clear any previous error when user is typing
+                                if (error && error.includes('API key')) {
+                                  setError('');
+                                }
+                              }}
+                              placeholder="sk-..."
+                              autoComplete="off"
+                            />
+                            {((apiKey && !validateApiKey(apiKey).isValid) || 
+                              (error && error.startsWith('_API_KEY_'))) && (
+                              <div className="mt-2 rounded-md px-3 py-1.5 bg-destructive/10 border border-destructive/20 dark:bg-destructive/20">
+                                <p className="text-[0.8rem] font-medium text-destructive dark:text-destructive-foreground flex items-center">
+                                  <WarningCircle className="w-3.5 h-3.5 mr-1.5 flex-shrink-0" weight="fill" />
+                                  {error && error.startsWith('_API_KEY_') 
+                                    ? error.replace('_API_KEY_', '') 
+                                    : validateApiKey(apiKey).message}
+                                </p>
+                              </div>
+                            )}
+                            
+                            {!apiKey && hasExistingKey && (
+                              <p className="text-[0.8rem] text-muted-foreground mt-2">
+                                Saving with an empty field will remove your API key.
+                              </p>
+                            )}
+                            <p className="text-[0.8rem] text-muted-foreground mt-2">
+                              Get your API key from <a 
+                                href="#" 
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  try {
+                                    const { shell } = window.require('electron');
+                                    shell.openExternal('https://platform.openai.com/api-keys');
+                                  } catch (error) {
+                                    window.open('https://platform.openai.com/api-keys', '_blank');
+                                  }
+                                }}
+                                className="text-primary hover:underline"
+                              >here</a>. Stored locally only.
+                            </p>
+                          </div>
+                        </fieldset>
+                        
+                        <Separator />
+                      </>
+                    )}
                     
                     {/* Updates section */}
                     <fieldset className="space-y-3">
@@ -1790,21 +1837,9 @@ function App() {
                             setTimeout(async () => {
                               const updatedTasks = await Promise.all(
                                 tasks.map(async task => {
-                                  // Clear any existing interval for this task
-                                  if (intervals.current[task.id]) {
-                                    if (intervals.current[task.id].interval) {
-                                      clearInterval(intervals.current[task.id].interval);
-                                    }
-                                    if (intervals.current[task.id].timeout) {
-                                      clearTimeout(intervals.current[task.id].timeout);
-                                    }
-                                  }
-                                  
                                   // Update the task to be running
                                   const updatedTask = await toggleTaskRunningState(task.id, true);
                                   if (updatedTask) {
-                                    // Schedule the task to run
-                                    scheduleTask(updatedTask);
                                     return updatedTask;
                                   }
                                   return task;
@@ -1814,7 +1849,7 @@ function App() {
                               
                               // Update tray icon after starting all tasks
                               try {
-                                electron.ipcRenderer.invoke('update-tray-icon').catch(err => {
+                                electron.ipcRenderer.invoke('update-tray-icon').catch((err: Error) => {
                                   console.error('Failed to update tray icon after starting all tasks:', err)
                                 });
                               } catch (error) {
