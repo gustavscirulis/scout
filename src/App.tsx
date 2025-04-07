@@ -1543,7 +1543,7 @@ Return your response in this JSON format:
                       <div className="bg-accent p-4 text-left flex items-start border-b">
                         <ShoppingBag size={18} className="text-primary mr-3 mt-0.5 flex-shrink-0" />
                         <div>
-                          <div className="font-medium text-sm">Price Drops</div>
+                          <div className="font-medium text-sm">Price drops</div>
                           <div className="text-xs text-muted-foreground mt-0.5">
                             e.g. price goes below certain target
                           </div>
@@ -1553,7 +1553,7 @@ Return your response in this JSON format:
                       <div className="bg-accent p-4 text-left flex items-start border-b">
                         <Ticket size={18} className="text-primary mr-3 mt-0.5 flex-shrink-0" />
                         <div>
-                          <div className="font-medium text-sm">Back in Stock</div>
+                          <div className="font-medium text-sm">Back in stock</div>
                           <div className="text-xs text-muted-foreground mt-0.5">
                             e.g. concert tickets become available
                           </div>
@@ -1563,7 +1563,7 @@ Return your response in this JSON format:
                       <div className="bg-accent p-4 text-left flex items-start">
                         <Briefcase size={18} className="text-primary mr-3 mt-0.5 flex-shrink-0" />
                         <div>
-                          <div className="font-medium text-sm">New Content</div>
+                          <div className="font-medium text-sm">New content</div>
                           <div className="text-xs text-muted-foreground mt-0.5">
                             e.g. certain job listing is posted
                           </div>
@@ -1607,7 +1607,7 @@ Return your response in this JSON format:
                       >
                         <ShoppingBag size={18} className="text-primary mr-3 mt-0.5 flex-shrink-0" />
                         <div>
-                          <div className="font-medium text-sm">Price Drops</div>
+                          <div className="font-medium text-sm">Price drops</div>
                           <div className="text-xs text-muted-foreground mt-0.5">
                             e.g. price goes below certain target
                           </div>
@@ -1627,7 +1627,7 @@ Return your response in this JSON format:
                       >
                         <Ticket size={18} className="text-primary mr-3 mt-0.5 flex-shrink-0" />
                         <div>
-                          <div className="font-medium text-sm">Back in Stock</div>
+                          <div className="font-medium text-sm">Back in stock</div>
                           <div className="text-xs text-muted-foreground mt-0.5">
                             e.g. concert tickets become available
                           </div>
@@ -1647,7 +1647,7 @@ Return your response in this JSON format:
                       >
                         <Briefcase size={18} className="text-primary mr-3 mt-0.5 flex-shrink-0" />
                         <div>
-                          <div className="font-medium text-sm">New Content</div>
+                          <div className="font-medium text-sm">New content</div>
                           <div className="text-xs text-muted-foreground mt-0.5">
                             e.g. certain job listing is posted
                           </div>
