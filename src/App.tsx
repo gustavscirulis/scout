@@ -4,9 +4,12 @@ import { Button } from './components/ui/button'
 import { Input } from './components/ui/input'
 import { Separator } from './components/ui/separator'
 import { Checkbox } from './components/ui/checkbox'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './components/ui/select'
 import { validateApiKey } from './lib/utils'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './components/ui/tooltip'
 import signals from './lib/telemetry'
+import { getSettings, updateSettings, Settings } from './lib/storage/settings'
+import { VisionProvider, testAnalysis as visionTestAnalysis, runTaskAnalysis } from './lib/vision'
 import { 
   Gear, 
   Plus, 
@@ -287,6 +290,7 @@ function App() {
   const [showConfetti, setShowConfetti] = useState(false)
   const [updateAvailable, setUpdateAvailable] = useState(false)
   const [updateDownloaded, setUpdateDownloaded] = useState(false)
+  const [settings, setSettings] = useState<Settings>({ visionProvider: 'openai' })
   
   // Listen for update availability messages from main process
   useEffect(() => {
@@ -378,6 +382,20 @@ function App() {
       signals.settingsOpened()
     }
   }, [settingsView])
+  
+  // Load settings on app start
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const loadedSettings = await getSettings()
+        setSettings(loadedSettings)
+      } catch (error) {
+        console.error('Failed to load settings:', error)
+      }
+    }
+    
+    loadSettings()
+  }, [])
   
   // Launch confetti when showConfetti state changes
   useEffect(() => {
@@ -1003,9 +1021,10 @@ function App() {
     console.log(`[Analysis] Website URL: ${task.websiteUrl}`)
     console.log(`[Analysis] Prompt: ${task.analysisPrompt}`)
     console.log(`[Analysis] Criteria: ${task.notificationCriteria}`)
+    console.log(`[Analysis] Provider: ${settings.visionProvider}`)
     
-    // Get the API key if not already loaded
-    if (!apiKey) {
+    // Get the API key if OpenAI is being used and not already loaded
+    if (settings.visionProvider === 'openai' && !apiKey) {
       try {
         console.log('[Analysis] No API key in state, trying to load from storage')
         const electron = window.require('electron')
@@ -1025,25 +1044,28 @@ function App() {
       }
     }
     
-    // Re-check API key after potential loading
-    const currentApiKey = apiKey || await window.require('electron').ipcRenderer.invoke('get-api-key')
-    
-    if (!currentApiKey) {
-      console.error('[Analysis] No API key available after loading attempt')
-      setError('Please set your OpenAI API key in settings')
-      return
+    // Re-check API key after potential loading if using OpenAI
+    let currentApiKey = ''
+    if (settings.visionProvider === 'openai') {
+      currentApiKey = apiKey || await window.require('electron').ipcRenderer.invoke('get-api-key')
+      
+      if (!currentApiKey) {
+        console.error('[Analysis] No API key available after loading attempt')
+        setError('Please set your OpenAI API key in settings')
+        return
+      }
+      
+      // Validate API key
+      console.log('[Analysis] Validating API key')
+      const validation = validateApiKey(currentApiKey)
+      if (!validation.isValid) {
+        console.error('[Analysis] Invalid API key:', validation.message)
+        setError(validation.message || 'Invalid API key')
+        return
+      }
+      
+      console.log(`[Analysis] API key validated for task ${task.id}, proceeding with analysis`)
     }
-    
-    // Validate API key
-    console.log('[Analysis] Validating API key')
-    const validation = validateApiKey(currentApiKey)
-    if (!validation.isValid) {
-      console.error('[Analysis] Invalid API key:', validation.message)
-      setError(validation.message || 'Invalid API key')
-      return
-    }
-    
-    console.log(`[Analysis] API key validated for task ${task.id}, proceeding with analysis`)
 
     try {
       console.log(`[Analysis] Starting analysis execution for task ${task.id}`)
@@ -1053,196 +1075,90 @@ function App() {
       // Track analysis start
       signals.analysisRun()
 
-      const { ipcRenderer } = window.require('electron')
-      // Ensure URL has protocol prefix for the screenshot function
-      const websiteUrl = (!task.websiteUrl.startsWith('http://') && !task.websiteUrl.startsWith('https://')) 
-        ? `http://${task.websiteUrl}` 
-        : task.websiteUrl
+      // Use the new task analysis function from the vision module
+      const analysisResult = await runTaskAnalysis(settings.visionProvider, currentApiKey, task)
+      console.log(`[Analysis] Analysis completed with result:`, analysisResult)
       
-      console.log(`[Analysis] Taking screenshot of ${websiteUrl}`)
-      let screenshot
-      try {
-        screenshot = await ipcRenderer.invoke('take-screenshot', websiteUrl)
-        console.log(`[Analysis] Screenshot captured successfully, length: ${screenshot.length} chars`)
-      } catch (error) {
-        console.error('[Analysis] Screenshot failed:', error)
-        // Instead of failing the entire analysis, continue with a fallback message
-        throw new Error(`Could not capture screenshot from ${websiteUrl}. Please check if the website is accessible.`)
+      // Format the result and create timestamp
+      const formattedResult = analysisResult.result
+      const criteriaMatched = analysisResult.matched
+      const now = new Date()
+      
+      // Create lastTestResult-compatible object for scheduled runs
+      const resultData = {
+        result: formattedResult,
+        matched: criteriaMatched,
+        timestamp: now.toISOString(),
+        screenshot: analysisResult.screenshot
       }
-
-      // Construct a focused prompt that directly evaluates the notification criteria
-      const promptText = `Analyze this webpage and determine if the following condition is true: "${task.notificationCriteria}"
-
-Return your response in this JSON format:
-{
-  "analysis": "A clear, concise summary of what you see on the page related to the condition",
-  "criteriaMatched": true/false
-}`;
       
-      console.log(`[Analysis] Sending OpenAI request with criteria: "${task.notificationCriteria}"`)
-      const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${currentApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: "gpt-4o",
-          messages: [
-            {
-              role: "user",
-              content: [
-                { type: "text", text: promptText },
-                {
-                  type: "image_url",
-                  image_url: {
-                    url: screenshot,
-                    detail: "high"
-                  }
-                }
-              ]
-            }
-          ],
-          max_tokens: 1000,
-          temperature: 0.7,
-          response_format: { type: "json_object" }
-        })
+      console.log(`[Analysis] Updating task ${task.id} with results`)
+      // Update the task with results
+      const updatedTask = await updateTaskResults(task.id, {
+        lastResult: formattedResult,
+        lastRun: now,
+        lastMatchedCriteria: criteriaMatched,
+        lastTestResult: resultData
       })
-
-      if (!openaiResponse.ok) {
-        const errorData = await openaiResponse.json().catch(() => ({}))
-        console.error('[Analysis] OpenAI API error:', errorData)
-        throw new Error(errorData.error?.message || 'Failed to analyze website')
-      }
-
-      console.log('[Analysis] Received successful response from OpenAI')
-      const data = await openaiResponse.json()
-      const resultContent = data.choices[0].message.content
       
-      let parsedResult;
-      let criteriaMatched: boolean | undefined = undefined;
-      
-      try {
-        console.log('[Analysis] Parsing result content:', resultContent.substring(0, 100) + '...')
-        parsedResult = JSON.parse(resultContent);
-        criteriaMatched = parsedResult.criteriaMatched;
+      if (updatedTask) {
+        console.log(`[Analysis] Task ${task.id} updated successfully with results`)
         
-        console.log(`[Analysis] Analysis result parsed. Criteria matched: ${criteriaMatched}`)
+        // Update local state using functional update to avoid stale state
+        setTasks(prevTasks => {
+          // Double check the task still exists in our local state
+          const taskExists = prevTasks.some(t => t.id === task.id)
+          if (!taskExists) {
+            // If it doesn't exist anymore, add it back
+            console.log(`[Analysis] Task ${task.id} not found in state, adding it`)
+            return [...prevTasks, updatedTask]
+          }
+          // Otherwise update it
+          console.log(`[Analysis] Updating task ${task.id} in state`)
+          return prevTasks.map(t => t.id === task.id ? updatedTask : t)
+        })
+        
+        // Only send notification if criteria matched
+        if (criteriaMatched === true) {
+          console.log(`[Analysis] Criteria matched for task ${task.id}, sending notification`)
+          sendNotification(updatedTask, formattedResult)
+        } else {
+          console.log(`[Analysis] Criteria not matched for task ${task.id}, no notification`)
+        }
+        
+        // Update tray icon if criteria matched state changed
+        try {
+          console.log(`[Analysis] Updating tray icon for task ${task.id}`)
+          const electron = window.require('electron')
+          electron.ipcRenderer.invoke('update-tray-icon').catch(err => {
+            console.error('[Analysis] Failed to update tray icon:', err)
+          })
+        } catch (error) {
+          console.error('[Analysis] Error updating tray icon:', error)
+          // Silent fail if electron is not available in dev mode
+        }
         
         // Track successful analysis with telemetry
-        signals.analysisRun(true);
-        
-        // Format the result to just show the analysis
-        const formattedResult = parsedResult.analysis;
-        const now = new Date();
-        
-        // Create lastTestResult-compatible object for scheduled runs
-        const resultData = {
-          result: formattedResult,
-          matched: criteriaMatched,
-          timestamp: now.toISOString(),
-          screenshot: screenshot
-        };
-        
-        console.log(`[Analysis] Updating task ${task.id} with results`)
-        // Update the task with results
-        const updatedTask = await updateTaskResults(task.id, {
-          lastResult: formattedResult,
-          lastRun: now,
-          lastMatchedCriteria: criteriaMatched,
-          lastTestResult: resultData
-        });
-        
-        if (updatedTask) {
-          console.log(`[Analysis] Task ${task.id} updated successfully with results`)
-          
-          // Update local state using functional update to avoid stale state
-          setTasks(prevTasks => {
-            // Double check the task still exists in our local state
-            const taskExists = prevTasks.some(t => t.id === task.id)
-            if (!taskExists) {
-              // If it doesn't exist anymore, add it back
-              console.log(`[Analysis] Task ${task.id} not found in state, adding it`)
-              return [...prevTasks, updatedTask]
-            }
-            // Otherwise update it
-            console.log(`[Analysis] Updating task ${task.id} in state`)
-            return prevTasks.map(t => t.id === task.id ? updatedTask : t)
-          });
-          
-          // Only send notification if criteria matched
-          if (criteriaMatched === true) {
-            console.log(`[Analysis] Criteria matched for task ${task.id}, sending notification`)
-            sendNotification(updatedTask, parsedResult.analysis);
-          } else {
-            console.log(`[Analysis] Criteria not matched for task ${task.id}, no notification`)
-          }
-          
-          // Update tray icon if criteria matched state changed
-          try {
-            console.log(`[Analysis] Updating tray icon for task ${task.id}`)
-            const electron = window.require('electron');
-            electron.ipcRenderer.invoke('update-tray-icon').catch(err => {
-              console.error('[Analysis] Failed to update tray icon:', err)
-            });
-          } catch (error) {
-            console.error('[Analysis] Error updating tray icon:', error)
-            // Silent fail if electron is not available in dev mode
-          }
-        } else {
-          // Log error if we couldn't update the task
-          console.error(`[Analysis] Failed to update task results for ${task.id}`);
-        }
-      } catch (error) {
-        console.error("[Analysis] Failed to parse response:", error);
-        const now = new Date();
-        const errorResult = `Error parsing response: ${resultContent.slice(0, 200)}...`;
-        
-        console.log(`[Analysis] Creating error result for task ${task.id}`)
-        // Create error result data
-        const errorResultData = {
-          result: errorResult,
-          timestamp: now.toISOString(),
-          screenshot: screenshot
-        };
-        
-        console.log(`[Analysis] Updating task ${task.id} with error result`)
-        // Update task with error result
-        const updatedTask = await updateTaskResults(task.id, {
-          lastResult: errorResult,
-          lastRun: now,
-          lastTestResult: errorResultData
-        });
-        
-        if (updatedTask) {
-          console.log(`[Analysis] Task ${task.id} updated with error result`)
-          // Update using functional update to avoid stale state
-          setTasks(prevTasks => {
-            const taskExists = prevTasks.some(t => t.id === task.id)
-            if (!taskExists) {
-              return [...prevTasks, updatedTask]
-            }
-            return prevTasks.map(t => t.id === task.id ? updatedTask : t)
-          });
-        } else {
-          console.error(`[Analysis] Failed to update task error results for ${task.id}`);
-        }
+        signals.analysisRun(true)
+      } else {
+        // Log error if we couldn't update the task
+        console.error(`[Analysis] Failed to update task results for ${task.id}`)
       }
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
-      console.error(`[Analysis] Error in analysis:`, err);
-      setError(errorMessage);
+      const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred'
+      console.error(`[Analysis] Error in analysis:`, err)
+      setError(errorMessage)
       
       // Track analysis failure with telemetry
-      signals.analysisRun(false);
+      signals.analysisRun(false)
       
       // Also save the error in the task's result
-      const now = new Date();
+      const now = new Date()
       console.log(`[Analysis] Creating error record for task ${task.id}: ${errorMessage}`)
       const errorResultData = {
         result: errorMessage,
         timestamp: now.toISOString()
-      };
+      }
       
       console.log(`[Analysis] Updating task ${task.id} with error`)
       // Update task with error
@@ -1250,7 +1166,7 @@ Return your response in this JSON format:
         lastResult: errorMessage,
         lastRun: now,
         lastTestResult: errorResultData
-      });
+      })
       
       if (updatedTask) {
         console.log(`[Analysis] Task ${task.id} updated with error`)
@@ -1261,13 +1177,13 @@ Return your response in this JSON format:
             return [...prevTasks, updatedTask]
           }
           return prevTasks.map(t => t.id === task.id ? updatedTask : t)
-        });
+        })
       } else {
-        console.error(`[Analysis] Failed to update task with global error for ${task.id}`);
+        console.error(`[Analysis] Failed to update task with global error for ${task.id}`)
       }
     } finally {
       console.log(`[Analysis] Analysis for task ${task.id} completed`)
-      setLoading(false);
+      setLoading(false)
     }
   }
 
@@ -1275,160 +1191,74 @@ Return your response in this JSON format:
     setLoading(true)
     setTestResult(null)
     
-    // Validate API key before testing
-    if (!apiKey) {
-      setError('Please set your OpenAI API key in settings')
-      setLoading(false)
-      return
-    }
-    
-    // Validate API key format
-    const validation = validateApiKey(apiKey);
-    if (!validation.isValid) {
-      setError(validation.message || 'Invalid API key')
-      setLoading(false)
-      return
+    // Validate API key before testing when using OpenAI
+    if (settings.visionProvider === 'openai') {
+      if (!apiKey) {
+        setError('Please set your OpenAI API key in settings')
+        setLoading(false)
+        return
+      }
+      
+      // Validate API key format
+      const validation = validateApiKey(apiKey)
+      if (!validation.isValid) {
+        setError(validation.message || 'Invalid API key')
+        setLoading(false)
+        return
+      }
     }
     
     try {
-      const { ipcRenderer } = window.require('electron')
-      // Ensure URL has protocol prefix for the screenshot function
-      const websiteUrl = (!taskData.websiteUrl.startsWith('http://') && !taskData.websiteUrl.startsWith('https://')) 
-        ? `http://${taskData.websiteUrl}` 
-        : taskData.websiteUrl
+      // Use the testAnalysis function from the vision module
+      const result = await visionTestAnalysis(
+        settings.visionProvider,
+        apiKey,
+        taskData.websiteUrl, 
+        taskData.notificationCriteria
+      )
       
-      let screenshot
-      try {
-        screenshot = await ipcRenderer.invoke('take-screenshot', websiteUrl)
-      } catch (error) {
-        console.error('Screenshot failed:', error)
-        // Instead of failing the entire analysis, continue with a fallback message
-        throw new Error(`Could not capture screenshot from ${websiteUrl}. Please check if the website is accessible.`)
-      }
+      setTestResult(result)
       
-      const promptText = `Analyze this webpage and determine if the following condition is true: "${taskData.notificationCriteria}"
-
-Return your response in this JSON format:
-{
-  "analysis": "A clear, concise summary of what you see on the page related to the condition",
-  "criteriaMatched": true/false
-}`;
-      
-      const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: "gpt-4o",
-          messages: [
-            {
-              role: "user",
-              content: [
-                { type: "text", text: promptText },
-                {
-                  type: "image_url",
-                  image_url: {
-                    url: screenshot,
-                    detail: "high"
-                  }
-                }
-              ]
-            }
-          ],
-          max_tokens: 1000,
-          temperature: 0.7,
-          response_format: { type: "json_object" }
-        })
-      })
-
-      if (!openaiResponse.ok) {
-        const errorData = await openaiResponse.json().catch(() => ({}))
-        throw new Error(errorData.error?.message || 'Failed to analyze website')
-      }
-
-      const data = await openaiResponse.json()
-      const resultContent = data.choices[0].message.content
-      
-      try {
-        const parsedResult = JSON.parse(resultContent);
-        const criteriaMatched = parsedResult.criteriaMatched;
-        
-        // Format the result to just show the analysis
-        const formattedResult = parsedResult.analysis;
-        
-        const now = new Date();
+      // If we're testing an existing task, update its lastRun timestamp, matched criteria, and test results
+      if (editingJobId) {
         const testResultData = {
-          result: formattedResult,
-          matched: criteriaMatched,
-          timestamp: now.toISOString(),
-          screenshot: screenshot
-        };
-        
-        setTestResult({
-          result: formattedResult,
-          matched: criteriaMatched,
-          timestamp: now,
-          screenshot: screenshot
-        });
-        
-        // If we're testing an existing task, update its lastRun timestamp, matched criteria, and test results
-        if (editingJobId) {
-          const updatedTask = await updateTaskResults(editingJobId, {
-            lastRun: now,
-            lastMatchedCriteria: criteriaMatched,
-            lastTestResult: testResultData
-          });
-          
-          if (updatedTask) {
-            setTasks(tasks.map(t => t.id === editingJobId ? updatedTask : t));
-          }
+          result: result.result,
+          matched: result.matched,
+          timestamp: result.timestamp.toISOString(),
+          screenshot: result.screenshot
         }
-      } catch (error) {
-        console.error("Failed to parse response:", error);
-        const errorResult = {
-          result: `Error parsing response: ${resultContent.slice(0, 200)}...`,
-          timestamp: new Date().toISOString()
-        };
         
-        setTestResult({
-          result: errorResult.result,
-          timestamp: new Date()
-        });
+        const updatedTask = await updateTaskResults(editingJobId, {
+          lastRun: result.timestamp,
+          lastMatchedCriteria: result.matched,
+          lastTestResult: testResultData
+        })
         
-        // Still save the error result if editing an existing task
-        if (editingJobId) {
-          const updatedTask = await updateTaskResults(editingJobId, {
-            lastTestResult: errorResult
-          });
-          
-          if (updatedTask) {
-            setTasks(tasks.map(t => t.id === editingJobId ? updatedTask : t));
-          }
+        if (updatedTask) {
+          setTasks(tasks.map(t => t.id === editingJobId ? updatedTask : t))
         }
       }
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
-      setError(errorMessage);
+      const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred'
+      setError(errorMessage)
       const errorResult = {
         result: errorMessage,
         timestamp: new Date().toISOString()
-      };
+      }
       
       setTestResult({
         result: errorMessage,
         timestamp: new Date()
-      });
+      })
       
       // Save error result if editing an existing task
       if (editingJobId) {
         const updatedTask = await updateTaskResults(editingJobId, {
           lastTestResult: errorResult
-        });
+        })
         
         if (updatedTask) {
-          setTasks(tasks.map(t => t.id === editingJobId ? updatedTask : t));
+          setTasks(tasks.map(t => t.id === editingJobId ? updatedTask : t))
         }
       }
     } finally {
@@ -1763,6 +1593,60 @@ Return your response in this JSON format:
                           >here</a>. Stored locally only.
                         </p>
                       </div>
+                    </fieldset>
+                    
+                    <Separator />
+                    
+                    {/* Vision Provider section */}
+                    <fieldset className="space-y-3">
+                      <legend className="text-sm font-medium">Vision Provider</legend>
+                      
+                      <Select
+                        value={settings.visionProvider}
+                        onValueChange={(value) => {
+                          const newProvider = value as VisionProvider
+                          setSettings({
+                            ...settings,
+                            visionProvider: newProvider
+                          })
+                          updateSettings({
+                            visionProvider: newProvider
+                          }).catch(err => {
+                            console.error('Failed to update vision provider setting:', err)
+                          })
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select AI provider" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="openai">OpenAI (API Key Required)</SelectItem>
+                          <SelectItem value="llama">Llama via Ollama (Local)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      
+                      {settings.visionProvider === 'llama' && (
+                        <div className="rounded-md px-3 py-1.5 bg-blue-500/10 border border-blue-500/20 dark:bg-blue-500/20">
+                          <p className="text-[0.8rem] font-medium flex items-start">
+                            <Robot className="w-3.5 h-3.5 mr-1.5 flex-shrink-0 mt-0.5" weight="fill" />
+                            <span>
+                              Llama requires <a 
+                                href="#" 
+                                onClick={(e) => {
+                                  e.preventDefault()
+                                  try {
+                                    const { shell } = window.require('electron')
+                                    shell.openExternal('https://ollama.com')
+                                  } catch (error) {
+                                    window.open('https://ollama.com', '_blank')
+                                  }
+                                }}
+                                className="text-primary hover:underline"
+                              >Ollama</a> installed with the llava model
+                            </span>
+                          </p>
+                        </div>
+                      )}
                     </fieldset>
                     
                     <Separator />

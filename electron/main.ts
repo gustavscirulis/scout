@@ -7,6 +7,7 @@ import fs from 'fs'
 import os from 'os'
 import path from 'path'
 import crypto from 'crypto'
+import http from 'http'
 import pkg from 'electron-updater'
 const { autoUpdater } = pkg
 
@@ -59,7 +60,10 @@ const store = new Store({
   name: 'scout-data',
   defaults: {
     apiKey: null,
-    tasks: []
+    tasks: [],
+    settings: {
+      visionProvider: 'openai'
+    }
   }
 })
 
@@ -595,6 +599,153 @@ ipcMain.handle('open-image-preview', async (_event, dataUrl: string) => {
     console.error('Error opening image:', error);
     return { success: false, error: String(error) };
   }
+})
+
+// Handle saving a temporary screenshot for Ollama
+ipcMain.handle('save-temp-screenshot', async (_event, dataUrl: string) => {
+  if (!dataUrl || !dataUrl.startsWith('data:image/')) {
+    throw new Error('Invalid image data')
+  }
+
+  try {
+    // Convert data URL to file
+    const base64Data = dataUrl.replace(/^data:image\/png;base64,/, '');
+    const imageBuffer = Buffer.from(base64Data, 'base64');
+    
+    // Create temp file directory if it doesn't exist
+    const tempDir = path.join(os.tmpdir(), 'scout-app');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+    
+    // Create new screenshot file
+    const tempFilePath = path.join(tempDir, `ollama-${Date.now()}.png`);
+    fs.writeFileSync(tempFilePath, imageBuffer);
+    
+    return tempFilePath;
+  } catch (error) {
+    console.error('Error saving temporary screenshot:', error);
+    throw error;
+  }
+})
+
+// Handle deleting a temporary file
+ipcMain.handle('delete-temp-file', async (_event, filePath: string) => {
+  if (!filePath || !fs.existsSync(filePath)) {
+    return { success: false, error: 'File not found' }
+  }
+
+  try {
+    fs.unlinkSync(filePath);
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting temporary file:', error);
+    return { success: false, error: String(error) };
+  }
+})
+
+// Run Ollama with image
+ipcMain.handle('run-ollama', async (_event, params: { model: string, prompt: string, imagePath: string }) => {
+  const { model, prompt, imagePath } = params
+  
+  try {
+    // Verify Ollama is installed
+    await new Promise<void>((resolve, reject) => {
+      execFile('which', ['ollama'], (error) => {
+        if (error) {
+          reject(new Error('Ollama not found. Please make sure Ollama is installed and accessible from the command line.'))
+        } else {
+          resolve()
+        }
+      })
+    })
+    
+    // Use Ollama's HTTP API with vision capabilities
+    const result = await new Promise<string>((resolve, reject) => {
+      try {
+        // Read the image file as a base64 string
+        const imageBuffer = fs.readFileSync(imagePath)
+        const base64Image = imageBuffer.toString('base64')
+        
+        console.log(`[Ollama] Sending request to API with image from ${imagePath}`)
+        
+        // Create the HTTP request to Ollama API (correct endpoint is /api/generate)
+        const requestData = JSON.stringify({
+          model: model,
+          prompt: prompt,
+          images: [base64Image],
+          stream: false
+        })
+        
+        const options = {
+          hostname: '127.0.0.1',
+          port: 11434,
+          path: '/api/generate',
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Content-Length': Buffer.byteLength(requestData)
+          }
+        }
+        
+        const req = http.request(options, (res) => {
+          let data = ''
+          
+          res.on('data', (chunk) => {
+            data += chunk
+          })
+          
+          res.on('end', () => {
+            try {
+              if (res.statusCode !== 200) {
+                console.error(`[Ollama] API returned status code ${res.statusCode}:`, data)
+                reject(new Error(`Ollama API returned status code ${res.statusCode}: ${data}`))
+                return
+              }
+              
+              console.log(`[Ollama] Received response from API: ${data.substring(0, 100)}...`)
+              const response = JSON.parse(data)
+              if (response.response) {
+                resolve(response.response)
+              } else {
+                console.error('[Ollama] No response field in API result:', data)
+                reject(new Error('No response field in Ollama API result'))
+              }
+            } catch (error) {
+              console.error('[Ollama] Failed to parse response:', error, 'Data:', data)
+              reject(new Error(`Failed to parse Ollama response: ${error}`))
+            }
+          })
+        })
+        
+        req.on('error', (error) => {
+          console.error('[Ollama] API request failed:', error)
+          reject(new Error(`Ollama API request failed: ${error.message}`))
+        })
+        
+        req.write(requestData)
+        req.end()
+      } catch (error) {
+        console.error('[Ollama] Error preparing request:', error)
+        reject(new Error(`Error preparing Ollama request: ${error}`))
+      }
+    })
+    
+    return result
+  } catch (error) {
+    console.error('Error running Ollama:', error)
+    throw error
+  }
+})
+
+// Settings handlers
+ipcMain.handle('get-settings', () => {
+  return store.get('settings') || { visionProvider: 'openai' }
+})
+
+ipcMain.handle('update-settings', (_event, settings: { visionProvider: string }) => {
+  store.set('settings', settings)
+  return settings
 })
 
 
