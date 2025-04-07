@@ -736,15 +736,20 @@ function App() {
   
   // Clear test results when criteria changes since they're no longer valid
   useEffect(() => {
-    if (editingJobId && testResult) {
+    // Only handle test results for the currently edited task
+    if (editingJobId && testResult && !loading) {
       const task = tasks.find(t => t.id === editingJobId);
-      // If we're editing a task and the criteria in form doesn't match task criteria 
-      // and there are test results, clear them as they're no longer valid
+      
       if (task && task.notificationCriteria !== newJob.notificationCriteria) {
-        setTestResult(null);
+        const isNewTestResult = testResult.timestamp && 
+          (new Date().getTime() - testResult.timestamp.getTime()) < 5000;
+        
+        if (!isNewTestResult) {
+          setTestResult(null);
+        }
       }
     }
-  }, [newJob.notificationCriteria, editingJobId, testResult, tasks]);
+  }, [newJob.notificationCriteria, editingJobId, testResult, tasks, loading]);
   
   // Update polling when tasks change
   useEffect(() => {
@@ -757,6 +762,10 @@ function App() {
   }, [tasks]);
   
   const startEditingTask = (taskId: string) => {
+    // Stop any running test and clear test results when switching tasks
+    setLoading(false);
+    setTestResult(null);
+    
     const task = tasks.find(t => t.id === taskId);
     if (!task) return;
     
@@ -792,10 +801,6 @@ function App() {
         timestamp: task.lastRun,
         screenshot: undefined // We don't store screenshots for scheduled runs
       });
-    } 
-    else {
-      // Clear any previous test results if no saved result exists
-      setTestResult(null);
     }
   };
   
@@ -1188,83 +1193,43 @@ function App() {
   }
 
   const testAnalysis = async (taskData: TaskFormData) => {
-    setLoading(true)
-    setTestResult(null)
+    // Clear any existing test result when starting a new test
+    setTestResult(null);
+    setLoading(true);
     
-    // Validate API key before testing when using OpenAI
     if (settings.visionProvider === 'openai') {
       if (!apiKey) {
-        setError('Please set your OpenAI API key in settings')
-        setLoading(false)
-        return
+        setError('Please set your OpenAI API key in settings');
+        setLoading(false);
+        return;
       }
       
-      // Validate API key format
-      const validation = validateApiKey(apiKey)
+      const validation = validateApiKey(apiKey);
       if (!validation.isValid) {
-        setError(validation.message || 'Invalid API key')
-        setLoading(false)
-        return
+        setError(validation.message || 'Invalid API key');
+        setLoading(false);
+        return;
       }
     }
     
     try {
-      // Use the testAnalysis function from the vision module
       const result = await visionTestAnalysis(
         settings.visionProvider,
         apiKey,
         taskData.websiteUrl, 
         taskData.notificationCriteria
-      )
+      );
       
-      setTestResult(result)
+      // Only set the test result in state, don't persist it to storage
+      setTestResult(result);
       
-      // If we're testing an existing task, update its lastRun timestamp, matched criteria, and test results
-      if (editingJobId) {
-        const testResultData = {
-          result: result.result,
-          matched: result.matched,
-          timestamp: result.timestamp.toISOString(),
-          screenshot: result.screenshot
-        }
-        
-        const updatedTask = await updateTaskResults(editingJobId, {
-          lastRun: result.timestamp,
-          lastMatchedCriteria: result.matched,
-          lastTestResult: testResultData
-        })
-        
-        if (updatedTask) {
-          setTasks(tasks.map(t => t.id === editingJobId ? updatedTask : t))
-        }
-      }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred'
-      setError(errorMessage)
-      const errorResult = {
-        result: errorMessage,
-        timestamp: new Date().toISOString()
-      }
-      
-      setTestResult({
-        result: errorMessage,
-        timestamp: new Date()
-      })
-      
-      // Save error result if editing an existing task
-      if (editingJobId) {
-        const updatedTask = await updateTaskResults(editingJobId, {
-          lastTestResult: errorResult
-        })
-        
-        if (updatedTask) {
-          setTasks(tasks.map(t => t.id === editingJobId ? updatedTask : t))
-        }
-      }
+      // Don't update the task in storage - that should only happen on save
+    } catch (error) {
+      setError('Failed to run test analysis');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   return appWithTooltips(
     <div className="flex flex-col h-full w-full">
