@@ -25,7 +25,9 @@ import {
   CaretRight,
   Eye,
   ArrowClockwise,
-  OpenAiLogo
+  OpenAiLogo,
+  Copy,
+  Check
 } from '@phosphor-icons/react'
 import './App.css'
 import { TaskForm, JobFormData, RecurringFrequency, DayOfWeek } from './components/TaskForm'
@@ -1256,10 +1258,33 @@ function App() {
     // Only check model status when settings are opened and Llama is selected
     if (settingsView && settings.visionProvider === 'llama') {
       checkModel()
+      
+      // Set up polling if model is not installed
+      if (!llamaModelStatus?.installed) {
+        const pollInterval = setInterval(() => {
+          checkModel()
+        }, 5000) // Check every 5 seconds
+        
+        // Clean up interval when component unmounts or conditions change
+        return () => clearInterval(pollInterval)
+      }
     } else {
       setLlamaModelStatus(null)
     }
-  }, [settings.visionProvider, settingsView])
+  }, [settings.visionProvider, settingsView, llamaModelStatus?.installed])
+
+  const [copyStatus, setCopyStatus] = useState(false)
+
+  // Add this function to handle copy with animation
+  const handleCopyCommand = async () => {
+    try {
+      await navigator.clipboard.writeText('ollama pull llama3.2-vision')
+      setCopyStatus(true)
+      setTimeout(() => setCopyStatus(false), 1000)
+    } catch (error) {
+      console.error('Failed to copy command:', error)
+    }
+  }
 
   return appWithTooltips(
     <div className="flex flex-col h-full w-full">
@@ -1621,7 +1646,30 @@ function App() {
                                 <div className="rounded-md px-3 py-1.5 bg-destructive/10 border border-destructive/20 dark:bg-destructive/20">
                                   <p className="text-[0.8rem] font-medium text-destructive dark:text-destructive-foreground flex items-center">
                                     <WarningCircle className="w-3.5 h-3.5 mr-1.5 flex-shrink-0" weight="fill" />
-                                    Required model not found. Run: <code className="ml-1 bg-muted px-1 py-0.5 rounded">ollama pull llama3.2-vision</code>
+                                    Required model is not installed
+                                  </p>
+                                  <div className="mt-2 flex items-center gap-2">
+                                    <code className="text-[0.8rem] bg-destructive/10 px-2 py-1 rounded">ollama pull llama3.2-vision</code>
+                                    <TooltipProvider>
+                                      <Tooltip open={copyStatus}>
+                                        <TooltipTrigger asChild>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-6 w-6 hover:bg-destructive/10"
+                                            onClick={handleCopyCommand}
+                                          >
+                                            {copyStatus ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p>Command copied</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  </div>
+                                  <p className="text-[0.8rem] text-muted-foreground/90 mt-2">
+                                    Run this command in your terminal to install llama3.2-vision.
                                   </p>
                                 </div>
                               ) : (
@@ -1669,7 +1717,7 @@ function App() {
                                   <WarningCircle className="w-3.5 h-3.5 mr-1.5 flex-shrink-0" weight="fill" />
                                   {error && error.startsWith('_API_KEY_') 
                                     ? error.replace('_API_KEY_', '') 
-                                    : validateApiKey(apiKey).message}
+                                    : 'Please enter a valid OpenAI API key. Make sure it starts with "sk-" and is at least 50 characters long.'}
                                 </p>
                               </div>
                             )}
