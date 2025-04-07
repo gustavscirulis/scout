@@ -1239,25 +1239,27 @@ function App() {
 
   // Check Llama model status when provider is set to llama
   useEffect(() => {
-    if (settings.visionProvider === 'llama') {
-      const checkModel = async () => {
-        setCheckingLlamaModel(true)
-        try {
-          const electron = window.require('electron')
-          const status = await electron.ipcRenderer.invoke('check-llama-model')
-          setLlamaModelStatus(status)
-        } catch (error) {
-          console.error('Failed to check Llama model:', error)
-          setLlamaModelStatus({ installed: false, hasModel: false })
-        } finally {
-          setCheckingLlamaModel(false)
-        }
+    const checkModel = async () => {
+      setCheckingLlamaModel(true)
+      try {
+        const electron = window.require('electron')
+        const status = await electron.ipcRenderer.invoke('check-llama-model')
+        setLlamaModelStatus(status)
+      } catch (error) {
+        console.error('Failed to check Llama model:', error)
+        setLlamaModelStatus({ installed: false, hasModel: false })
+      } finally {
+        setCheckingLlamaModel(false)
       }
+    }
+
+    // Only check model status when settings are opened and Llama is selected
+    if (settingsView && settings.visionProvider === 'llama') {
       checkModel()
     } else {
       setLlamaModelStatus(null)
     }
-  }, [settings.visionProvider])
+  }, [settings.visionProvider, settingsView])
 
   return appWithTooltips(
     <div className="flex flex-col h-full w-full">
