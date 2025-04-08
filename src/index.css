@@ -120,7 +120,12 @@
 
 .mac-native-input {
   @apply rounded-lg px-3 py-1.5 text-sm;
-  @apply bg-background border border-input text-foreground;
+  @apply border border-input text-foreground;
+  background-color: white;
+}
+
+.dark .mac-native-input {
+  background-color: hsl(var(--accent));
 }
 
 .mac-native-input:focus {
@@ -141,8 +146,12 @@ textarea.mac-native-input {
 
 .mac-native-select {
   @apply rounded-lg px-3 py-1.5 text-sm;
-  @apply bg-background border border-input text-foreground;
-  appearance: none;
+  @apply border border-input text-foreground;
+  background-color: white;
+}
+
+.dark .mac-native-select {
+  background-color: hsl(var(--accent));
 }
 
 .mac-native-select:focus {
