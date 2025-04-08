@@ -24,7 +24,12 @@ export function validateApiKey(apiKey: string): { isValid: boolean; message?: st
 
 export function validateUrl(url: string): { isValid: boolean; message?: string } {
   if (!url) {
-    return { isValid: false, message: 'URL is required' }
+    return { isValid: false }
+  }
+
+  // Basic format check - must contain at least one dot and no spaces
+  if (!url.includes('.') || url.includes(' ')) {
+    return { isValid: false, message: 'Invalid URL format' }
   }
 
   // If URL doesn't start with http:// or https://, add https:// prefix
@@ -42,6 +47,10 @@ export function validateUrl(url: string): { isValid: boolean; message?: string }
     // Check that we have a valid hostname
     if (!urlObj.hostname || urlObj.hostname.length < 3) {
       return { isValid: false, message: 'Invalid hostname in URL' }
+    }
+    // Check for valid TLD (top-level domain)
+    if (!urlObj.hostname.includes('.')) {
+      return { isValid: false, message: 'URL must contain a valid domain' }
     }
     return { isValid: true }
   } catch (error) {

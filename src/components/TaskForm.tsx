@@ -84,12 +84,12 @@ export function TaskForm({
   const handleUrlChange = (e: ChangeEvent<HTMLInputElement>) => {
     const url = e.target.value;
     onFormChange({ ...formData, websiteUrl: url });
-    
-    // Clear error when user is typing
+    // Clear any existing error when typing
     if (urlError) setUrlError(null);
   };
 
   const handleUrlBlur = () => {
+    // Only validate and show error if URL is not empty
     if (formData.websiteUrl) {
       const validation = validateUrl(formData.websiteUrl);
       if (!validation.isValid) {
@@ -97,6 +97,8 @@ export function TaskForm({
       } else {
         setUrlError(null);
       }
+    } else {
+      setUrlError(null);
     }
   };
 
