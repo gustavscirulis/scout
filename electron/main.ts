@@ -317,7 +317,10 @@ function createWindow() {
     roundedCorners: true,
     hasShadow: true,
     skipTaskbar: true,
-    resizable: false,
+    resizable: true,
+    minWidth: 350,
+    maxWidth: 350,
+    minHeight: 400,
     fullscreenable: false
   })
 
