@@ -29,6 +29,7 @@ import {
   Copy,
   Check
 } from '@phosphor-icons/react'
+import llamaIcon from './assets/llama@2x.png'
 import './App.css'
 import { TaskForm, JobFormData, RecurringFrequency, DayOfWeek } from './components/TaskForm'
 import { 
@@ -1594,7 +1595,7 @@ function App() {
                           </div>
                           <div className="flex items-center gap-2 mb-2.5">
                             <img 
-                              src="/llama@2x.png" 
+                              src={llamaIcon} 
                               alt="Llama" 
                               className="h-4 w-4 text-muted-foreground dark:filter dark:brightness-0 dark:invert opacity-70" 
                             />
