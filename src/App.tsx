@@ -352,6 +352,8 @@ function App() {
           setShowNewJobForm(false);
           setEditingJobId(null); // Clear editing mode
           setSettingsView(false);
+          // Reset the new job form
+          resetNewJobForm();
         }}
         onSettings={() => setSettingsView(true)}
         onNewTask={() => setShowNewJobForm(true)}
@@ -517,6 +519,8 @@ function App() {
                   setShowNewJobForm(false);
                   setEditingJobId(null); // Clear editing mode
                   setSettingsView(false);
+                  // Reset the new job form
+                  resetNewJobForm();
                 }}
                 onApiKeyChange={(key) => setApiKey(key)}
                 onSettingsChange={(newSettings) => setSettings(newSettings)}
