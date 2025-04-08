@@ -124,6 +124,24 @@ function App() {
   const [checkingLlamaModel, setCheckingLlamaModel] = useState(false)
   const [copyStatus, setCopyStatus] = useState(false)
 
+  // Load API key on app start
+  useEffect(() => {
+    const loadApiKey = async () => {
+      try {
+        const electron = window.require('electron')
+        const storedApiKey = await electron.ipcRenderer.invoke('get-api-key')
+        if (storedApiKey) {
+          setApiKey(storedApiKey)
+          setHasExistingKey(true)
+        }
+      } catch (error) {
+        console.error('Failed to load API key:', error)
+      }
+    }
+    
+    loadApiKey()
+  }, [])
+
   // Define runAnalysis function before using it in the hook
   const runAnalysis = async (task: Task) => {
     console.log(`[Analysis] ========================================`)
