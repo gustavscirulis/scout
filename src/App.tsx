@@ -50,6 +50,7 @@ import { Header } from './components/Header'
 import { SettingsView } from './components/SettingsView'
 import { WelcomeView } from './components/WelcomeView'
 import { TaskList } from './components/TaskList'
+import { useTaskManagement } from './hooks/useTaskManagement'
 
 type NewJobFormData = JobFormData
 
@@ -63,7 +64,7 @@ function App() {
     </TooltipProvider>
   )
 
-  const [tasks, setTasks] = useState<Task[]>([])
+  // State declarations
   const [apiKey, setApiKey] = useState('')
   const [hasExistingKey, setHasExistingKey] = useState(false)
   const [settingsView, setSettingsView] = useState(false)
@@ -113,872 +114,17 @@ function App() {
     visionProvider: settings.visionProvider
   }));
   
-  // Update newJob when visionProvider changes
-  useEffect(() => {
-    setNewJob(prev => ({
-      ...prev,
-      visionProvider: settings.visionProvider
-    }));
-  }, [settings.visionProvider]);
-  
-  // Store job polling interval
-  const pollingInterval = useRef<NodeJS.Timeout | null>(null)
-  
-  // Constant for polling frequency (check every minute)
-  const POLLING_INTERVAL = 60 * 1000
-  
-  const checkForMissedRuns = (task: Task) => {
-    if (!task.lastRun) return false;
-    
-    const now = new Date();
-    const lastRun = new Date(task.lastRun);
-    const intervalTimes: Record<RecurringFrequency, number> = {
-      hourly: 60 * 60 * 1000,
-      daily: 24 * 60 * 60 * 1000,
-      weekly: 7 * 24 * 60 * 60 * 1000
-    };
-    
-    const interval = intervalTimes[task.frequency];
-    const timeSinceLastRun = now.getTime() - lastRun.getTime();
-    
-    // If more than one interval has passed since the last run
-    return timeSinceLastRun > interval;
-  };
-
-  // Load tasks from storage and check for tasks to run
-  useEffect(() => {
-    const loadTasks = async () => {
-      try {
-        console.log('[Scheduler] Loading tasks')
-        const loadedTasks = await getAllTasks()
-        console.log(`[Scheduler] Loaded ${loadedTasks.length} tasks`)
-        setTasks(loadedTasks)
-        
-        // Process running tasks for missed runs and scheduling
-        const promises = loadedTasks.map(async (task) => {
-          if (task.isRunning) {
-            console.log(`[Scheduler] Processing running task ${task.id}`)
-            
-            // Check if task has missed its scheduled run
-            if (checkForMissedRuns(task)) {
-              console.log(`[Scheduler] Task ${task.id} missed a run, executing now`)
-              await runAnalysis(task)
-            }
-            
-            // Calculate next run time if not already set
-            if (!task.nextScheduledRun) {
-              console.log(`[Scheduler] Setting next run time for task ${task.id}`)
-              const nextRun = getNextRunTime(task)
-              await updateTaskNextRunTime(task.id, nextRun)
-            } else {
-              console.log(`[Scheduler] Task ${task.id} next run already scheduled for ${new Date(task.nextScheduledRun).toLocaleString()}`)
-            }
-          }
-        })
-        
-        // Wait for all task processing to complete
-        await Promise.all(promises)
-        
-        // Start the polling mechanism
-        console.log('[Scheduler] All tasks processed, starting polling mechanism')
-        startTaskPolling()
-      } catch (error) {
-        console.error('[Scheduler] Failed to load tasks:', error)
-      }
-    }
-    
-    loadTasks()
-    
-    // Cleanup polling on unmount
-    return () => {
-      if (pollingInterval.current) {
-        console.log('[Scheduler] Cleaning up polling interval on unmount')
-        clearInterval(pollingInterval.current)
-      }
-    }
-  }, [])
-
-  // Set up electron IPC event listeners and window settings
-  useEffect(() => {
-    // Set up electron IPC event listeners
-    try {
-      const electron = window.require('electron');
-      
-      // Set up an event listener for floating window updates from main process
-      electron.ipcRenderer.on('window-floating-updated', (_event: any, value: boolean) => {
-        setWindowIsFloating(value);
-      });
-      
-      // Set up an event listener for temporary floating mode
-      electron.ipcRenderer.on('temporary-floating-updated', (_event: any, _value: boolean) => {
-        // No longer using temporaryFloating state
-      });
-      
-      // Set window floating preference on startup
-      if (windowIsFloating) {
-        electron.ipcRenderer.send('toggle-window-floating', true);
-      }
-      
-      // Request tray icon update on startup
-      electron.ipcRenderer.invoke('update-tray-icon').catch((err: Error) => {
-        console.error('Failed to update tray icon on startup:', err)
-      });
-      
-      return () => {
-        // Clean up listeners when component unmounts
-        electron.ipcRenderer.removeAllListeners('window-floating-updated');
-        electron.ipcRenderer.removeAllListeners('temporary-floating-updated');
-      };
-    } catch (error) {
-      // Silent fail if electron is not available in dev mode
-    }
-  }, [])
-
-  // Load API key from electron-store when the app starts
-  useEffect(() => {
-    try {
-      const electron = window.require('electron');
-      
-      // Load the API key on component mount
-      const loadApiKey = async () => {
-        try {
-          const storedApiKey = await electron.ipcRenderer.invoke('get-api-key');
-          if (storedApiKey) {
-            setApiKey(storedApiKey);
-            setHasExistingKey(true);
-            
-            // Check if we have any tasks that need to be started
-            const tasksToStart = tasks.filter(task => !task.isRunning);
-            
-            if (tasksToStart.length > 0) {
-              tasksToStart.forEach(task => {
-                toggleTaskState(task.id);
-              });
-            }
-          }
-        } catch (error) {
-          console.error('Failed to load API key:', error);
-        }
-      };
-      
-      loadApiKey();
-    } catch (error) {
-      // Silent fail if electron is not available in dev mode
-      console.log('Electron not available, API key persistence disabled');
-    }
-  // Disable dependency array to run only once when component mounts
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-  
-  // Handle view transitions by managing overflow during transitions
   const [isTransitioning, setIsTransitioning] = useState(false)
-  
-  // Track if user just added an API key for celebration
   const [showConfetti, setShowConfetti] = useState(false)
   const [updateAvailable, setUpdateAvailable] = useState(false)
   const [updateDownloaded, setUpdateDownloaded] = useState(false)
-  
-  // Listen for update availability messages from main process
-  useEffect(() => {
-    try {
-      const electron = window.require('electron')
-      
-      // Listen for update events from main process
-      electron.ipcRenderer.on('update-available', () => {
-        setUpdateAvailable(true)
-      })
-      
-      electron.ipcRenderer.on('update-downloaded', () => {
-        setUpdateDownloaded(true)
-      })
-      
-      return () => {
-        electron.ipcRenderer.removeAllListeners('update-available')
-        electron.ipcRenderer.removeAllListeners('update-downloaded')
-      }
-    } catch (error) {
-      // Silent fail if electron is not available
-    }
-  }, [])
-  
-  // Handle checking for updates
   const [checkingForUpdate, setCheckingForUpdate] = useState(false)
   const [updateError, setUpdateError] = useState<string | null>(null)
-  
-  const checkForUpdates = () => {
-    try {
-      setCheckingForUpdate(true)
-      setUpdateError(null)
-      const electron = window.require('electron')
-      electron.ipcRenderer.invoke('check-for-updates')
-        .finally(() => {
-          // Set a timeout to reset checking state, in case no response is received
-          setTimeout(() => setCheckingForUpdate(false), 5000)
-        })
-    } catch (error) {
-      // Silent fail if electron is not available
-      setCheckingForUpdate(false)
-    }
-  }
-  
-  // Handle installing updates
-  const installUpdate = () => {
-    try {
-      const electron = window.require('electron')
-      electron.ipcRenderer.invoke('install-update')
-    } catch (error) {
-      // Silent fail if electron is not available
-    }
-  }
-  
-  // Listen for update error messages
-  useEffect(() => {
-    try {
-      const electron = window.require('electron')
-      
-      // Listen for update error events
-      electron.ipcRenderer.on('update-error', () => {
-        setUpdateError('error')
-        setCheckingForUpdate(false)
-      })
-      
-      // Listen for update-not-available event to reset checking state
-      electron.ipcRenderer.on('update-not-available', () => {
-        setCheckingForUpdate(false)
-      })
-      
-      // Listen for update-available to reset checking state
-      electron.ipcRenderer.on('update-available', () => {
-        setCheckingForUpdate(false)
-      })
-      
-      return () => {
-        electron.ipcRenderer.removeAllListeners('update-error')
-        electron.ipcRenderer.removeAllListeners('update-not-available')
-        electron.ipcRenderer.removeAllListeners('update-available')
-      }
-    } catch (error) {
-      // Silent fail if electron is not available
-    }
-  }, [])
-  
-  // Track settings view for telemetry
-  useEffect(() => {
-    if (settingsView) {
-      signals.settingsOpened()
-    }
-  }, [settingsView])
-  
-  // Load settings on app start
-  useEffect(() => {
-    const loadSettings = async () => {
-      try {
-        const loadedSettings = await getSettings()
-        setSettings(loadedSettings)
-        setTempSettings(loadedSettings)
-      } catch (error) {
-        console.error('Failed to load settings:', error)
-      }
-    }
-    
-    loadSettings()
-  }, [])
-  
-  // Launch confetti when showConfetti state changes
-  useEffect(() => {
-    if (showConfetti) {
-      const end = Date.now() + 800; // Very brief celebration
-      
-      // Create a confetti celebration
-      const frame = () => {
-        // Position at the bottom center of the screen
-        const origin = { x: 0.5, y: 0.9 };
-          
-        confetti({
-          particleCount: 12,
-          angle: 90, // Straight up
-          spread: 60,
-          origin,
-          colors: ['#4285F4', '#34A853', '#FBBC05', '#EA4335'], // Colorful confetti
-          gravity: 0.8,
-          scalar: 0.9 // Slightly smaller particles
-        });
-        
-        if (Date.now() < end) {
-          requestAnimationFrame(frame);
-        } else {
-          setShowConfetti(false);
-        }
-      };
-      
-      frame();
-    }
-  }, [showConfetti])
-  
-  useEffect(() => {
-    // Always trigger the transition state when any view changes
-    setIsTransitioning(true)
-    // Remove transitioning class after animation completes to allow normal scrolling
-    const timer = setTimeout(() => {
-      setIsTransitioning(false)
-    }, 250) // Animation duration (200ms) + small buffer
-    
-    // Enable temporary floating mode when editing or creating a new job
-    try {
-      const electron = window.require('electron');
-      if (showNewJobForm || editingJobId) {
-        electron.ipcRenderer.send('set-temporary-floating', true);
-      } else {
-        electron.ipcRenderer.send('set-temporary-floating', false);
-      }
-    } catch (error) {
-      // Silent fail if electron is not available in dev mode
-    }
-    
-    return () => clearTimeout(timer)
-  }, [showNewJobForm, editingJobId, settingsView])
+  const [llamaModelStatus, setLlamaModelStatus] = useState<{ installed: boolean; hasModel: boolean } | null>(null)
+  const [checkingLlamaModel, setCheckingLlamaModel] = useState(false)
+  const [copyStatus, setCopyStatus] = useState(false)
 
-  const getNextRunTime = (task: Task) => {
-    console.log(`[Scheduler] Calculating next run time for task ${task.id} (${task.frequency} at ${task.scheduledTime})`)
-    
-    const [hours, minutes] = task.scheduledTime.split(':').map(Number)
-    const now = new Date()
-    const next = new Date()
-    next.setHours(hours, minutes, 0, 0)
-
-    if (task.frequency === 'hourly') {
-      if (next <= now) {
-        next.setHours(next.getHours() + 1);
-        console.log(`[Scheduler] Hourly task ${task.id} scheduled for next hour: ${next.toLocaleString()}`)
-      } else {
-        console.log(`[Scheduler] Hourly task ${task.id} scheduled for this hour: ${next.toLocaleString()}`)
-      }
-    } else if (task.frequency === 'daily') {
-      if (next <= now) {
-        next.setDate(next.getDate() + 1)
-        console.log(`[Scheduler] Daily task ${task.id} scheduled for tomorrow: ${next.toLocaleString()}`)
-      } else {
-        console.log(`[Scheduler] Daily task ${task.id} scheduled for today: ${next.toLocaleString()}`)
-      }
-    } else if (task.frequency === 'weekly') {
-      // Handle day of week for weekly jobs
-      const dayMap: Record<string, number> = {
-        mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6, sun: 0
-      }
-      const targetDay = dayMap[task.dayOfWeek || 'mon']
-      const currentDay = now.getDay() // 0 = Sunday, 1 = Monday, etc.
-      
-      let daysToAdd = targetDay - currentDay
-      if (daysToAdd < 0) daysToAdd += 7 // Wrap around to next week
-      
-      // If it's the same day but time has passed, or it's exactly now, go to next week
-      if (daysToAdd === 0 && next <= now) daysToAdd = 7
-      
-      next.setDate(next.getDate() + daysToAdd)
-      console.log(`[Scheduler] Weekly task ${task.id} scheduled for ${next.toLocaleString()} (${task.dayOfWeek} at ${task.scheduledTime})`)
-    }
-
-    console.log(`[Scheduler] Task ${task.id} next run time set to: ${next.toLocaleString()}`)
-    return next
-  }
-  
-  // Update the next scheduled run time for a task
-  const updateTaskNextRunTime = async (taskId: string, nextRun: Date): Promise<Task | null> => {
-    try {
-      console.log(`[Scheduler] updateTaskNextRunTime called for task ${taskId}, next run: ${nextRun.toLocaleString()}`)
-      
-      const task = await getTaskById(taskId)
-      if (!task) {
-        console.error(`[Scheduler] Task ${taskId} not found when updating next run time`)
-        return null
-      }
-      
-      const updatedTask: Task = {
-        ...task,
-        nextScheduledRun: nextRun
-      }
-      
-      console.log(`[Scheduler] Saving task ${taskId} with next run time: ${nextRun.toLocaleString()}`)
-      await updateTask(updatedTask)
-      
-      // Update local state
-      setTasks(prevTasks => 
-        prevTasks.map(t => t.id === taskId ? updatedTask : t)
-      )
-      
-      console.log(`[Scheduler] Task ${taskId} next run time updated successfully`)
-      return updatedTask
-    } catch (error) {
-      console.error(`[Scheduler] Failed to update next run time for task ${taskId}:`, error)
-      return null
-    }
-  }
-  
-  // Start the task polling mechanism
-  const startTaskPolling = () => {
-    console.log('[Scheduler] Starting task polling')
-    
-    // Clear any existing polling interval
-    if (pollingInterval.current) {
-      console.log('[Scheduler] Clearing existing polling interval')
-      clearInterval(pollingInterval.current)
-    }
-    
-    // Create a polling interval that checks every minute
-    pollingInterval.current = setInterval(() => {
-      console.log('[Scheduler] Polling interval triggered')
-      checkTasksToRun()
-    }, POLLING_INTERVAL)
-    
-    // Run immediately on start
-    console.log('[Scheduler] Running initial task check')
-    checkTasksToRun()
-  }
-  
-  // Check for any tasks that need to run
-  const checkTasksToRun = async () => {
-    try {
-      // First, reload tasks from storage to ensure we have the latest data
-      console.log(`[Scheduler] Reloading tasks from storage before checking`)
-      const loadedTasks = await getAllTasks()
-      console.log(`[Scheduler] Reloaded ${loadedTasks.length} tasks from storage`)
-      
-      // Dump task details for debugging
-      loadedTasks.forEach(task => {
-        console.log(`[Scheduler] Task ${task.id} details:`)
-        console.log(`  isRunning: ${task.isRunning}`)
-        console.log(`  scheduledTime: ${task.scheduledTime}`)
-        console.log(`  frequency: ${task.frequency}`)
-        console.log(`  nextScheduledRun: ${task.nextScheduledRun ? new Date(task.nextScheduledRun).toLocaleString() : 'not set'}`)
-      })
-      
-      // Update our state with the fresh data
-      setTasks(loadedTasks)
-      
-      const now = new Date()
-      console.log(`[Scheduler] Checking tasks at ${now.toLocaleTimeString()}`)
-      
-      // Log all running tasks and their next scheduled runs
-      const runningTasks = loadedTasks.filter(t => t.isRunning)
-      console.log(`[Scheduler] There are ${runningTasks.length} running tasks of ${loadedTasks.length} total tasks`)
-      
-      if (runningTasks.length === 0) {
-        console.log(`[Scheduler] No running tasks to check`)
-        return
-      }
-      
-      for (const task of runningTasks) {
-        console.log(`[Scheduler] Processing task ${task.id}, isRunning=${task.isRunning}`)
-        
-        // If no nextScheduledRun is set, we need to calculate it first
-        if (!task.nextScheduledRun) {
-          console.log(`[Scheduler] Task ${task.id} has no next run time, calculating it now`)
-          const nextRun = getNextRunTime(task)
-          await updateTaskNextRunTime(task.id, nextRun)
-          
-          // Update our local copy of the task with the new nextScheduledRun time
-          task.nextScheduledRun = nextRun
-        }
-        
-        // Now check if it's time to run
-        const nextRun = new Date(task.nextScheduledRun)
-        const timeToRun = nextRun.getTime() - now.getTime()
-        
-        console.log(`[Scheduler] Task ${task.id} next run: ${nextRun.toLocaleString()} (in ${Math.floor(timeToRun/1000/60)} minutes ${Math.floor(timeToRun/1000) % 60} seconds)`)
-        
-        // Check if it's time to run (or past time)
-        if (nextRun <= now) {
-          console.log(`[Scheduler] TIME TO RUN task ${task.id} - scheduled: ${nextRun.toLocaleString()}, now: ${now.toLocaleString()}`)
-          console.log(`[Scheduler] =================================================`)
-          console.log(`[Scheduler] EXECUTING TASK ${task.id} NOW`)
-          console.log(`[Scheduler] =================================================`)
-          
-          try {
-            // Run the task
-            await runAnalysis(task)
-            console.log(`[Scheduler] Task ${task.id} completed successfully`)
-          } catch (error) {
-            console.error(`[Scheduler] Error running task ${task.id}:`, error)
-          } finally {
-            // Always calculate and set the next run time, even if the run failed
-            // This prevents continuous retries of a failing task
-            console.log(`[Scheduler] Calculating next run time after task execution`)
-            const newNextRun = getNextRunTime(task)
-            await updateTaskNextRunTime(task.id, newNextRun)
-          }
-        } else {
-          console.log(`[Scheduler] Task ${task.id} not yet due to run`)
-        }
-      }
-    } catch (error) {
-      console.error('[Scheduler] Error in checkTasksToRun:', error)
-    }
-  }
-
-  const stopTask = async (taskId: string) => {
-    try {
-      await toggleTaskRunningState(taskId, false)
-      setTasks(tasks.map(task => 
-        task.id === taskId ? { ...task, isRunning: false } : task
-      ))
-    } catch (error) {
-      console.error('Failed to stop task:', error)
-    }
-  }
-
-  const toggleTaskState = async (taskId: string) => {
-    console.log(`[Scheduler] Toggling task state for ${taskId}`)
-    const task = tasks.find(t => t.id === taskId)
-    
-    if (!task) {
-      console.error(`[Scheduler] Task ${taskId} not found for toggle`)
-      return
-    }
-
-    if (task.isRunning) {
-      console.log(`[Scheduler] Stopping running task ${taskId}`)
-      await stopTask(taskId)
-      // Track stopping a task
-      signals.taskStopped()
-    } else {
-      try {
-        console.log(`[Scheduler] Starting task ${taskId}`)
-        
-        // Set the task to running state
-        await toggleTaskRunningState(taskId, true)
-        
-        // Update local state
-        setTasks(tasks.map(t => 
-          t.id === taskId ? { ...t, isRunning: true } : t
-        ))
-        
-        // Track starting a task
-        signals.taskStarted()
-        
-        // Calculate next run time and update
-        console.log(`[Scheduler] Calculating initial next run time for task ${taskId}`)
-        const nextRun = getNextRunTime(task)
-        await updateTaskNextRunTime(taskId, nextRun)
-        
-        // Check if it needs to run immediately
-        console.log(`[Scheduler] Checking if task ${taskId} needs to run immediately`)
-        await checkTasksToRun()
-      } catch (error) {
-        console.error(`[Scheduler] Failed to start task ${taskId}:`, error)
-      }
-    }
-  }
-
-  const removeTask = async (taskId: string) => {
-    try {
-      const task = tasks.find(t => t.id === taskId)
-      // If task is running, stop it first
-      if (task && task.isRunning) {
-        await stopTask(taskId)
-      }
-      
-      // Delete the task from storage
-      await deleteTask(taskId)
-      
-      // Track task deletion with telemetry
-      signals.taskDeleted()
-      
-      // Update local state *after* successful deletion
-      setTasks(prevTasks => prevTasks.filter(task => task.id !== taskId))
-      
-      // Clear form and reset editing mode
-      resetNewJobForm()
-      setEditingJobId(null)
-      setShowNewJobForm(false)
-      
-      // Update tray icon after deletion in case we removed a successful task
-      try {
-        const electron = window.require('electron');
-        electron.ipcRenderer.invoke('update-tray-icon').catch((err: Error) => {
-          console.error('Failed to update tray icon after task deletion:', err)
-        });
-      } catch (error) {
-        // Silent fail if electron is not available in dev mode
-      }
-    } catch (error) {
-      console.error('Failed to delete task:', error)
-    }
-  }
-
-  const resetNewJobForm = () => {
-    setNewJob({
-      websiteUrl: '',
-      notificationCriteria: '',
-      analysisPrompt: '',
-      frequency: 'daily',
-      scheduledTime: (() => {
-        const now = new Date()
-        return `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`
-      })(),
-      dayOfWeek: 'mon',
-      visionProvider: settings.visionProvider
-    });
-    setTestResult(null);
-  };
-  
-  // Clear test results when criteria changes since they're no longer valid
-  useEffect(() => {
-    // Only handle test results for the currently edited task
-    if (editingJobId && testResult && !loading) {
-      const task = tasks.find(t => t.id === editingJobId);
-      
-      if (task && task.notificationCriteria !== newJob.notificationCriteria) {
-        const isNewTestResult = testResult.timestamp && 
-          (new Date().getTime() - testResult.timestamp.getTime()) < 5000;
-        
-        if (!isNewTestResult) {
-          setTestResult(null);
-        }
-      }
-    }
-  }, [newJob.notificationCriteria, editingJobId, testResult, tasks, loading]);
-  
-  // Update polling when tasks change
-  useEffect(() => {
-    // If there are running tasks, make sure polling is active
-    const hasRunningTasks = tasks.some(task => task.isRunning)
-    
-    if (hasRunningTasks && !pollingInterval.current) {
-      startTaskPolling()
-    }
-  }, [tasks]);
-  
-  const startEditingTask = (taskId: string) => {
-    const task = tasks.find(t => t.id === taskId);
-    if (task) {
-      setEditingJobId(taskId);
-      setNewJob({
-        websiteUrl: task.websiteUrl,
-        notificationCriteria: task.notificationCriteria,
-        analysisPrompt: task.analysisPrompt,
-        frequency: task.frequency,
-        scheduledTime: task.scheduledTime,
-        dayOfWeek: task.dayOfWeek || 'mon',
-        visionProvider: settings.visionProvider
-      });
-    }
-  };
-  
-  const updateExistingTask = async (updatedTaskData: TaskFormData) => {
-    if (!editingJobId) return;
-    
-    try {
-      console.log(`[Scheduler] Updating task ${editingJobId} with new settings`)
-      
-      // Find the task being edited
-      const task = tasks.find(t => t.id === editingJobId);
-      if (!task) {
-        console.error(`[Scheduler] Task ${editingJobId} not found for updating`)
-        return;
-      }
-      
-      // Check if the task is currently running
-      const wasRunning = task.isRunning;
-      console.log(`[Scheduler] Task ${editingJobId} was running: ${wasRunning}`)
-      
-      // If it was running, stop it first
-      if (wasRunning) {
-        await stopTask(editingJobId);
-      }
-      
-      // Check if criteria changed
-      const criteriaChanged = task.notificationCriteria !== updatedTaskData.notificationCriteria;
-      
-      // Log schedule changes
-      const scheduleChanged = 
-        task.frequency !== updatedTaskData.frequency ||
-        task.scheduledTime !== updatedTaskData.scheduledTime ||
-        task.dayOfWeek !== updatedTaskData.dayOfWeek;
-        
-      if (scheduleChanged) {
-        console.log(`[Scheduler] Task ${editingJobId} schedule changed:`)
-        console.log(`[Scheduler] - Frequency: ${task.frequency} -> ${updatedTaskData.frequency}`)
-        console.log(`[Scheduler] - Time: ${task.scheduledTime} -> ${updatedTaskData.scheduledTime}`)
-        console.log(`[Scheduler] - Day: ${task.dayOfWeek} -> ${updatedTaskData.dayOfWeek}`)
-      }
-      
-      // Update the task with new data
-      const updatedTask: Task = {
-        ...task,
-        websiteUrl: updatedTaskData.websiteUrl,
-        analysisPrompt: updatedTaskData.analysisPrompt,
-        frequency: updatedTaskData.frequency,
-        scheduledTime: updatedTaskData.scheduledTime,
-        dayOfWeek: updatedTaskData.dayOfWeek,
-        notificationCriteria: updatedTaskData.notificationCriteria,
-        // Clear lastResult and lastMatchedCriteria if criteria changed
-        lastResult: criteriaChanged ? undefined : task.lastResult,
-        lastMatchedCriteria: criteriaChanged ? undefined : task.lastMatchedCriteria,
-        lastTestResult: criteriaChanged ? undefined : task.lastTestResult,
-        // Reset next scheduled run time since schedule changed
-        nextScheduledRun: undefined
-      };
-      
-      console.log(`[Scheduler] Saving updated task ${editingJobId} to storage`)
-      // Save to storage
-      await updateTask(updatedTask);
-      
-      // Track task update with telemetry
-      signals.taskEdited(updatedTask.frequency);
-      
-      // Update local state
-      setTasks(tasks.map(t => t.id === editingJobId ? updatedTask : t));
-      
-      // If it was running, restart it with the new settings
-      if (wasRunning) {
-        console.log(`[Scheduler] Restarting task ${editingJobId} after update`)
-        await toggleTaskRunningState(editingJobId, true);
-      } else {
-        console.log(`[Scheduler] Task ${editingJobId} was not running, leaving it stopped after update`)
-      }
-      
-      // Clear form and editing mode
-      setEditingJobId(null);
-      resetNewJobForm();
-      
-      // Update tray icon if criteria might have changed
-      try {
-        const electron = window.require('electron');
-        electron.ipcRenderer.invoke('update-tray-icon').catch((err: Error) => {
-          console.error('Failed to update tray icon after task update:', err)
-        });
-      } catch (error) {
-        // Silent fail if electron is not available in dev mode
-      }
-    } catch (error) {
-      console.error('Failed to update task:', error);
-      setError('Failed to update task');
-    }
-  };
-  
-  const createNewTask = async (taskData: TaskFormData) => {
-    try {
-      // Include test result if available
-      const newTaskData: TaskFormData & {
-        lastTestResult?: {
-          result: string;
-          matched?: boolean;
-          timestamp?: string;
-          screenshot?: string;
-        };
-        lastResult?: string;
-        lastRun?: Date;
-        lastMatchedCriteria?: boolean;
-      } = {
-        ...taskData
-      };
-      
-      if (testResult) {
-        newTaskData.lastTestResult = {
-          result: testResult.result,
-          matched: testResult.matched,
-          timestamp: testResult.timestamp?.toISOString(),
-          screenshot: testResult.screenshot
-        };
-        
-        // Also set these fields based on the test result
-        newTaskData.lastResult = testResult.result;
-        newTaskData.lastRun = testResult.timestamp;
-        newTaskData.lastMatchedCriteria = testResult.matched;
-      }
-      
-      // Add task to storage
-      const newTask = await addTask(newTaskData);
-      console.log(`[Scheduler] Created new task ${newTask.id}, isRunning=${newTask.isRunning}`)
-      
-      // Track task creation with telemetry
-      signals.taskCreated(taskData.frequency);
-      
-      // Update local state
-      setTasks(prevTasks => {
-        console.log(`[Scheduler] Updating tasks state with new task ${newTask.id}`)
-        return [...prevTasks, newTask]
-      });
-      
-      // Calculate next run time and set it
-      console.log(`[Scheduler] Setting initial next run time for new task ${newTask.id}`)
-      const nextRun = getNextRunTime(newTask)
-      await updateTaskNextRunTime(newTask.id, nextRun);
-      
-      // Make sure tasks get checked again after adding
-      console.log(`[Scheduler] Checking tasks after creating new task ${newTask.id}`)
-      await checkTasksToRun();
-      
-      // Request notification permission when a task is added
-      if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
-        try {
-          const permission = await Notification.requestPermission();
-          setNotificationPermission(permission);
-          if (permission === 'denied') {
-            console.warn('Notification permission denied. Some features will be limited.');
-          }
-        } catch (error) {
-          console.error('Error requesting notification permission:', error);
-        }
-      }
-      
-      // Close form and reset
-      setShowNewJobForm(false);
-      resetNewJobForm();
-      
-      // Update tray icon if a new task was added with a matched condition
-      if (testResult?.matched) {
-        try {
-          const electron = window.require('electron');
-          electron.ipcRenderer.invoke('update-tray-icon').catch((err: Error) => {
-            console.error('Failed to update tray icon after task creation:', err)
-          });
-        } catch (error) {
-          // Silent fail if electron is not available in dev mode
-        }
-      }
-    } catch (error) {
-      console.error('Failed to create task:', error);
-      setError('Failed to create task');
-    }
-  }
-
-  const sendNotification = (task: Task, analysis: string) => {
-    if (notificationPermission === 'granted') {
-      // Extract just the domain from the URL
-      const urlObj = new URL(task.websiteUrl.startsWith('http') ? task.websiteUrl : `http://${task.websiteUrl}`);
-      const domain = urlObj.hostname;
-      
-      const title = `${domain} matched your condition`;
-      
-      // Create a notification body that just includes the rationale (analysis)
-      let body = analysis;
-      if (analysis && analysis.length > 100) {
-        body = analysis.slice(0, 100) + '...';
-      }
-      
-      // Create notification that will persist until explicitly dismissed
-      const notification = new Notification(title, {
-        body: body,
-        icon: '/favicon.ico',
-        requireInteraction: true, // Prevents auto-closing
-        silent: false,
-        tag: `analysis-${task.id}`,
-        // The timeoutType property is not standard but supported in some implementations
-        // @ts-ignore
-        timeoutType: 'never'
-      })
-
-      // When notification is clicked, just focus the window but don't close the notification
-      // This allows the user to see it until they explicitly dismiss it
-      notification.onclick = () => {
-        const { ipcRenderer } = window.require('electron')
-        ipcRenderer.send('focus-window')
-        // Not closing the notification here so it persists until user dismisses it
-      }
-    }
-  }
-
+  // Define runAnalysis function before using it in the hook
   const runAnalysis = async (task: Task) => {
     console.log(`[Analysis] ========================================`)
     console.log(`[Analysis] STARTING ANALYSIS FOR TASK ${task.id}`)
@@ -1152,6 +298,313 @@ function App() {
     }
   }
 
+  // Initialize task management hook
+  const { 
+    tasks, 
+    setTasks, 
+    toggleTaskState, 
+    removeTask, 
+    createNewTask, 
+    updateExistingTask, 
+    stopTask, 
+    checkTasksToRun 
+  } = useTaskManagement(runAnalysis)
+
+  // Update newJob when visionProvider changes
+  useEffect(() => {
+    setNewJob(prev => ({
+      ...prev,
+      visionProvider: settings.visionProvider
+    }));
+  }, [settings.visionProvider]);
+  
+  // Listen for update availability messages from main process
+  useEffect(() => {
+    try {
+      const electron = window.require('electron')
+      
+      // Listen for update events from main process
+      electron.ipcRenderer.on('update-available', () => {
+        setUpdateAvailable(true)
+      })
+      
+      electron.ipcRenderer.on('update-downloaded', () => {
+        setUpdateDownloaded(true)
+      })
+      
+      return () => {
+        electron.ipcRenderer.removeAllListeners('update-available')
+        electron.ipcRenderer.removeAllListeners('update-downloaded')
+      }
+    } catch (error) {
+      // Silent fail if electron is not available
+    }
+  }, [])
+  
+  // Handle checking for updates
+  const checkForUpdates = () => {
+    try {
+      setCheckingForUpdate(true)
+      setUpdateError(null)
+      const electron = window.require('electron')
+      electron.ipcRenderer.invoke('check-for-updates')
+        .finally(() => {
+          // Set a timeout to reset checking state, in case no response is received
+          setTimeout(() => setCheckingForUpdate(false), 5000)
+        })
+    } catch (error) {
+      // Silent fail if electron is not available
+      setCheckingForUpdate(false)
+    }
+  }
+  
+  // Handle installing updates
+  const installUpdate = () => {
+    try {
+      const electron = window.require('electron')
+      electron.ipcRenderer.invoke('install-update')
+    } catch (error) {
+      // Silent fail if electron is not available
+    }
+  }
+  
+  // Listen for update error messages
+  useEffect(() => {
+    try {
+      const electron = window.require('electron')
+      
+      // Listen for update error events
+      electron.ipcRenderer.on('update-error', () => {
+        setUpdateError('error')
+        setCheckingForUpdate(false)
+      })
+      
+      // Listen for update-not-available event to reset checking state
+      electron.ipcRenderer.on('update-not-available', () => {
+        setCheckingForUpdate(false)
+      })
+      
+      // Listen for update-available to reset checking state
+      electron.ipcRenderer.on('update-available', () => {
+        setCheckingForUpdate(false)
+      })
+      
+      return () => {
+        electron.ipcRenderer.removeAllListeners('update-error')
+        electron.ipcRenderer.removeAllListeners('update-not-available')
+        electron.ipcRenderer.removeAllListeners('update-available')
+      }
+    } catch (error) {
+      // Silent fail if electron is not available
+    }
+  }, [])
+  
+  // Track settings view for telemetry
+  useEffect(() => {
+    if (settingsView) {
+      signals.settingsOpened()
+    }
+  }, [settingsView])
+  
+  // Load settings on app start
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const loadedSettings = await getSettings()
+        setSettings(loadedSettings)
+        setTempSettings(loadedSettings)
+      } catch (error) {
+        console.error('Failed to load settings:', error)
+      }
+    }
+    
+    loadSettings()
+  }, [])
+  
+  // Launch confetti when showConfetti state changes
+  useEffect(() => {
+    if (showConfetti) {
+      const end = Date.now() + 800; // Very brief celebration
+      
+      // Create a confetti celebration
+      const frame = () => {
+        // Position at the bottom center of the screen
+        const origin = { x: 0.5, y: 0.9 };
+          
+        confetti({
+          particleCount: 12,
+          angle: 90, // Straight up
+          spread: 60,
+          origin,
+          colors: ['#4285F4', '#34A853', '#FBBC05', '#EA4335'], // Colorful confetti
+          gravity: 0.8,
+          scalar: 0.9 // Slightly smaller particles
+        });
+        
+        if (Date.now() < end) {
+          requestAnimationFrame(frame);
+        } else {
+          setShowConfetti(false);
+        }
+      };
+      
+      frame();
+    }
+  }, [showConfetti])
+  
+  useEffect(() => {
+    // Always trigger the transition state when any view changes
+    setIsTransitioning(true)
+    // Remove transitioning class after animation completes to allow normal scrolling
+    const timer = setTimeout(() => {
+      setIsTransitioning(false)
+    }, 250) // Animation duration (200ms) + small buffer
+    
+    // Enable temporary floating mode when editing or creating a new job
+    try {
+      const electron = window.require('electron');
+      if (showNewJobForm || editingJobId) {
+        electron.ipcRenderer.send('set-temporary-floating', true);
+      } else {
+        electron.ipcRenderer.send('set-temporary-floating', false);
+      }
+    } catch (error) {
+      // Silent fail if electron is not available in dev mode
+    }
+    
+    return () => clearTimeout(timer)
+  }, [showNewJobForm, editingJobId, settingsView])
+
+  // Check Llama model status when provider is set to llama
+  useEffect(() => {
+    const checkModel = async () => {
+      setCheckingLlamaModel(true)
+      try {
+        const electron = window.require('electron')
+        const status = await electron.ipcRenderer.invoke('check-llama-model')
+        setLlamaModelStatus(status)
+      } catch (error) {
+        console.error('Failed to check Llama model:', error)
+        setLlamaModelStatus({ installed: false, hasModel: false })
+      } finally {
+        setCheckingLlamaModel(false)
+      }
+    }
+
+    // Only check model status when settings are opened and Llama is selected
+    if (settingsView && settings.visionProvider === 'llama') {
+      checkModel()
+      
+      // Set up polling if model is not installed
+      if (!llamaModelStatus?.installed) {
+        const pollInterval = setInterval(() => {
+          checkModel()
+        }, 5000) // Check every 5 seconds
+        
+        // Clean up interval when component unmounts or conditions change
+        return () => clearInterval(pollInterval)
+      }
+    } else {
+      setLlamaModelStatus(null)
+    }
+  }, [settings.visionProvider, settingsView, llamaModelStatus?.installed])
+
+  // Add this function to handle copy with animation
+  const handleCopyCommand = async () => {
+    try {
+      await navigator.clipboard.writeText('ollama pull llama3.2-vision')
+      setCopyStatus(true)
+      setTimeout(() => setCopyStatus(false), 1000)
+    } catch (error) {
+      console.error('Failed to copy command:', error)
+    }
+  }
+
+  const resetNewJobForm = () => {
+    setNewJob({
+      websiteUrl: '',
+      notificationCriteria: '',
+      analysisPrompt: '',
+      frequency: 'daily',
+      scheduledTime: (() => {
+        const now = new Date()
+        return `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`
+      })(),
+      dayOfWeek: 'mon',
+      visionProvider: settings.visionProvider
+    });
+    setTestResult(null);
+  };
+  
+  // Clear test results when criteria changes since they're no longer valid
+  useEffect(() => {
+    // Only handle test results for the currently edited task
+    if (editingJobId && testResult && !loading) {
+      const task = tasks.find(t => t.id === editingJobId);
+      
+      if (task && task.notificationCriteria !== newJob.notificationCriteria) {
+        const isNewTestResult = testResult.timestamp && 
+          (new Date().getTime() - testResult.timestamp.getTime()) < 5000;
+        
+        if (!isNewTestResult) {
+          setTestResult(null);
+        }
+      }
+    }
+  }, [newJob.notificationCriteria, editingJobId, testResult, tasks, loading]);
+  
+  const startEditingTask = (taskId: string) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (task) {
+      setEditingJobId(taskId);
+      setNewJob({
+        websiteUrl: task.websiteUrl,
+        notificationCriteria: task.notificationCriteria,
+        analysisPrompt: task.analysisPrompt,
+        frequency: task.frequency,
+        scheduledTime: task.scheduledTime,
+        dayOfWeek: task.dayOfWeek || 'mon',
+        visionProvider: settings.visionProvider
+      });
+    }
+  };
+
+  const sendNotification = (task: Task, analysis: string) => {
+    if (notificationPermission === 'granted') {
+      // Extract just the domain from the URL
+      const urlObj = new URL(task.websiteUrl.startsWith('http') ? task.websiteUrl : `http://${task.websiteUrl}`);
+      const domain = urlObj.hostname;
+      
+      const title = `${domain} matched your condition`;
+      
+      // Create a notification body that just includes the rationale (analysis)
+      let body = analysis;
+      if (analysis && analysis.length > 100) {
+        body = analysis.slice(0, 100) + '...';
+      }
+      
+      // Create notification that will persist until explicitly dismissed
+      const notification = new Notification(title, {
+        body: body,
+        icon: '/favicon.ico',
+        requireInteraction: true, // Prevents auto-closing
+        silent: false,
+        tag: `analysis-${task.id}`,
+        // The timeoutType property is not standard but supported in some implementations
+        // @ts-ignore
+        timeoutType: 'never'
+      })
+
+      // When notification is clicked, just focus the window but don't close the notification
+      // This allows the user to see it until they explicitly dismiss it
+      notification.onclick = () => {
+        const { ipcRenderer } = window.require('electron')
+        ipcRenderer.send('focus-window')
+        // Not closing the notification here so it persists until user dismisses it
+      }
+    }
+  }
+
   const testAnalysis = async (taskData: TaskFormData) => {
     // Clear any existing test result when starting a new test
     setTestResult(null);
@@ -1190,56 +643,6 @@ function App() {
       setLoading(false);
     }
   };
-
-  const [llamaModelStatus, setLlamaModelStatus] = useState<{ installed: boolean; hasModel: boolean } | null>(null)
-  const [checkingLlamaModel, setCheckingLlamaModel] = useState(false)
-
-  // Check Llama model status when provider is set to llama
-  useEffect(() => {
-    const checkModel = async () => {
-      setCheckingLlamaModel(true)
-      try {
-        const electron = window.require('electron')
-        const status = await electron.ipcRenderer.invoke('check-llama-model')
-        setLlamaModelStatus(status)
-      } catch (error) {
-        console.error('Failed to check Llama model:', error)
-        setLlamaModelStatus({ installed: false, hasModel: false })
-      } finally {
-        setCheckingLlamaModel(false)
-      }
-    }
-
-    // Only check model status when settings are opened and Llama is selected
-    if (settingsView && settings.visionProvider === 'llama') {
-      checkModel()
-      
-      // Set up polling if model is not installed
-      if (!llamaModelStatus?.installed) {
-        const pollInterval = setInterval(() => {
-          checkModel()
-        }, 5000) // Check every 5 seconds
-        
-        // Clean up interval when component unmounts or conditions change
-        return () => clearInterval(pollInterval)
-      }
-    } else {
-      setLlamaModelStatus(null)
-    }
-  }, [settings.visionProvider, settingsView, llamaModelStatus?.installed])
-
-  const [copyStatus, setCopyStatus] = useState(false)
-
-  // Add this function to handle copy with animation
-  const handleCopyCommand = async () => {
-    try {
-      await navigator.clipboard.writeText('ollama pull llama3.2-vision')
-      setCopyStatus(true)
-      setTimeout(() => setCopyStatus(false), 1000)
-    } catch (error) {
-      console.error('Failed to copy command:', error)
-    }
-  }
 
   return appWithTooltips(
     <div className="flex flex-col h-full w-full">
@@ -1292,7 +695,7 @@ function App() {
                 onTest={testAnalysis}
                 onSave={(data) => {
                   if (data.websiteUrl && data.notificationCriteria) {
-                    updateExistingTask(data);
+                    updateExistingTask(editingJobId, data);
                   }
                 }}
               />
@@ -1462,7 +865,7 @@ function App() {
                 onTest={testAnalysis}
                 onSave={(data) => {
                   if (data.websiteUrl && data.notificationCriteria) {
-                    createNewTask(data);
+                    createNewTask(data, testResult);
                   }
                 }}
               />
