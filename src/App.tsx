@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import confetti from 'canvas-confetti'
 import { Button } from './components/ui/button'
 import { Input } from './components/ui/input'
@@ -51,6 +51,7 @@ import { SettingsView } from './components/SettingsView'
 import { WelcomeView } from './components/WelcomeView'
 import { TaskList } from './components/TaskList'
 import { useTaskManagement } from './hooks/useTaskManagement'
+import { AnalysisService } from './lib/services/analysis'
 
 type NewJobFormData = JobFormData
 
@@ -124,6 +125,9 @@ function App() {
   const [checkingLlamaModel, setCheckingLlamaModel] = useState(false)
   const [copyStatus, setCopyStatus] = useState(false)
 
+  // Initialize analysis service
+  const analysisService = useMemo(() => new AnalysisService(apiKey), [apiKey])
+
   // Load API key on app start
   useEffect(() => {
     const loadApiKey = async () => {
@@ -144,175 +148,10 @@ function App() {
 
   // Define runAnalysis function before using it in the hook
   const runAnalysis = async (task: Task) => {
-    console.log(`[Analysis] ========================================`)
-    console.log(`[Analysis] STARTING ANALYSIS FOR TASK ${task.id}`)
-    console.log(`[Analysis] ========================================`)
-    console.log(`[Analysis] Website URL: ${task.websiteUrl}`)
-    console.log(`[Analysis] Prompt: ${task.analysisPrompt}`)
-    console.log(`[Analysis] Criteria: ${task.notificationCriteria}`)
-    console.log(`[Analysis] Provider: ${settings.visionProvider}`)
-    
-    // Get the API key if OpenAI is being used and not already loaded
-    if (settings.visionProvider === 'openai' && !apiKey) {
-      try {
-        console.log('[Analysis] No API key in state, trying to load from storage')
-        const electron = window.require('electron')
-        const storedApiKey = await electron.ipcRenderer.invoke('get-api-key')
-        if (storedApiKey) {
-          console.log('[Analysis] Found stored API key')
-          setApiKey(storedApiKey)
-        } else {
-          console.error('[Analysis] No API key available')
-          setError('Please set your OpenAI API key in settings')
-          return
-        }
-      } catch (error) {
-        console.error('[Analysis] Error loading API key:', error)
-        setError('Failed to load API key')
-        return
-      }
-    }
-    
-    // Re-check API key after potential loading if using OpenAI
-    let currentApiKey = ''
-    if (settings.visionProvider === 'openai') {
-      currentApiKey = apiKey || await window.require('electron').ipcRenderer.invoke('get-api-key')
-      
-      if (!currentApiKey) {
-        console.error('[Analysis] No API key available after loading attempt')
-        setError('Please set your OpenAI API key in settings')
-        return
-      }
-      
-      // Validate API key
-      console.log('[Analysis] Validating API key')
-      const validation = validateApiKey(currentApiKey)
-      if (!validation.isValid) {
-        console.error('[Analysis] Invalid API key:', validation.message)
-        setError(validation.message || 'Invalid API key')
-        return
-      }
-      
-      console.log(`[Analysis] API key validated for task ${task.id}, proceeding with analysis`)
-    }
-
     try {
-      console.log(`[Analysis] Starting analysis execution for task ${task.id}`)
-      setLoading(true)
-      setError('')
-      
-      // Track analysis start
-      signals.analysisRun()
-
-      // Use the new task analysis function from the vision module
-      const analysisResult = await runTaskAnalysis(settings.visionProvider, currentApiKey, task)
-      console.log(`[Analysis] Analysis completed with result:`, analysisResult)
-      
-      // Format the result and create timestamp
-      const formattedResult = analysisResult.result
-      const criteriaMatched = analysisResult.matched
-      const now = new Date()
-      
-      // Create lastTestResult-compatible object for scheduled runs
-      const resultData = {
-        result: formattedResult,
-        matched: criteriaMatched,
-        timestamp: now.toISOString(),
-        screenshot: analysisResult.screenshot
-      }
-      
-      console.log(`[Analysis] Updating task ${task.id} with results`)
-      // Update the task with results
-      const updatedTask = await updateTaskResults(task.id, {
-        lastResult: formattedResult,
-        lastRun: now,
-        lastMatchedCriteria: criteriaMatched,
-        lastTestResult: resultData
-      })
-      
-      if (updatedTask) {
-        console.log(`[Analysis] Task ${task.id} updated successfully with results`)
-        
-        // Update local state using functional update to avoid stale state
-        setTasks(prevTasks => {
-          // Double check the task still exists in our local state
-          const taskExists = prevTasks.some(t => t.id === task.id)
-          if (!taskExists) {
-            // If it doesn't exist anymore, add it back
-            console.log(`[Analysis] Task ${task.id} not found in state, adding it`)
-            return [...prevTasks, updatedTask]
-          }
-          // Otherwise update it
-          console.log(`[Analysis] Updating task ${task.id} in state`)
-          return prevTasks.map(t => t.id === task.id ? updatedTask : t)
-        })
-        
-        // Only send notification if criteria matched
-        if (criteriaMatched === true) {
-          console.log(`[Analysis] Criteria matched for task ${task.id}, sending notification`)
-          sendNotification(updatedTask, formattedResult)
-        } else {
-          console.log(`[Analysis] Criteria not matched for task ${task.id}, no notification`)
-        }
-        
-        // Update tray icon if criteria matched state changed
-        try {
-          console.log(`[Analysis] Updating tray icon for task ${task.id}`)
-          const electron = window.require('electron')
-          electron.ipcRenderer.invoke('update-tray-icon').catch((err: Error) => {
-            console.error('[Analysis] Failed to update tray icon:', err)
-          })
-        } catch (error) {
-          console.error('[Analysis] Error updating tray icon:', error)
-          // Silent fail if electron is not available in dev mode
-        }
-        
-        // Track successful analysis with telemetry
-        signals.analysisRun(true)
-      } else {
-        // Log error if we couldn't update the task
-        console.error(`[Analysis] Failed to update task results for ${task.id}`)
-      }
-    } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred'
-      console.error(`[Analysis] Error in analysis:`, err)
-      setError(errorMessage)
-      
-      // Track analysis failure with telemetry
-      signals.analysisRun(false)
-      
-      // Also save the error in the task's result
-      const now = new Date()
-      console.log(`[Analysis] Creating error record for task ${task.id}: ${errorMessage}`)
-      const errorResultData = {
-        result: errorMessage,
-        timestamp: now.toISOString()
-      }
-      
-      console.log(`[Analysis] Updating task ${task.id} with error`)
-      // Update task with error
-      const updatedTask = await updateTaskResults(task.id, {
-        lastResult: errorMessage,
-        lastRun: now,
-        lastTestResult: errorResultData
-      })
-      
-      if (updatedTask) {
-        console.log(`[Analysis] Task ${task.id} updated with error`)
-        // Update using functional update to avoid stale state
-        setTasks(prevTasks => {
-          const taskExists = prevTasks.some(t => t.id === task.id)
-          if (!taskExists) {
-            return [...prevTasks, updatedTask]
-          }
-          return prevTasks.map(t => t.id === task.id ? updatedTask : t)
-        })
-      } else {
-        console.error(`[Analysis] Failed to update task with global error for ${task.id}`)
-      }
-    } finally {
-      console.log(`[Analysis] Analysis for task ${task.id} completed`)
-      setLoading(false)
+      await analysisService.runAnalysis(task, settings)
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'An unknown error occurred')
     }
   }
 
