@@ -678,7 +678,11 @@ function App() {
         }}
         onSettings={() => setSettingsView(true)}
         onNewTask={() => setShowNewJobForm(true)}
-        onDeleteTask={removeTask}
+        onDeleteTask={(taskId) => {
+          removeTask(taskId).then(() => {
+            setEditingJobId(null);
+          });
+        }}
       />
 
       {/* Main content */}
@@ -883,7 +887,10 @@ function App() {
                 onTest={testAnalysis}
                 onSave={(data) => {
                   if (data.websiteUrl && data.notificationCriteria) {
-                    createNewTask(data, testResult);
+                    createNewTask(data, testResult).then(() => {
+                      setShowNewJobForm(false);
+                      resetNewJobForm();
+                    });
                   }
                 }}
               />
