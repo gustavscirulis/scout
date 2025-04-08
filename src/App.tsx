@@ -1596,7 +1596,7 @@ function App() {
                             <img 
                               src="/llama@2x.png" 
                               alt="Llama" 
-                              className="h-4 w-4 text-muted-foreground filter brightness-0 invert opacity-70" 
+                              className="h-4 w-4 text-muted-foreground dark:filter dark:brightness-0 dark:invert opacity-70" 
                             />
                           </div>
                           <span className="font-semibold tracking-tight">Llama 3.2</span>
@@ -1692,7 +1692,7 @@ function App() {
                                 <div className="rounded-md px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 dark:bg-emerald-500/20">
                                   <p className="text-[0.8rem] font-medium text-emerald-500 dark:text-emerald-500 flex items-center">
                                     <CheckCircle className="w-3.5 h-3.5 mr-1.5 flex-shrink-0" weight="fill" />
-                                    Llama model is ready to use!
+                                    Llama is ready for use
                                   </p>
                                 </div>
                               )}
