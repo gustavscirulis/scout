@@ -650,9 +650,12 @@ ipcMain.handle('run-ollama', async (_event, params: { model: string, prompt: str
   const { model, prompt, imagePath } = params
   
   try {
-    // Verify Ollama is installed
+    // On macOS, use the default installation path
+    const ollamaPath = '/usr/local/bin/ollama'
+    
+    // Verify Ollama is installed using absolute path
     await new Promise<void>((resolve, reject) => {
-      execFile('which', ['ollama'], (error) => {
+      execFile(ollamaPath, ['--version'], (error) => {
         if (error) {
           reject(new Error('Ollama not found. Please make sure Ollama is installed and accessible from the command line.'))
         } else {
@@ -819,10 +822,13 @@ ipcMain.handle('install-update', () => {
 // Check for Llama model
 ipcMain.handle('check-llama-model', async () => {
   try {
-    // First check if Ollama is installed
+    // On macOS, check the default installation path
+    const ollamaPath = '/usr/local/bin/ollama'
+    
     await new Promise<void>((resolve, reject) => {
-      execFile('which', ['ollama'], (error) => {
+      execFile(ollamaPath, ['--version'], (error) => {
         if (error) {
+          console.error('Ollama not found at default path:', error)
           reject(new Error('Ollama not found'))
         } else {
           resolve()
@@ -830,10 +836,11 @@ ipcMain.handle('check-llama-model', async () => {
       })
     })
 
-    // Then check if the model is installed
+    // Then check if the model is installed using the absolute path
     const result = await new Promise<string>((resolve, reject) => {
-      exec('ollama list', (error: Error | null, stdout: string) => {
+      execFile(ollamaPath, ['list'], (error: Error | null, stdout: string) => {
         if (error) {
+          console.error('Failed to list Ollama models:', error)
           reject(error)
         } else {
           resolve(stdout)
@@ -848,6 +855,7 @@ ipcMain.handle('check-llama-model', async () => {
       hasModel
     }
   } catch (error) {
+    console.error('Error checking Llama model:', error)
     return { 
       installed: false,
       hasModel: false
