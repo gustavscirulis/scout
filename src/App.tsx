@@ -128,8 +128,33 @@ function App() {
   const [windowIsFloating, setWindowIsFloating] = useState<boolean>(() => 
     !!localStorage.getItem('windowFloating')
   )
+  const [settings, setSettings] = useState<Settings>({
+    visionProvider: 'openai',
+    theme: getSystemThemePreference(),
+    checkForUpdates: true,
+    launchAtStartup: false,
+    notificationsEnabled: true,
+    notificationSoundEnabled: true,
+    notificationDuration: 5,
+    notificationPosition: 'bottom-right',
+    windowFloating: false
+  });
+  
+  const [tempSettings, setTempSettings] = useState<Settings>({
+    visionProvider: 'openai',
+    theme: getSystemThemePreference(),
+    checkForUpdates: true,
+    launchAtStartup: false,
+    notificationsEnabled: true,
+    notificationSoundEnabled: true,
+    notificationDuration: 5,
+    notificationPosition: 'bottom-right',
+    windowFloating: false
+  });
+  
   const [newJob, setNewJob] = useState<NewJobFormData>(() => ({
     websiteUrl: '',
+    notificationCriteria: '',
     analysisPrompt: '',
     frequency: 'daily',
     scheduledTime: (() => {
@@ -137,8 +162,16 @@ function App() {
       return `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`
     })(),
     dayOfWeek: 'mon',
-    notificationCriteria: ''
-  }))
+    visionProvider: settings.visionProvider
+  }));
+  
+  // Update newJob when visionProvider changes
+  useEffect(() => {
+    setNewJob(prev => ({
+      ...prev,
+      visionProvider: settings.visionProvider
+    }));
+  }, [settings.visionProvider]);
   
   // Store job polling interval
   const pollingInterval = useRef<NodeJS.Timeout | null>(null)
@@ -296,8 +329,6 @@ function App() {
   const [showConfetti, setShowConfetti] = useState(false)
   const [updateAvailable, setUpdateAvailable] = useState(false)
   const [updateDownloaded, setUpdateDownloaded] = useState(false)
-  const [settings, setSettings] = useState<Settings>({ visionProvider: 'openai' })
-  const [tempSettings, setTempSettings] = useState<Settings>({ visionProvider: 'openai' })
   
   // Listen for update availability messages from main process
   useEffect(() => {
@@ -729,6 +760,7 @@ function App() {
   const resetNewJobForm = () => {
     setNewJob({
       websiteUrl: '',
+      notificationCriteria: '',
       analysisPrompt: '',
       frequency: 'daily',
       scheduledTime: (() => {
@@ -736,10 +768,9 @@ function App() {
         return `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`
       })(),
       dayOfWeek: 'mon',
-      notificationCriteria: ''
+      visionProvider: settings.visionProvider
     });
     setTestResult(null);
-    setEditingJobId(null);
   };
   
   // Clear test results when criteria changes since they're no longer valid
@@ -770,44 +801,17 @@ function App() {
   }, [tasks]);
   
   const startEditingTask = (taskId: string) => {
-    // Stop any running test and clear test results when switching tasks
-    setLoading(false);
-    setTestResult(null);
-    
     const task = tasks.find(t => t.id === taskId);
-    if (!task) return;
-    
-    // Set form data from the existing task
-    setNewJob({
-      websiteUrl: task.websiteUrl,
-      analysisPrompt: task.analysisPrompt,
-      frequency: task.frequency,
-      scheduledTime: task.scheduledTime,
-      dayOfWeek: task.dayOfWeek || 'mon',
-      notificationCriteria: task.notificationCriteria || ''
-    });
-    
-    // Set editing mode, but make sure showNewJobForm is false
-    // to prevent both forms from being visible
-    setEditingJobId(taskId);
-    setShowNewJobForm(false);
-    
-    // First check if there's a last test result available
-    if (task.lastTestResult) {
-      setTestResult({
-        result: task.lastTestResult.result,
-        matched: task.lastTestResult.matched,
-        timestamp: task.lastTestResult.timestamp ? new Date(task.lastTestResult.timestamp) : undefined,
-        screenshot: task.lastTestResult.screenshot
-      });
-    } 
-    // If no test result, but there's a last scheduled run result, use that instead
-    else if (task.lastResult) {
-      setTestResult({
-        result: task.lastResult,
-        matched: task.lastMatchedCriteria,
-        timestamp: task.lastRun,
-        screenshot: undefined // We don't store screenshots for scheduled runs
+    if (task) {
+      setEditingJobId(taskId);
+      setNewJob({
+        websiteUrl: task.websiteUrl,
+        notificationCriteria: task.notificationCriteria,
+        analysisPrompt: task.analysisPrompt,
+        frequency: task.frequency,
+        scheduledTime: task.scheduledTime,
+        dayOfWeek: task.dayOfWeek || 'mon',
+        visionProvider: settings.visionProvider
       });
     }
   };
@@ -1302,7 +1306,7 @@ function App() {
                 // Revert settings to their saved state when pressing back
                 setSettings(tempSettings)
                 setShowNewJobForm(false);
-                resetNewJobForm();
+                setEditingJobId(null); // Clear editing mode
                 setSettingsView(false);
               }}
               title="Back"
@@ -1454,7 +1458,8 @@ function App() {
                           setNewJob(prev => ({
                             ...prev,
                             notificationCriteria: 'product price drops below target price',
-                            analysisPrompt: 'Analyze this webpage to determine if the product price has dropped below the target price.'
+                            analysisPrompt: 'Analyze this webpage to determine if the product price has dropped below the target price.',
+                            visionProvider: settings.visionProvider
                           }));
                           setShowNewJobForm(true);
                         }}
@@ -1474,7 +1479,8 @@ function App() {
                           setNewJob(prev => ({
                             ...prev,
                             notificationCriteria: 'Concert tickets are available for purchase',
-                            analysisPrompt: 'Analyze this webpage to determine if concert tickets are available for purchase.'
+                            analysisPrompt: 'Analyze this webpage to determine if concert tickets are available for purchase.',
+                            visionProvider: settings.visionProvider
                           }));
                           setShowNewJobForm(true);
                         }}
@@ -1494,7 +1500,8 @@ function App() {
                           setNewJob(prev => ({
                             ...prev,
                             notificationCriteria: '[job] posting is available',
-                            analysisPrompt: 'Analyze this webpage to determine if new job listings have appeared.'
+                            analysisPrompt: 'Analyze this webpage to determine if new job listings have appeared.',
+                            visionProvider: settings.visionProvider
                           }));
                           setShowNewJobForm(true);
                         }}

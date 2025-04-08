@@ -3,7 +3,17 @@ const defaultSettings = {
   visionProvider: 'openai' as 'openai' | 'llama'
 }
 
-export type Settings = typeof defaultSettings
+export interface Settings {
+  visionProvider: 'openai' | 'llama';
+  theme: 'dark' | 'light';
+  checkForUpdates: boolean;
+  launchAtStartup: boolean;
+  notificationsEnabled: boolean;
+  notificationSoundEnabled: boolean;
+  notificationDuration: number;
+  notificationPosition: 'bottom-right' | 'top-right' | 'bottom-left' | 'top-left';
+  windowFloating: boolean;
+}
 
 // Get all settings from electron store
 export const getSettings = async (): Promise<Settings> => {
