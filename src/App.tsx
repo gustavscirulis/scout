@@ -46,6 +46,7 @@ import {
 import { RadioGroup, RadioGroupItem } from './components/ui/radio-group'
 import { cn } from './lib/utils'
 import { useTheme } from './hooks/useTheme'
+import { Header } from './components/Header'
 
 // Function to format time in a simple "ago" format
 const formatTimeAgo = (date: Date): string => {
@@ -1256,75 +1257,22 @@ function App() {
 
   return appWithTooltips(
     <div className="flex flex-col h-full w-full">
-      {/* Titlebar - macOS style */}
-      <div className="h-12 -webkit-app-region-drag w-full flex items-center border-b bg-header">
-        <div className="flex items-center w-12 pl-2">
-          {(showNewJobForm || editingJobId || settingsView) ? (
-            <Button
-              variant="headerIcon"
-              size="icon"
-              onClick={() => {
-                // Revert settings to their saved state when pressing back
-                setSettings(tempSettings)
-                setShowNewJobForm(false);
-                setEditingJobId(null); // Clear editing mode
-                setSettingsView(false);
-              }}
-              title="Back"
-              className="-webkit-app-region-no-drag"
-            >
-              <CaretLeft size={16} />
-            </Button>
-          ) : (
-            <Button
-              variant="headerIcon"
-              size="icon"
-              onClick={() => setSettingsView(true)}
-              title="Settings"
-              className="-webkit-app-region-no-drag"
-            >
-              <Gear size={16} />
-            </Button>
-          )}
-        </div>
-        
-        <div className="font-semibold text-sm -webkit-app-region-drag text-muted-foreground text-center flex-1">
-          {(showNewJobForm || editingJobId) ? 
-            (editingJobId ? 'Edit Task' : 'New Task') : 
-            (settingsView ? 'Settings' : 'Scout')}
-        </div>
-        
-        <div className="flex items-center justify-end w-12 pr-2">
-          {!showNewJobForm && !editingJobId && !settingsView ? (
-            apiKey ? (
-              <Button
-                variant="headerIcon"
-                size="icon"
-                onClick={() => setShowNewJobForm(true)}
-                title="New Task"
-                className="-webkit-app-region-no-drag"
-              >
-                <Plus size={16} />
-              </Button>
-            ) : (
-              <div></div> // Empty div when no API key
-            )
-          ) : editingJobId ? (
-            <Button
-              variant="headerIcon"
-              size="icon"
-              onClick={() => removeTask(editingJobId)}
-              title="Delete"
-              className="-webkit-app-region-no-drag"
-            >
-              <Trash size={16} />
-            </Button>
-          ) : (
-            <div></div> // Empty div to maintain layout
-          )}
-        </div>
-      </div>
-
+      <Header
+        showNewJobForm={showNewJobForm}
+        editingJobId={editingJobId}
+        settingsView={settingsView}
+        apiKey={apiKey}
+        onBack={() => {
+          // Revert settings to their saved state when pressing back
+          setSettings(tempSettings)
+          setShowNewJobForm(false);
+          setEditingJobId(null); // Clear editing mode
+          setSettingsView(false);
+        }}
+        onSettings={() => setSettingsView(true)}
+        onNewTask={() => setShowNewJobForm(true)}
+        onDeleteTask={removeTask}
+      />
 
       {/* Main content */}
       <div className={`flex-1 overflow-y-auto overflow-x-hidden flex flex-col relative bg-background ${isTransitioning ? 'overflow-hidden' : ''}`}>
