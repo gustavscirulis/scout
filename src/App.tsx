@@ -52,11 +52,20 @@ import { WelcomeView } from './components/WelcomeView'
 import { TaskList } from './components/TaskList'
 import { useTaskManagement } from './hooks/useTaskManagement'
 import { AnalysisService } from './lib/services/analysis'
+import { useUpdates } from './hooks/useUpdates'
 
 type NewJobFormData = JobFormData
 
 function App() {
   const { theme } = useTheme()
+  const { 
+    updateAvailable,
+    updateDownloaded,
+    checkingForUpdate,
+    updateError,
+    checkForUpdates,
+    installUpdate
+  } = useUpdates()
   
   // Wrap with TooltipProvider at the app level for all tooltips
   const appWithTooltips = (appContent: React.ReactNode) => (
@@ -117,10 +126,6 @@ function App() {
   
   const [isTransitioning, setIsTransitioning] = useState(false)
   const [showConfetti, setShowConfetti] = useState(false)
-  const [updateAvailable, setUpdateAvailable] = useState(false)
-  const [updateDownloaded, setUpdateDownloaded] = useState(false)
-  const [checkingForUpdate, setCheckingForUpdate] = useState(false)
-  const [updateError, setUpdateError] = useState<string | null>(null)
   const [llamaModelStatus, setLlamaModelStatus] = useState<{ installed: boolean; hasModel: boolean } | null>(null)
   const [checkingLlamaModel, setCheckingLlamaModel] = useState(false)
   const [copyStatus, setCopyStatus] = useState(false)
@@ -174,87 +179,6 @@ function App() {
       visionProvider: settings.visionProvider
     }));
   }, [settings.visionProvider]);
-  
-  // Listen for update availability messages from main process
-  useEffect(() => {
-    try {
-      const electron = window.require('electron')
-      
-      // Listen for update events from main process
-      electron.ipcRenderer.on('update-available', () => {
-        setUpdateAvailable(true)
-      })
-      
-      electron.ipcRenderer.on('update-downloaded', () => {
-        setUpdateDownloaded(true)
-      })
-      
-      return () => {
-        electron.ipcRenderer.removeAllListeners('update-available')
-        electron.ipcRenderer.removeAllListeners('update-downloaded')
-      }
-    } catch (error) {
-      // Silent fail if electron is not available
-    }
-  }, [])
-  
-  // Handle checking for updates
-  const checkForUpdates = () => {
-    try {
-      setCheckingForUpdate(true)
-      setUpdateError(null)
-      const electron = window.require('electron')
-      electron.ipcRenderer.invoke('check-for-updates')
-        .finally(() => {
-          // Set a timeout to reset checking state, in case no response is received
-          setTimeout(() => setCheckingForUpdate(false), 5000)
-        })
-    } catch (error) {
-      // Silent fail if electron is not available
-      setCheckingForUpdate(false)
-    }
-  }
-  
-  // Handle installing updates
-  const installUpdate = () => {
-    try {
-      const electron = window.require('electron')
-      electron.ipcRenderer.invoke('install-update')
-    } catch (error) {
-      // Silent fail if electron is not available
-    }
-  }
-  
-  // Listen for update error messages
-  useEffect(() => {
-    try {
-      const electron = window.require('electron')
-      
-      // Listen for update error events
-      electron.ipcRenderer.on('update-error', () => {
-        setUpdateError('error')
-        setCheckingForUpdate(false)
-      })
-      
-      // Listen for update-not-available event to reset checking state
-      electron.ipcRenderer.on('update-not-available', () => {
-        setCheckingForUpdate(false)
-      })
-      
-      // Listen for update-available to reset checking state
-      electron.ipcRenderer.on('update-available', () => {
-        setCheckingForUpdate(false)
-      })
-      
-      return () => {
-        electron.ipcRenderer.removeAllListeners('update-error')
-        electron.ipcRenderer.removeAllListeners('update-not-available')
-        electron.ipcRenderer.removeAllListeners('update-available')
-      }
-    } catch (error) {
-      // Silent fail if electron is not available
-    }
-  }, [])
   
   // Track settings view for telemetry
   useEffect(() => {
@@ -567,10 +491,6 @@ function App() {
                 apiKey={apiKey}
                 hasExistingKey={hasExistingKey}
                 error={error}
-                updateAvailable={updateAvailable}
-                updateDownloaded={updateDownloaded}
-                checkingForUpdate={checkingForUpdate}
-                updateError={updateError}
                 windowIsFloating={windowIsFloating}
                 llamaModelStatus={llamaModelStatus}
                 checkingLlamaModel={checkingLlamaModel}
@@ -703,8 +623,6 @@ function App() {
                   }
                 }}
                 onCopyCommand={handleCopyCommand}
-                onCheckUpdates={checkForUpdates}
-                onInstallUpdate={installUpdate}
               />
             ) : !showNewJobForm && apiKey ? (
               // When not in edit mode, settings, or creating new task, and API key exists, show tasks list

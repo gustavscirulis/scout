@@ -16,6 +16,7 @@ import {
 import llamaIcon from '../assets/llama@2x.png'
 import { VisionProvider } from '../lib/vision'
 import { Settings } from '../lib/storage/settings'
+import { useUpdates } from '../hooks/useUpdates'
 
 interface SettingsViewProps {
   settings: Settings;
@@ -23,10 +24,6 @@ interface SettingsViewProps {
   apiKey: string;
   hasExistingKey: boolean;
   error: string;
-  updateAvailable: boolean;
-  updateDownloaded: boolean;
-  checkingForUpdate: boolean;
-  updateError: string | null;
   windowIsFloating: boolean;
   llamaModelStatus: { installed: boolean; hasModel: boolean } | null;
   checkingLlamaModel: boolean;
@@ -37,8 +34,6 @@ interface SettingsViewProps {
   onSettingsChange: (settings: Settings) => void;
   onWindowFloatingChange: (floating: boolean) => void;
   onCopyCommand: () => void;
-  onCheckUpdates: () => void;
-  onInstallUpdate: () => void;
 }
 
 export function SettingsView({
@@ -47,10 +42,6 @@ export function SettingsView({
   apiKey,
   hasExistingKey,
   error,
-  updateAvailable,
-  updateDownloaded,
-  checkingForUpdate,
-  updateError,
   windowIsFloating,
   llamaModelStatus,
   checkingLlamaModel,
@@ -60,10 +51,17 @@ export function SettingsView({
   onApiKeyChange,
   onSettingsChange,
   onWindowFloatingChange,
-  onCopyCommand,
-  onCheckUpdates,
-  onInstallUpdate
+  onCopyCommand
 }: SettingsViewProps) {
+  const { 
+    updateAvailable,
+    updateDownloaded,
+    checkingForUpdate,
+    updateError,
+    checkForUpdates,
+    installUpdate
+  } = useUpdates()
+
   return (
     <div className="flex flex-col h-full min-h-[calc(100vh-3rem)] animate-in">
       <div className="flex-1 overflow-auto">
@@ -270,7 +268,7 @@ export function SettingsView({
             <Button
               variant={updateDownloaded ? "default" : "outline"}
               size="sm"
-              onClick={updateDownloaded ? onInstallUpdate : onCheckUpdates}
+              onClick={updateDownloaded ? installUpdate : checkForUpdates}
               className="text-xs h-8 w-full justify-center"
               disabled={checkingForUpdate}
             >
