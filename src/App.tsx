@@ -45,6 +45,7 @@ import {
 } from './lib/storage/tasks'
 import { RadioGroup, RadioGroupItem } from './components/ui/radio-group'
 import { cn } from './lib/utils'
+import { useTheme } from './hooks/useTheme'
 
 // Function to format time in a simple "ago" format
 const formatTimeAgo = (date: Date): string => {
@@ -65,48 +66,8 @@ const formatTimeAgo = (date: Date): string => {
 
 type NewJobFormData = JobFormData
 
-// Function to check if the user prefers dark mode
-const getSystemThemePreference = (): 'dark' | 'light' => {
-  if (typeof window !== 'undefined' && window.matchMedia) {
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
-  }
-  return 'light' // Default to light if media queries not supported
-}
-
-// Function to update the document with the theme class
-const updateThemeClass = (theme: 'dark' | 'light') => {
-  if (theme === 'dark') {
-    document.documentElement.classList.add('dark')
-  } else {
-    document.documentElement.classList.remove('dark')
-  }
-}
-
 function App() {
-  // Theme state with initial value from system preference
-  const [theme, setTheme] = useState<'dark' | 'light'>(getSystemThemePreference)
-  
-  // Update theme when system preference changes
-  useEffect(() => {
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
-    
-    // Set initial theme
-    updateThemeClass(getSystemThemePreference())
-    
-    // Add listener for changes
-    const handleChange = (e: MediaQueryListEvent) => {
-      const newTheme = e.matches ? 'dark' : 'light'
-      setTheme(newTheme)
-      updateThemeClass(newTheme)
-    }
-    
-    // Modern browsers
-    mediaQuery.addEventListener('change', handleChange)
-    
-    return () => {
-      mediaQuery.removeEventListener('change', handleChange)
-    }
-  }, [])
+  const { theme } = useTheme()
   
   // Wrap with TooltipProvider at the app level for all tooltips
   const appWithTooltips = (appContent: React.ReactNode) => (
@@ -130,7 +91,7 @@ function App() {
   )
   const [settings, setSettings] = useState<Settings>({
     visionProvider: 'openai',
-    theme: getSystemThemePreference(),
+    theme: theme,
     checkForUpdates: true,
     launchAtStartup: false,
     notificationsEnabled: true,
@@ -142,7 +103,7 @@ function App() {
   
   const [tempSettings, setTempSettings] = useState<Settings>({
     visionProvider: 'openai',
-    theme: getSystemThemePreference(),
+    theme: theme,
     checkForUpdates: true,
     launchAtStartup: false,
     notificationsEnabled: true,
