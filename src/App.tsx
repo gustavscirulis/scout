@@ -1563,7 +1563,7 @@ function App() {
               // Settings view (shown in place of task list)
               <div className="flex flex-col h-full min-h-[calc(100vh-3rem)] animate-in">
                 <div className="flex-1 overflow-auto">
-                  <div className="px-8 pt-6 space-y-6">
+                  <div className="px-8 pt-6 space-y-8">
                     {/* Vision Provider section */}
                     <fieldset className="space-y-3">
                       <legend className="text-sm font-medium">AI Model</legend>
@@ -1765,7 +1765,7 @@ function App() {
                     )}
                     
                     {/* Updates section */}
-                    <fieldset className="space-y-3">
+                    <fieldset className="space-y-2">
                       <legend className="text-sm font-medium">Updates</legend>
                       
                       <Button
