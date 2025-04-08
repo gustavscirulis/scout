@@ -1,12 +1,13 @@
-import { useState, useEffect, useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { Task, getAllTasks, addTask, updateTask, deleteTask, toggleTaskRunningState, updateTaskResults, getTaskById, TaskFormData } from '../lib/storage/tasks'
 import { RecurringFrequency } from '../components/TaskForm'
 import signals from '../lib/telemetry'
+import { useStore } from '../lib/stores/useStore'
 
 type RunAnalysisFunction = (task: Task) => Promise<void>
 
 export const useTaskManagement = (runAnalysis: RunAnalysisFunction) => {
-  const [tasks, setTasks] = useState<Task[]>([])
+  const { tasks, setTasks } = useStore()
   const pollingInterval = useRef<NodeJS.Timeout | null>(null)
   const POLLING_INTERVAL = 60 * 1000 // check every minute
 
@@ -87,9 +88,7 @@ export const useTaskManagement = (runAnalysis: RunAnalysisFunction) => {
       console.log(`[Scheduler] Saving task ${taskId} with next run time: ${nextRun.toLocaleString()}`)
       await updateTask(updatedTask)
       
-      setTasks(prevTasks => 
-        prevTasks.map(t => t.id === taskId ? updatedTask : t)
-      )
+      setTasks(tasks.map(t => t.id === taskId ? updatedTask : t))
       
       console.log(`[Scheduler] Task ${taskId} next run time updated successfully`)
       return updatedTask
@@ -241,7 +240,7 @@ export const useTaskManagement = (runAnalysis: RunAnalysisFunction) => {
       await deleteTask(taskId)
       signals.taskDeleted()
       
-      setTasks(prevTasks => prevTasks.filter(task => task.id !== taskId))
+      setTasks(tasks.filter(task => task.id !== taskId))
       
       try {
         const electron = window.require('electron');
@@ -290,10 +289,7 @@ export const useTaskManagement = (runAnalysis: RunAnalysisFunction) => {
       
       signals.taskCreated(taskData.frequency);
       
-      setTasks(prevTasks => {
-        console.log(`[Scheduler] Updating tasks state with new task ${newTask.id}`)
-        return [...prevTasks, newTask]
-      });
+      setTasks([...tasks, newTask]);
       
       console.log(`[Scheduler] Setting initial next run time for new task ${newTask.id}`)
       const nextRun = getNextRunTime(newTask)
@@ -439,8 +435,6 @@ export const useTaskManagement = (runAnalysis: RunAnalysisFunction) => {
   }, [])
 
   return {
-    tasks,
-    setTasks,
     toggleTaskState,
     removeTask,
     createNewTask,

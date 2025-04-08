@@ -53,6 +53,7 @@ import { TaskList } from './components/TaskList'
 import { useTaskManagement } from './hooks/useTaskManagement'
 import { AnalysisService } from './lib/services/analysis'
 import { useUpdates } from './hooks/useUpdates'
+import { useStore } from './lib/stores/useStore'
 
 type NewJobFormData = JobFormData
 
@@ -67,6 +68,35 @@ function App() {
     installUpdate
   } = useUpdates()
   
+  // Get state and actions from our store
+  const {
+    apiKey,
+    hasExistingKey,
+    settings,
+    tempSettings,
+    tasks,
+    settingsView,
+    showNewJobForm,
+    editingJobId,
+    loading,
+    error,
+    testResult,
+    newJob,
+    setApiKey,
+    setHasExistingKey,
+    setSettings,
+    setTempSettings,
+    setTasks,
+    setSettingsView,
+    setShowNewJobForm,
+    setEditingJobId,
+    setLoading,
+    setError,
+    setTestResult,
+    setNewJob,
+    resetNewJobForm
+  } = useStore()
+
   // Wrap with TooltipProvider at the app level for all tooltips
   const appWithTooltips = (appContent: React.ReactNode) => (
     <TooltipProvider delayDuration={1}>
@@ -74,55 +104,9 @@ function App() {
     </TooltipProvider>
   )
 
-  // State declarations
-  const [apiKey, setApiKey] = useState('')
-  const [hasExistingKey, setHasExistingKey] = useState(false)
-  const [settingsView, setSettingsView] = useState(false)
-  const [showNewJobForm, setShowNewJobForm] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [notificationPermission, setNotificationPermission] = useState(Notification.permission)
-  const [testResult, setTestResult] = useState<{result: string, matched?: boolean, timestamp?: Date, screenshot?: string} | null>(null)
-  const [editingJobId, setEditingJobId] = useState<string | null>(null)
   const [windowIsFloating, setWindowIsFloating] = useState<boolean>(() => 
     !!localStorage.getItem('windowFloating')
   )
-  const [settings, setSettings] = useState<Settings>({
-    visionProvider: 'openai',
-    theme: theme,
-    checkForUpdates: true,
-    launchAtStartup: false,
-    notificationsEnabled: true,
-    notificationSoundEnabled: true,
-    notificationDuration: 5,
-    notificationPosition: 'bottom-right',
-    windowFloating: false
-  });
-  
-  const [tempSettings, setTempSettings] = useState<Settings>({
-    visionProvider: 'openai',
-    theme: theme,
-    checkForUpdates: true,
-    launchAtStartup: false,
-    notificationsEnabled: true,
-    notificationSoundEnabled: true,
-    notificationDuration: 5,
-    notificationPosition: 'bottom-right',
-    windowFloating: false
-  });
-  
-  const [newJob, setNewJob] = useState<NewJobFormData>(() => ({
-    websiteUrl: '',
-    notificationCriteria: '',
-    analysisPrompt: '',
-    frequency: 'daily',
-    scheduledTime: (() => {
-      const now = new Date()
-      return `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`
-    })(),
-    dayOfWeek: 'mon',
-    visionProvider: settings.visionProvider
-  }));
   
   const [isTransitioning, setIsTransitioning] = useState(false)
   const [showConfetti, setShowConfetti] = useState(false)
@@ -162,8 +146,6 @@ function App() {
 
   // Initialize task management hook
   const { 
-    tasks, 
-    setTasks, 
     toggleTaskState, 
     removeTask, 
     createNewTask, 
@@ -174,10 +156,11 @@ function App() {
 
   // Update newJob when visionProvider changes
   useEffect(() => {
-    setNewJob(prev => ({
-      ...prev,
+    const currentJob = useStore.getState().newJob;
+    setNewJob({
+      ...currentJob,
       visionProvider: settings.visionProvider
-    }));
+    });
   }, [settings.visionProvider]);
   
   // Track settings view for telemetry
@@ -301,39 +284,6 @@ function App() {
     }
   }
 
-  const resetNewJobForm = () => {
-    setNewJob({
-      websiteUrl: '',
-      notificationCriteria: '',
-      analysisPrompt: '',
-      frequency: 'daily',
-      scheduledTime: (() => {
-        const now = new Date()
-        return `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`
-      })(),
-      dayOfWeek: 'mon',
-      visionProvider: settings.visionProvider
-    });
-    setTestResult(null);
-  };
-  
-  // Clear test results when criteria changes since they're no longer valid
-  useEffect(() => {
-    // Only handle test results for the currently edited task
-    if (editingJobId && testResult && !loading) {
-      const task = tasks.find(t => t.id === editingJobId);
-      
-      if (task && task.notificationCriteria !== newJob.notificationCriteria) {
-        const isNewTestResult = testResult.timestamp && 
-          (new Date().getTime() - testResult.timestamp.getTime()) < 5000;
-        
-        if (!isNewTestResult) {
-          setTestResult(null);
-        }
-      }
-    }
-  }, [newJob.notificationCriteria, editingJobId, testResult, tasks, loading]);
-  
   const startEditingTask = (taskId: string) => {
     const task = tasks.find(t => t.id === taskId);
     if (task) {
@@ -346,47 +296,11 @@ function App() {
         scheduledTime: task.scheduledTime,
         dayOfWeek: task.dayOfWeek || 'mon',
         visionProvider: settings.visionProvider
-      });
+      } as JobFormData);
     }
   };
 
-  const sendNotification = (task: Task, analysis: string) => {
-    if (notificationPermission === 'granted') {
-      // Extract just the domain from the URL
-      const urlObj = new URL(task.websiteUrl.startsWith('http') ? task.websiteUrl : `http://${task.websiteUrl}`);
-      const domain = urlObj.hostname;
-      
-      const title = `${domain} matched your condition`;
-      
-      // Create a notification body that just includes the rationale (analysis)
-      let body = analysis;
-      if (analysis && analysis.length > 100) {
-        body = analysis.slice(0, 100) + '...';
-      }
-      
-      // Create notification that will persist until explicitly dismissed
-      const notification = new Notification(title, {
-        body: body,
-        icon: '/favicon.ico',
-        requireInteraction: true, // Prevents auto-closing
-        silent: false,
-        tag: `analysis-${task.id}`,
-        // The timeoutType property is not standard but supported in some implementations
-        // @ts-ignore
-        timeoutType: 'never'
-      })
-
-      // When notification is clicked, just focus the window but don't close the notification
-      // This allows the user to see it until they explicitly dismiss it
-      notification.onclick = () => {
-        const { ipcRenderer } = window.require('electron')
-        ipcRenderer.send('focus-window')
-        // Not closing the notification here so it persists until user dismisses it
-      }
-    }
-  }
-
-  const testAnalysis = async (taskData: TaskFormData) => {
+  const testAnalysis = async (taskData: JobFormData) => {
     // Clear any existing test result when starting a new test
     setTestResult(null);
     setLoading(true);
