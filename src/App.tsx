@@ -115,6 +115,50 @@ function App() {
   // Initialize analysis service
   const analysisService = useMemo(() => new AnalysisService(apiKey), [apiKey])
 
+  // Add keyboard shortcut handlers
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Handle cmd+, for settings
+      if (e.key === ',' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        setSettingsView(true);
+        return;
+      }
+
+      // Handle cmd+n for new task
+      if (e.key === 'n' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        if (apiKey) { // Only allow new task if API key is set
+          setShowNewJobForm(true);
+        }
+        return;
+      }
+
+      // Handle escape key
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        
+        if (settingsView) {
+          // Revert settings to their saved state when pressing back
+          setSettings(tempSettings);
+          setSettingsView(false);
+        } else if (!showNewJobForm && !editingJobId) {
+          // Close window when on tasks list or welcome screen
+          try {
+            const electron = window.require('electron');
+            electron.ipcRenderer.send('close-window');
+          } catch (error) {
+            // Silent fail if electron is not available in dev mode
+          }
+        }
+        return;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [apiKey, setSettingsView, setShowNewJobForm, settingsView, setSettings, tempSettings, showNewJobForm, editingJobId]);
+
   // Load API key on app start
   useEffect(() => {
     const loadApiKey = async () => {

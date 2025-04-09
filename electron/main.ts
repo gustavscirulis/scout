@@ -416,6 +416,13 @@ ipcMain.on('focus-window', () => {
   }
 })
 
+// Handle window close request from renderer
+ipcMain.on('close-window', () => {
+  if (mainWindow) {
+    mainWindow.hide()
+  }
+})
+
 // Handle initial window floating setting from renderer
 ipcMain.on('init-window-floating', (_event, floating: boolean) => {
   windowFloating = floating;
