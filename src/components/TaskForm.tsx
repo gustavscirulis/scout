@@ -121,6 +121,11 @@ export function TaskForm({
 
   // Get the latest result to display
   const getLatestResult = (): TestResult | null => {
+    // If we're loading, don't show any result
+    if (loading) {
+      return null;
+    }
+
     // If we have a test result, use that
     if (testResult) {
       return testResult;
@@ -326,7 +331,7 @@ export function TaskForm({
           {(latestResult || loading) && (
             <div className="mt-6">
               <label className="text-sm font-medium mb-2 block">Result</label>
-              {latestResult && (
+              {latestResult && !loading && (
                 <div className="animate-in">
                   {latestResult.screenshot && (
                     <div 
