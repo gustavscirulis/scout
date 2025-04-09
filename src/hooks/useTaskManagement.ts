@@ -201,9 +201,13 @@ export const useTaskManagement = (runAnalysis: RunAnalysisFunction) => {
 
   const updateExistingTask = async (taskId: string, taskData: TaskFormData) => {
     try {
+      const task = await getTaskById(taskId)
+      if (!task) return
+
       const updatedTask = await updateTask({
         ...taskData,
-        id: taskId
+        id: taskId,
+        isRunning: true
       })
       
       if (updatedTask) {

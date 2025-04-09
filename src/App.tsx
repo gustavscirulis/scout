@@ -384,7 +384,11 @@ function App() {
           resetNewJobForm();
         }}
         onSettings={() => setSettingsView(true)}
-        onNewTask={() => setShowNewJobForm(true)}
+        onNewTask={() => {
+          resetNewJobForm(); // Reset the form data
+          setTestResult(null); // Clear any existing test results
+          setShowNewJobForm(true); // Show the new task form
+        }}
         onDeleteTask={(taskId) => {
           removeTask(taskId).then(() => {
             setEditingJobId(null);
@@ -408,6 +412,7 @@ function App() {
                     setSettingsView={setSettingsView}
                     setShowNewJobForm={setShowNewJobForm}
                     setNewJob={setNewJob}
+                    setTestResult={setTestResult}
                     settings={settings}
                     updateAvailable={updateAvailable}
                     updateDownloaded={updateDownloaded}

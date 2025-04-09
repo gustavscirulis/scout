@@ -27,6 +27,7 @@ interface WelcomeViewProps {
   setSettingsView: (value: boolean) => void;
   setShowNewJobForm: (value: boolean) => void;
   setNewJob: (value: any) => void;
+  setTestResult: (value: any) => void;
   settings: Settings;
   updateAvailable: boolean;
   updateDownloaded: boolean;
@@ -49,6 +50,7 @@ export function WelcomeView({
   setSettingsView,
   setShowNewJobForm,
   setNewJob,
+  setTestResult,
   settings,
   updateAvailable,
   updateDownloaded,
@@ -99,7 +101,7 @@ export function WelcomeView({
       
       <div className="w-full overflow-hidden border rounded-lg shadow-sm -webkit-app-region-no-drag mb-8">
         <div 
-          className={`bg-accent p-4 text-left flex items-start border-b ${!setupState.isConfigured ? 'opacity-70' : ''} ${setupState.isConfigured ? 'cursor-pointer hover:bg-accent/80 transition-colors' : ''}`}
+          className={`bg-accent p-4 text-left flex items-start border-b ${!setupState.isConfigured ? 'opacity-70' : ''} ${setupState.isConfigured ? 'hover:bg-accent/80 transition-colors' : ''}`}
           onClick={() => {
             if (setupState.isConfigured) {
               setNewJob({
@@ -111,6 +113,7 @@ export function WelcomeView({
                 dayOfWeek: 'mon',
                 visionProvider: settings.visionProvider
               });
+              setTestResult(null);
               setShowNewJobForm(true);
             }
           }}
@@ -125,7 +128,7 @@ export function WelcomeView({
         </div>
         
         <div 
-          className={`bg-accent p-4 text-left flex items-start border-b ${!setupState.isConfigured ? 'opacity-70' : ''} ${setupState.isConfigured ? 'cursor-pointer hover:bg-accent/80 transition-colors' : ''}`}
+          className={`bg-accent p-4 text-left flex items-start border-b ${!setupState.isConfigured ? 'opacity-70' : ''} ${setupState.isConfigured ? 'hover:bg-accent/80 transition-colors' : ''}`}
           onClick={() => {
             if (setupState.isConfigured) {
               setNewJob({
@@ -137,6 +140,7 @@ export function WelcomeView({
                 dayOfWeek: 'mon',
                 visionProvider: settings.visionProvider
               });
+              setTestResult(null);
               setShowNewJobForm(true);
             }
           }}
@@ -151,7 +155,7 @@ export function WelcomeView({
         </div>
         
         <div 
-          className={`bg-accent p-4 text-left flex items-start ${!setupState.isConfigured ? 'opacity-70' : ''} ${setupState.isConfigured ? 'cursor-pointer hover:bg-accent/80 transition-colors' : ''}`}
+          className={`bg-accent p-4 text-left flex items-start ${!setupState.isConfigured ? 'opacity-70' : ''} ${setupState.isConfigured ? 'hover:bg-accent/80 transition-colors' : ''}`}
           onClick={() => {
             if (setupState.isConfigured) {
               setNewJob({
@@ -163,6 +167,7 @@ export function WelcomeView({
                 dayOfWeek: 'mon',
                 visionProvider: settings.visionProvider
               });
+              setTestResult(null);
               setShowNewJobForm(true);
             }
           }}
@@ -180,7 +185,19 @@ export function WelcomeView({
       <div className="max-w-xl mx-auto">
         {setupState.isConfigured ? (
           <Button 
-            onClick={() => setShowNewJobForm(true)}
+            onClick={() => {
+              setNewJob({
+                websiteUrl: '',
+                notificationCriteria: '',
+                analysisPrompt: '',
+                frequency: 'daily',
+                scheduledTime: '09:00',
+                dayOfWeek: 'mon',
+                visionProvider: settings.visionProvider
+              });
+              setTestResult(null);
+              setShowNewJobForm(true);
+            }}
             className="rounded-full px-6"
             size="lg"
           >
