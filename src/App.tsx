@@ -414,6 +414,10 @@ function App() {
                     });
                   }
                 }}
+                onBack={() => {
+                  setEditingJobId(null); // Clear editing mode
+                  resetNewJobForm(); // Reset the form
+                }}
                 task={tasks.find(task => task.id === editingJobId)}
               />
             ) : !showNewJobForm && settingsView ? (
@@ -583,6 +587,10 @@ function App() {
                       });
                     });
                   }
+                }}
+                onBack={() => {
+                  setShowNewJobForm(false);
+                  resetNewJobForm();
                 }}
               />
             )}

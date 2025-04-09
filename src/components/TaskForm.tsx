@@ -62,6 +62,7 @@ interface TaskFormProps {
   onFormChange: (data: JobFormData) => void;
   onTest: (data: JobFormData) => void;
   onSave: (data: JobFormData) => void;
+  onBack: () => void;
   task?: Task; // Add task prop for editing mode
 }
 
@@ -72,9 +73,42 @@ export function TaskForm({
   onFormChange,
   onTest,
   onSave,
+  onBack,
   task
 }: TaskFormProps) {
   const [urlError, setUrlError] = useState<string | null>(null);
+
+  // Add keyboard shortcut handlers
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Handle escape key
+      if (e.key === 'Escape') {
+        onBack();
+        return;
+      }
+
+      // Handle cmd+enter (macOS) or ctrl+enter (Windows/Linux)
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+        // Only save if the form is valid
+        if (formData.websiteUrl && formData.notificationCriteria && !loading) {
+          // If we're editing and values have changed, don't pass test results
+          if (task && 
+              (formData.websiteUrl !== task.websiteUrl || 
+               formData.notificationCriteria !== task.notificationCriteria) && 
+              testResult) {
+            onSave({
+              ...formData
+            });
+          } else {
+            onSave(formData);
+          }
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [formData, task, testResult, loading, onSave, onBack]);
 
   // Get the latest result to display
   const getLatestResult = (): TestResult | null => {
