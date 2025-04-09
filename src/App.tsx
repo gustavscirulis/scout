@@ -571,9 +571,16 @@ function App() {
                 onSave={(data) => {
                   if (data.websiteUrl && data.notificationCriteria) {
                     createNewTask(data, testResult).then(() => {
-                      setShowNewJobForm(false);
+                      // First reset the form
                       resetNewJobForm();
-                      setEditingJobId(null); // Ensure we're not in edit mode
+                      // Then hide the form
+                      setShowNewJobForm(false);
+                      // Clear any editing mode
+                      setEditingJobId(null);
+                      // Finally reload tasks from storage
+                      getAllTasks().then(loadedTasks => {
+                        setTasks(loadedTasks);
+                      });
                     });
                   }
                 }}
