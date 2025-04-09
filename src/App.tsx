@@ -565,6 +565,7 @@ function App() {
                     createNewTask(data, testResult).then(() => {
                       setShowNewJobForm(false);
                       resetNewJobForm();
+                      setEditingJobId(null); // Ensure we're not in edit mode
                     });
                   }
                 }}
