@@ -85,8 +85,8 @@ export function SettingsView({
                 value="llama"
                 className={cn(
                   "relative group ring-[1px] ring-border rounded-lg py-4 px-4 text-start h-auto w-auto",
-                  "hover:bg-accent hover:text-accent-foreground",
-                  "data-[state=checked]:ring-2 data-[state=checked]:ring-primary"
+                  "data-[state=checked]:bg-accent data-[state=checked]:text-accent-foreground data-[state=checked]:ring-2 data-[state=checked]:ring-primary",
+                  "hover:bg-transparent"
                 )}
               >
                 <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 h-5 w-5 rounded-full bg-background flex items-center justify-center group-data-[state=unchecked]:hidden">
@@ -110,8 +110,8 @@ export function SettingsView({
                 value="openai"
                 className={cn(
                   "relative group ring-[1px] ring-border rounded-lg py-4 px-4 text-start h-auto w-auto",
-                  "hover:bg-accent hover:text-accent-foreground",
-                  "data-[state=checked]:ring-2 data-[state=checked]:ring-primary"
+                  "data-[state=checked]:bg-accent data-[state=checked]:text-accent-foreground data-[state=checked]:ring-2 data-[state=checked]:ring-primary",
+                  "hover:bg-transparent"
                 )}
               >
                 <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 h-5 w-5 rounded-full bg-background flex items-center justify-center group-data-[state=unchecked]:hidden">
