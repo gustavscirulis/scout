@@ -396,7 +396,10 @@ function App() {
                 onTest={testAnalysis}
                 onSave={(data) => {
                   if (data.websiteUrl && data.notificationCriteria) {
-                    updateExistingTask(editingJobId, data);
+                    updateExistingTask(editingJobId, data).then(() => {
+                      setEditingJobId(null); // Clear editing mode
+                      resetNewJobForm(); // Reset the form
+                    });
                   }
                 }}
                 task={tasks.find(task => task.id === editingJobId)}
