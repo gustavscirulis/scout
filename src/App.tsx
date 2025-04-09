@@ -266,20 +266,29 @@ function App() {
       setIsTransitioning(false)
     }, 250) // Animation duration (200ms) + small buffer
     
-    // Enable temporary floating mode when editing or creating a new job
+    return () => clearTimeout(timer)
+  }, [showNewJobForm, editingJobId, settingsView])
+
+  // Add effect to handle window focus
+  useEffect(() => {
     try {
       const electron = window.require('electron');
-      if (showNewJobForm || editingJobId) {
-        electron.ipcRenderer.send('set-temporary-floating', true);
-      } else {
-        electron.ipcRenderer.send('set-temporary-floating', false);
-      }
+      
+      // Listen for window focus events
+      electron.ipcRenderer.on('window-focus', () => {
+        // Re-apply temporary floating state when window regains focus
+        if (showNewJobForm || editingJobId) {
+          electron.ipcRenderer.send('set-temporary-floating', true);
+        }
+      });
+      
+      return () => {
+        electron.ipcRenderer.removeAllListeners('window-focus');
+      };
     } catch (error) {
       // Silent fail if electron is not available in dev mode
     }
-    
-    return () => clearTimeout(timer)
-  }, [showNewJobForm, editingJobId, settingsView])
+  }, [showNewJobForm, editingJobId]);
 
   // Check Llama model status when provider is set to llama
   useEffect(() => {

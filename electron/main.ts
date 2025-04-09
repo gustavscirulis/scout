@@ -372,11 +372,11 @@ function createWindow() {
   // Initialize window floating state as a variable accessible in the module scope
   windowFloating = false;
   
-  // Hide window when it loses focus (unless in permanent or temporary floating mode)
+  // Hide window when it loses focus (unless in permanent floating mode)
   mainWindow.on('blur', () => {
     // Force a small delay to ensure the windowFloating state is properly initialized
     setTimeout(() => {
-      if (!windowFloating && !temporaryFloating) {
+      if (!windowFloating) {
         mainWindow?.hide();
       }
     }, 50);
@@ -398,6 +398,11 @@ function createWindow() {
     }
     // Don't show initially - wait for tray click
   })
+
+  // Add window focus handler
+  mainWindow.on('focus', () => {
+    mainWindow?.webContents.send('window-focus');
+  });
 }
 
 // Handle window focus request from renderer
