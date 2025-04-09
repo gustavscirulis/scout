@@ -10,9 +10,12 @@ document.documentElement.classList.add('dark')
 // Track app initialization
 signals.appStarted()
 
+// Track timezone
+signals.timezoneDetected(Intl.DateTimeFormat().resolvedOptions().timeZone)
+
 // Add app close tracking
 window.addEventListener('beforeunload', () => {
-  signals.appClosed()
+  // No longer tracking app close
 })
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(

@@ -64,7 +64,7 @@ export class AnalysisService {
       console.log(`[Analysis] Starting analysis execution for task ${task.id}`)
       
       // Track analysis start
-      signals.analysisRun()
+      // No longer tracking analysis run
 
       // Use the new task analysis function from the vision module
       const analysisResult = await runTaskAnalysis(settings.visionProvider, currentApiKey, task)
@@ -116,7 +116,7 @@ export class AnalysisService {
         }
         
         // Track successful analysis with telemetry
-        signals.analysisRun(true)
+        // No longer tracking analysis run
       } else {
         // Log error if we couldn't update the task
         console.error(`[Analysis] Failed to update task results for ${task.id}`)
@@ -126,7 +126,7 @@ export class AnalysisService {
       console.error(`[Analysis] Error in analysis:`, err)
       
       // Track analysis failure with telemetry
-      signals.analysisRun(false)
+      // No longer tracking analysis run
       
       // Also save the error in the task's result
       const now = new Date()

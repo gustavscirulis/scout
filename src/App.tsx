@@ -207,7 +207,7 @@ function App() {
   // Track settings view for telemetry
   useEffect(() => {
     if (settingsView) {
-      signals.settingsOpened()
+      // No longer tracking settings opened
     }
   }, [settingsView])
   

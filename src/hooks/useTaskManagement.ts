@@ -159,10 +159,8 @@ export const useTaskManagement = (runAnalysis: RunAnalysisFunction) => {
     try {
       await deleteTask(taskId)
       setTasks(tasks.filter(t => t.id !== taskId))
-      resetNewJobForm()
-      signals.taskDeleted()
     } catch (error) {
-      console.error(`Failed to remove task ${taskId}:`, error)
+      console.error('Failed to delete task:', error)
     }
   }
 
@@ -201,34 +199,18 @@ export const useTaskManagement = (runAnalysis: RunAnalysisFunction) => {
     }
   }
 
-  const updateExistingTask = async (taskId: string, updatedTaskData: TaskFormData) => {
+  const updateExistingTask = async (taskId: string, taskData: TaskFormData) => {
     try {
-      const existingTask = tasks.find(t => t.id === taskId)
-      if (!existingTask) return
-
-      const updatedTask: Task = {
-        ...existingTask,
-        websiteUrl: updatedTaskData.websiteUrl,
-        notificationCriteria: updatedTaskData.notificationCriteria,
-        analysisPrompt: updatedTaskData.analysisPrompt,
-        frequency: updatedTaskData.frequency,
-        scheduledTime: updatedTaskData.scheduledTime,
-        dayOfWeek: updatedTaskData.dayOfWeek
-      }
-
-      const savedTask = await updateTask(updatedTask)
-      if (savedTask) {
-        setTasks(tasks.map(t => t.id === taskId ? savedTask : t))
-        signals.taskEdited()
-
-        if (savedTask.isRunning) {
-          const nextRunTime = getNextRunTime(savedTask)
-          await updateTaskNextRunTime(taskId, nextRunTime)
-        }
+      const updatedTask = await updateTask({
+        ...taskData,
+        id: taskId
+      })
+      
+      if (updatedTask) {
+        setTasks(tasks.map(t => t.id === taskId ? updatedTask : t))
       }
     } catch (error) {
-      console.error(`Failed to update task ${taskId}:`, error)
-      throw error
+      console.error('Failed to update task:', error)
     }
   }
 
