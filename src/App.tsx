@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
-import confetti from 'canvas-confetti'
 import { Button } from './components/ui/button'
 import { Input } from './components/ui/input'
 import { Separator } from './components/ui/separator'
@@ -107,10 +106,10 @@ function App() {
   )
   
   const [isTransitioning, setIsTransitioning] = useState(false)
-  const [showConfetti, setShowConfetti] = useState(false)
   const [llamaModelStatus, setLlamaModelStatus] = useState<{ installed: boolean; hasModel: boolean } | null>(null)
   const [checkingLlamaModel, setCheckingLlamaModel] = useState(false)
   const [copyStatus, setCopyStatus] = useState(false)
+  const [previousLlamaStatus, setPreviousLlamaStatus] = useState<{ installed: boolean; hasModel: boolean } | null>(null)
 
   // Initialize analysis service
   const analysisService = useMemo(() => new AnalysisService(apiKey), [apiKey])
@@ -227,37 +226,6 @@ function App() {
     loadSettings()
   }, [])
   
-  // Launch confetti when showConfetti state changes
-  useEffect(() => {
-    if (showConfetti) {
-      const end = Date.now() + 800; // Very brief celebration
-      
-      // Create a confetti celebration
-      const frame = () => {
-        // Position at the bottom center of the screen
-        const origin = { x: 0.5, y: 0.9 };
-          
-        confetti({
-          particleCount: 12,
-          angle: 90, // Straight up
-          spread: 60,
-          origin,
-          colors: ['#4285F4', '#34A853', '#FBBC05', '#EA4335'], // Colorful confetti
-          gravity: 0.8,
-          scalar: 0.9 // Slightly smaller particles
-        });
-        
-        if (Date.now() < end) {
-          requestAnimationFrame(frame);
-        } else {
-          setShowConfetti(false);
-        }
-      };
-      
-      frame();
-    }
-  }, [showConfetti])
-  
   useEffect(() => {
     // Always trigger the transition state when any view changes
     setIsTransitioning(true)
@@ -306,8 +274,8 @@ function App() {
       }
     }
 
-    // Check model status when Llama is selected, not just in settings view
-    if (settings.visionProvider === 'llama') {
+    // Check model status when Llama is selected or when in settings view
+    if (settings.visionProvider === 'llama' || settingsView) {
       checkModel()
       
       // Set up polling if model is not installed
@@ -322,7 +290,16 @@ function App() {
     } else {
       setLlamaModelStatus(null)
     }
-  }, [settings.visionProvider, llamaModelStatus?.installed])
+  }, [settings.visionProvider, llamaModelStatus?.installed, settingsView])
+
+  // Update previous status when Llama status changes
+  useEffect(() => {
+    if (settings.visionProvider === 'llama') {
+      setPreviousLlamaStatus(llamaModelStatus)
+    } else {
+      setPreviousLlamaStatus(null)
+    }
+  }, [settings.visionProvider, llamaModelStatus])
 
   // Add this function to handle copy with animation
   const handleCopyCommand = async () => {
@@ -537,12 +514,6 @@ function App() {
                       } 
                       // If updating with a new key
                       else if (apiKey && apiKey !== lastSavedKey) {
-                        // Only show confetti if this is the first time adding an API key
-                        // AND there are no saved tasks yet
-                        if (!lastSavedKey && !hasExistingKey && tasks.length === 0) {
-                          setShowConfetti(true);
-                        }
-                        
                         // Save new API key using IPC
                         await electron.ipcRenderer.invoke('save-api-key', apiKey);
                         setHasExistingKey(true);
