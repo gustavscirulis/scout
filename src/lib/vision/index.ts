@@ -1,4 +1,5 @@
 import { Task } from '../storage/tasks'
+import { getAnalysisPrompt } from '../prompts'
 
 export type VisionProvider = 'openai' | 'llama'
 
@@ -15,7 +16,7 @@ async function analyzeWithOpenAI(
   notificationCriteria: string
 ): Promise<VisionResult> {
   // Construct a focused prompt that directly evaluates the notification criteria
-  const promptText = `Analyze this webpage and determine if the following condition is true: "${notificationCriteria}"
+  const promptText = getAnalysisPrompt(notificationCriteria) + `
 
 Return your response in this JSON format:
 {
@@ -76,8 +77,8 @@ async function analyzeWithLlama(
   const { ipcRenderer } = window.require('electron')
   const tempFilePath = await ipcRenderer.invoke('save-temp-screenshot', screenshot)
   
-  // Construct a focused prompt that directly evaluates the notification criteria - same as OpenAI version
-  const promptText = `Analyze this webpage and determine if the following condition is true: "${notificationCriteria}"
+  // Construct a focused prompt that directly evaluates the notification criteria
+  const promptText = getAnalysisPrompt(notificationCriteria) + `
 
 Return your response in this JSON format:
 {

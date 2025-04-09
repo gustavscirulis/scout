@@ -15,6 +15,7 @@ import { TimeInput } from './ui/time-input'
 import { Tabs, TabsList, TabsTrigger } from './ui/tabs'
 import { validateUrl } from '../lib/utils'
 import { Task } from '../lib/storage/tasks'
+import { getAnalysisPrompt } from '../lib/prompts'
 
 // Function to format time in a simple "ago" format
 const formatTimeAgo = (date: Date): string => {
@@ -132,9 +133,7 @@ export function TaskForm({
 
   const handleCriteriaChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
     const criteria = e.target.value;
-    const analysisPrompt = criteria ? 
-      `Analyze this webpage to determine if the following is true: "${criteria}". Check elements like prices, availability, text content, and other visible information.` : 
-      '';
+    const analysisPrompt = criteria ? getAnalysisPrompt(criteria) : '';
     
     onFormChange({ 
       ...formData, 

@@ -2,6 +2,7 @@ import { Button } from './ui/button'
 import { Plus, ShoppingBag, Ticket, Briefcase, ArrowClockwise } from '@phosphor-icons/react'
 import { VisionProvider } from '../lib/vision'
 import { Settings } from '../lib/storage/settings'
+import { DEFAULT_CRITERIA, getAnalysisPrompt } from '../lib/prompts'
 
 interface SetupState {
   isConfigured: boolean;
@@ -103,8 +104,8 @@ export function WelcomeView({
             if (setupState.isConfigured) {
               setNewJob({
                 websiteUrl: '',
-                notificationCriteria: 'the price of [product name] is below [target price]',
-                analysisPrompt: 'Analyze this webpage to determine if the following is true: "the price of [product name] is below [target price]". Check elements like prices, availability, text content, and other visible information.',
+                notificationCriteria: DEFAULT_CRITERIA.PRICE_DROP,
+                analysisPrompt: getAnalysisPrompt(DEFAULT_CRITERIA.PRICE_DROP),
                 frequency: 'daily',
                 scheduledTime: '09:00',
                 dayOfWeek: 'mon',
@@ -129,8 +130,8 @@ export function WelcomeView({
             if (setupState.isConfigured) {
               setNewJob({
                 websiteUrl: '',
-                notificationCriteria: 'size [your size] is available for [product name]',
-                analysisPrompt: 'Analyze this webpage to determine if the following is true: "size [your size] is available for [product name]". Check elements like prices, availability, text content, and other visible information.',
+                notificationCriteria: DEFAULT_CRITERIA.BACK_IN_STOCK,
+                analysisPrompt: getAnalysisPrompt(DEFAULT_CRITERIA.BACK_IN_STOCK),
                 frequency: 'daily',
                 scheduledTime: '09:00',
                 dayOfWeek: 'mon',
@@ -155,8 +156,8 @@ export function WelcomeView({
             if (setupState.isConfigured) {
               setNewJob({
                 websiteUrl: '',
-                notificationCriteria: 'a [job title] position is available in [location]',
-                analysisPrompt: 'Analyze this webpage to determine if the following is true: "a [job title] position is available in [location]". Check elements like prices, availability, text content, and other visible information.',
+                notificationCriteria: DEFAULT_CRITERIA.NEW_CONTENT,
+                analysisPrompt: getAnalysisPrompt(DEFAULT_CRITERIA.NEW_CONTENT),
                 frequency: 'daily',
                 scheduledTime: '09:00',
                 dayOfWeek: 'mon',
