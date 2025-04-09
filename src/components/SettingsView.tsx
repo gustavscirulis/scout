@@ -82,6 +82,27 @@ export function SettingsView({
               className="grid grid-cols-2 gap-3"
             >
               <RadioGroupItem
+                value="openai"
+                className={cn(
+                  "relative group ring-[1px] ring-border rounded-lg py-4 px-4 text-start h-auto w-auto",
+                  "data-[state=checked]:bg-accent data-[state=checked]:text-accent-foreground data-[state=checked]:ring-2 data-[state=checked]:ring-primary",
+                  "hover:bg-transparent"
+                )}
+              >
+                <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 h-5 w-5 rounded-full bg-background flex items-center justify-center group-data-[state=unchecked]:hidden">
+                  <CheckCircle 
+                    className="h-5 w-5 text-primary fill-primary stroke-background" 
+                    weight="fill"
+                  />
+                </div>
+                <div className="flex items-center gap-2 mb-2.5">
+                  <OpenAiLogo className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <span className="font-semibold tracking-tight">GPT-4o</span>
+                <p className="text-xs text-muted-foreground mt-1">Fast and accurate but paid</p>
+              </RadioGroupItem>
+
+              <RadioGroupItem
                 value="llama"
                 className={cn(
                   "relative group ring-[1px] ring-border rounded-lg py-4 px-4 text-start h-auto w-auto",
@@ -104,27 +125,6 @@ export function SettingsView({
                 </div>
                 <span className="font-semibold tracking-tight">Llama 3.2</span>
                 <p className="text-xs text-muted-foreground mt-1">Free but slower and less accurate</p>
-              </RadioGroupItem>
-
-              <RadioGroupItem
-                value="openai"
-                className={cn(
-                  "relative group ring-[1px] ring-border rounded-lg py-4 px-4 text-start h-auto w-auto",
-                  "data-[state=checked]:bg-accent data-[state=checked]:text-accent-foreground data-[state=checked]:ring-2 data-[state=checked]:ring-primary",
-                  "hover:bg-transparent"
-                )}
-              >
-                <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 h-5 w-5 rounded-full bg-background flex items-center justify-center group-data-[state=unchecked]:hidden">
-                  <CheckCircle 
-                    className="h-5 w-5 text-primary fill-primary stroke-background" 
-                    weight="fill"
-                  />
-                </div>
-                <div className="flex items-center gap-2 mb-2.5">
-                  <OpenAiLogo className="h-4 w-4 text-muted-foreground" />
-                </div>
-                <span className="font-semibold tracking-tight">GPT-4o</span>
-                <p className="text-xs text-muted-foreground mt-1">Fast and accurate but paid</p>
               </RadioGroupItem>
             </RadioGroup>
             

@@ -253,8 +253,8 @@ function App() {
       }
     }
 
-    // Only check model status when settings are opened and Llama is selected
-    if (settingsView && settings.visionProvider === 'llama') {
+    // Check model status when Llama is selected, not just in settings view
+    if (settings.visionProvider === 'llama') {
       checkModel()
       
       // Set up polling if model is not installed
@@ -269,7 +269,7 @@ function App() {
     } else {
       setLlamaModelStatus(null)
     }
-  }, [settings.visionProvider, settingsView, llamaModelStatus?.installed])
+  }, [settings.visionProvider, llamaModelStatus?.installed])
 
   // Add this function to handle copy with animation
   const handleCopyCommand = async () => {
@@ -368,20 +368,34 @@ function App() {
 
           {/* Tasks List */}
           <div className="space-y-4">
-            {(!apiKey || tasks.length === 0) && !showNewJobForm && !editingJobId && !settingsView && (
-              <WelcomeView
-                apiKey={apiKey}
-                settingsView={settingsView}
-                setSettingsView={setSettingsView}
-                setShowNewJobForm={setShowNewJobForm}
-                setNewJob={setNewJob}
-                settings={settings}
-                updateAvailable={updateAvailable}
-                updateDownloaded={updateDownloaded}
-                checkingForUpdate={checkingForUpdate}
-                checkForUpdates={checkForUpdates}
-                installUpdate={installUpdate}
-              />
+            {!showNewJobForm && !editingJobId && !settingsView && (
+              <>
+                {/* Show WelcomeView when there are no tasks, regardless of AI configuration */}
+                {tasks.length === 0 && (
+                  <WelcomeView
+                    apiKey={apiKey}
+                    settingsView={settingsView}
+                    setSettingsView={setSettingsView}
+                    setShowNewJobForm={setShowNewJobForm}
+                    setNewJob={setNewJob}
+                    settings={settings}
+                    updateAvailable={updateAvailable}
+                    updateDownloaded={updateDownloaded}
+                    checkingForUpdate={checkingForUpdate}
+                    checkForUpdates={checkForUpdates}
+                    installUpdate={installUpdate}
+                    llamaModelStatus={llamaModelStatus}
+                  />
+                )}
+
+                {/* Show TaskList when there are tasks */}
+                {tasks.length > 0 && (
+                  <TaskList
+                    tasks={tasks}
+                    onTaskClick={startEditingTask}
+                  />
+                )}
+              </>
             )}
 
             {/* When in edit mode or creating a new task, only show that form */}
@@ -544,14 +558,6 @@ function App() {
                 }}
                 onCopyCommand={handleCopyCommand}
               />
-            ) : !showNewJobForm && apiKey ? (
-              // When not in edit mode, settings, or creating new task, and API key exists, show tasks list
-              tasks.length > 0 && (
-                <TaskList
-                  tasks={tasks}
-                  onTaskClick={startEditingTask}
-                />
-              )
             ) : null }
 
             {/* New Task Form (only shown when not editing any task) */}
