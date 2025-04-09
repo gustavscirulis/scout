@@ -399,6 +399,7 @@ function App() {
                     updateExistingTask(editingJobId, data);
                   }
                 }}
+                task={tasks.find(task => task.id === editingJobId)}
               />
             ) : !showNewJobForm && settingsView ? (
               <SettingsView

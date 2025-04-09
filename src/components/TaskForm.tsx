@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { TimeInput } from './ui/time-input'
 import { Tabs, TabsList, TabsTrigger } from './ui/tabs'
 import { validateUrl } from '../lib/utils'
+import { Task } from '../lib/storage/tasks'
 
 // Function to format time in a simple "ago" format
 const formatTimeAgo = (date: Date): string => {
@@ -60,6 +61,7 @@ interface TaskFormProps {
   onFormChange: (data: JobFormData) => void;
   onTest: (data: JobFormData) => void;
   onSave: (data: JobFormData) => void;
+  task?: Task; // Add task prop for editing mode
 }
 
 export function TaskForm({
@@ -68,18 +70,44 @@ export function TaskForm({
   loading,
   onFormChange,
   onTest,
-  onSave
+  onSave,
+  task
 }: TaskFormProps) {
   const [urlError, setUrlError] = useState<string | null>(null);
-  const [prevCriteria, setPrevCriteria] = useState(formData.notificationCriteria);
 
-  // Track criteria changes to know when test results are no longer valid
-  useEffect(() => {
-    // Just update the previous criteria value
-    if (formData.notificationCriteria !== prevCriteria) {
-      setPrevCriteria(formData.notificationCriteria);
+  // Get the latest result to display
+  const getLatestResult = (): TestResult | null => {
+    // If we have a test result, use that
+    if (testResult) {
+      return testResult;
     }
-  }, [formData.notificationCriteria, prevCriteria]);
+
+    // If we're editing a task and the current values match the task's values, show the latest result
+    if (task && 
+        formData.websiteUrl === task.websiteUrl && 
+        formData.notificationCriteria === task.notificationCriteria) {
+      // Prefer test result if available
+      if (task.lastTestResult) {
+        return {
+          result: task.lastTestResult.result,
+          matched: task.lastTestResult.matched,
+          timestamp: task.lastTestResult.timestamp ? new Date(task.lastTestResult.timestamp) : undefined,
+          screenshot: task.lastTestResult.screenshot
+        };
+      }
+      // Fall back to regular run result
+      else if (task.lastResult && task.lastRun) {
+        return {
+          result: task.lastResult,
+          matched: task.lastMatchedCriteria,
+          timestamp: task.lastRun,
+          screenshot: undefined
+        };
+      }
+    }
+
+    return null;
+  };
 
   const handleUrlChange = (e: ChangeEvent<HTMLInputElement>) => {
     const url = e.target.value;
@@ -114,6 +142,8 @@ export function TaskForm({
       analysisPrompt: analysisPrompt
     });
   };
+
+  const latestResult = getLatestResult();
 
   return (
     <div className="flex flex-col h-full min-h-[calc(100vh-3rem)]">
@@ -225,19 +255,19 @@ export function TaskForm({
           </div>
           
           {/* Task Results */}
-          {(testResult || loading) && (
+          {(latestResult || loading) && (
             <div className="mt-6">
               <label className="text-sm font-medium mb-2 block">Result</label>
-              {testResult && (
+              {latestResult && (
                 <div className="animate-in">
-                  {testResult.screenshot && (
+                  {latestResult.screenshot && (
                     <div 
                       className="border border-input rounded-md overflow-hidden hover:shadow-md relative group transition-shadow duration-200"
                       onClick={async (e) => {
                         e.stopPropagation();
                         try {
                           const { ipcRenderer } = window.require('electron')
-                          await ipcRenderer.invoke('open-image-preview', testResult.screenshot)
+                          await ipcRenderer.invoke('open-image-preview', latestResult.screenshot)
                         } catch (error) {
                           console.error('Error opening image preview:', error)
                         }
@@ -245,19 +275,19 @@ export function TaskForm({
                       title="Click to enlarge"
                     >
                       <img 
-                        src={testResult.screenshot} 
+                        src={latestResult.screenshot} 
                         alt="Screenshot of website" 
                         className="w-full h-auto" 
                       />
                       <div className="px-3 py-2 text-xs text-muted-foreground bg-accent border-t border-input">
                         <div className="flex flex-col">
-                          <div className="text-sm text-foreground mb-1">{testResult.result}</div>
-                          {testResult.timestamp && (
+                          <div className="text-sm text-foreground mb-1">{latestResult.result}</div>
+                          {latestResult.timestamp && (
                             <div className="flex items-center text-xs">
-                              {testResult.matched !== undefined && (
+                              {latestResult.matched !== undefined && (
                                 <>
-                                  <span className={testResult.matched ? "text-green-600 dark:text-green-500 font-medium flex items-center" : "text-neutral-500 dark:text-neutral-400 font-medium flex items-center"}>
-                                    {testResult.matched ? (
+                                  <span className={latestResult.matched ? "text-green-600 dark:text-green-500 font-medium flex items-center" : "text-neutral-500 dark:text-neutral-400 font-medium flex items-center"}>
+                                    {latestResult.matched ? (
                                       <>
                                         <Check className="w-3 h-3 mr-1 text-green-500" weight="bold" />
                                         Matched
@@ -272,7 +302,7 @@ export function TaskForm({
                                   <span className="mx-1.5 text-muted-foreground/40">•</span>
                                 </>
                               )}
-                              <span className="text-muted-foreground/70">{formatTimeAgo(testResult.timestamp)}</span>
+                              <span className="text-muted-foreground/70">{formatTimeAgo(latestResult.timestamp)}</span>
                             </div>
                           )}
                         </div>
@@ -312,10 +342,11 @@ export function TaskForm({
         <Button
           variant="default"
           onClick={() => {
-            // If criteria has changed and there are test results, 
-            // don't pass them when saving as they're no longer valid
-            if (formData.notificationCriteria !== prevCriteria && testResult) {
-              // Create a wrapper save function that clears test results
+            // If we're editing and values have changed, don't pass test results
+            if (task && 
+                (formData.websiteUrl !== task.websiteUrl || 
+                 formData.notificationCriteria !== task.notificationCriteria) && 
+                testResult) {
               onSave({
                 ...formData
               });
