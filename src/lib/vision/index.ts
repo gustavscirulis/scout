@@ -24,47 +24,18 @@ Return your response in this JSON format:
   "criteriaMatched": true/false
 }`;
   
-  const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "user",
-          content: [
-            { type: "text", text: promptText },
-            {
-              type: "image_url",
-              image_url: {
-                url: screenshot,
-                detail: "high"
-              }
-            }
-          ]
-        }
-      ],
-      max_tokens: 1000,
-      temperature: 0.7,
-      response_format: { type: "json_object" }
-    })
-  })
-
-  if (!openaiResponse.ok) {
-    const errorData = await openaiResponse.json().catch(() => ({}))
-    throw new Error(errorData.error?.message || 'Failed to analyze website')
-  }
-
-  const data = await openaiResponse.json()
-  const resultContent = data.choices[0].message.content
+  const { ipcRenderer } = window.require('electron');
   
   try {
-    return JSON.parse(resultContent)
+    const resultContent = await ipcRenderer.invoke('call-openai-api', {
+      apiKey,
+      prompt: promptText,
+      screenshot
+    });
+    
+    return JSON.parse(resultContent);
   } catch (error) {
-    throw new Error(`Failed to parse OpenAI response: ${error}`)
+    throw new Error(`Failed to analyze with OpenAI: ${error}`);
   }
 }
 

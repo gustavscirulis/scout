@@ -534,6 +534,25 @@ ipcMain.handle('take-screenshot', async (_event, url: string) => {
     // Allow time for page content to render
     await new Promise(resolve => setTimeout(resolve, 2000))
 
+    // Get the full height of the page
+    const fullHeight = await offscreenWindow.webContents.executeJavaScript(`
+      Math.max(
+        document.documentElement.scrollHeight,
+        document.documentElement.offsetHeight,
+        document.documentElement.clientHeight
+      )
+    `)
+
+    // Set a maximum height of 5000 pixels
+    const maxHeight = 5000;
+    const height = Math.min(fullHeight, maxHeight);
+
+    // Resize window to match height (with max limit)
+    offscreenWindow.setSize(1920, height)
+
+    // Wait a moment for resize to take effect
+    await new Promise(resolve => setTimeout(resolve, 500))
+
     const image = await offscreenWindow.webContents.capturePage()
     const pngBuffer = await image.toPNG()
     const base64Image = pngBuffer.toString('base64')
@@ -885,6 +904,57 @@ ipcMain.handle('check-llama-model', async () => {
     }
   }
 })
+
+// Handle OpenAI API calls
+ipcMain.handle('call-openai-api', async (_event, params: { 
+  apiKey: string, 
+  prompt: string, 
+  screenshot: string 
+}) => {
+  const { apiKey, prompt, screenshot } = params;
+  
+  try {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: prompt },
+              {
+                type: "image_url",
+                image_url: {
+                  url: screenshot,
+                  detail: "high"
+                }
+              }
+            ]
+          }
+        ],
+        max_tokens: 1000,
+        temperature: 0.7,
+        response_format: { type: "json_object" }
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error?.message || 'Failed to analyze website');
+    }
+
+    const data = await response.json();
+    return data.choices[0].message.content;
+  } catch (error) {
+    console.error('OpenAI API error:', error);
+    throw error;
+  }
+});
 
 app.whenReady().then(() => {
   createWindow()
