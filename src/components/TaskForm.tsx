@@ -305,7 +305,7 @@ export function TaskForm({
           variant="outline"
           onClick={() => onTest(formData)}
           disabled={!formData.websiteUrl || !formData.notificationCriteria || loading}
-          className="h-8 w-24"
+          className="h-8 w-24 bg-header hover:bg-header/90"
         >
           {loading ? 'Testing...' : 'Test'}
         </Button>
