@@ -7,7 +7,13 @@ import { useStore } from '../lib/stores/useStore'
 type RunAnalysisFunction = (task: Task) => Promise<void>
 
 export const useTaskManagement = (runAnalysis: RunAnalysisFunction) => {
-  const { tasks, setTasks } = useStore()
+  const { 
+    tasks, 
+    setTasks, 
+    setNewJob, 
+    resetNewJobForm,
+    setTestResult 
+  } = useStore()
   const pollingInterval = useRef<NodeJS.Timeout | null>(null)
   const POLLING_INTERVAL = 60 * 1000 // check every minute
 
@@ -153,6 +159,7 @@ export const useTaskManagement = (runAnalysis: RunAnalysisFunction) => {
     try {
       await deleteTask(taskId)
       setTasks(tasks.filter(t => t.id !== taskId))
+      resetNewJobForm()
       signals.taskDeleted()
     } catch (error) {
       console.error(`Failed to remove task ${taskId}:`, error)
