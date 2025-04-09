@@ -89,8 +89,17 @@ export function TaskForm({
 
       // Handle cmd+enter (macOS) or ctrl+enter (Windows/Linux)
       if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-        // Only save if the form is valid
-        if (formData.websiteUrl && formData.notificationCriteria && !loading) {
+        // Validate URL before saving
+        if (formData.websiteUrl) {
+          const validation = validateUrl(formData.websiteUrl);
+          if (!validation.isValid) {
+            setUrlError(validation.message || 'Invalid URL');
+            return;
+          }
+        }
+
+        // Only save if the form is valid and there are no validation errors
+        if (formData.websiteUrl && formData.notificationCriteria && !loading && !urlError) {
           // If we're editing and values have changed, don't pass test results
           if (task && 
               (formData.websiteUrl !== task.websiteUrl || 
@@ -108,7 +117,7 @@ export function TaskForm({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [formData, task, testResult, loading, onSave, onBack]);
+  }, [formData, task, testResult, loading, onSave, onBack, urlError]);
 
   // Get the latest result to display
   const getLatestResult = (): TestResult | null => {
@@ -177,6 +186,32 @@ export function TaskForm({
   };
 
   const latestResult = getLatestResult();
+
+  const validateAndSave = () => {
+    // Validate URL before saving
+    if (formData.websiteUrl) {
+      const validation = validateUrl(formData.websiteUrl);
+      if (!validation.isValid) {
+        setUrlError(validation.message || 'Invalid URL');
+        return;
+      }
+    }
+
+    // Only save if there are no validation errors
+    if (!urlError) {
+      // If we're editing and values have changed, don't pass test results
+      if (task && 
+          (formData.websiteUrl !== task.websiteUrl || 
+           formData.notificationCriteria !== task.notificationCriteria) && 
+          testResult) {
+        onSave({
+          ...formData
+        });
+      } else {
+        onSave(formData);
+      }
+    }
+  };
 
   return (
     <div className="flex flex-col h-full min-h-[calc(100vh-3rem)]">
@@ -367,27 +402,15 @@ export function TaskForm({
         <Button
           variant="outline"
           onClick={() => onTest(formData)}
-          disabled={!formData.websiteUrl || !formData.notificationCriteria || loading}
+          disabled={!formData.websiteUrl || !formData.notificationCriteria || loading || !!urlError}
           className="h-8 w-24 bg-header hover:bg-header/90"
         >
           {loading ? 'Testing...' : 'Test'}
         </Button>
         <Button
           variant="default"
-          onClick={() => {
-            // If we're editing and values have changed, don't pass test results
-            if (task && 
-                (formData.websiteUrl !== task.websiteUrl || 
-                 formData.notificationCriteria !== task.notificationCriteria) && 
-                testResult) {
-              onSave({
-                ...formData
-              });
-            } else {
-              onSave(formData);
-            }
-          }}
-          disabled={!formData.websiteUrl || !formData.notificationCriteria || loading}
+          onClick={validateAndSave}
+          disabled={!formData.websiteUrl || !formData.notificationCriteria || loading || !!urlError}
           className="h-8 w-24"
         >
           Save
