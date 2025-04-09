@@ -58,12 +58,10 @@ import { useStore } from './lib/stores/useStore'
 type NewJobFormData = JobFormData
 
 function App() {
-  const { theme } = useTheme()
   const { 
     updateAvailable,
     updateDownloaded,
     checkingForUpdate,
-    updateError,
     checkForUpdates,
     installUpdate
   } = useUpdates()
