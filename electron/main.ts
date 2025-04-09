@@ -324,6 +324,14 @@ function createWindow() {
     fullscreenable: false
   })
 
+  // Handle window close event
+  mainWindow.on('close', (event) => {
+    // Prevent the window from actually closing
+    event.preventDefault()
+    // Just hide it instead
+    mainWindow?.hide()
+  })
+
   // Send theme info to renderer
   mainWindow.webContents.on('did-finish-load', () => {
     mainWindow?.webContents.send('system-theme', {
