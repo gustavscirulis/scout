@@ -40,6 +40,11 @@
   a {
     cursor: pointer !important;
   }
+
+  /* Ensure radio groups and their items use default cursor */
+  [role="radiogroup"], [role="radio"] {
+    cursor: default !important;
+  }
 }
 
 @layer utilities {
