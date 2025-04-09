@@ -97,7 +97,23 @@ export function WelcomeView({
       </div>
       
       <div className="w-full overflow-hidden border rounded-lg shadow-sm -webkit-app-region-no-drag mb-8">
-        <div className={`bg-accent p-4 text-left flex items-start border-b ${!setupState.isConfigured ? 'opacity-70' : ''}`}>
+        <div 
+          className={`bg-accent p-4 text-left flex items-start border-b ${!setupState.isConfigured ? 'opacity-70' : ''} ${setupState.isConfigured ? 'cursor-pointer hover:bg-accent/80 transition-colors' : ''}`}
+          onClick={() => {
+            if (setupState.isConfigured) {
+              setNewJob({
+                websiteUrl: '',
+                notificationCriteria: 'the price of [product name] is below [target price]',
+                analysisPrompt: 'Analyze this webpage to determine if the following is true: "the price of [product name] is below [target price]". Check elements like prices, availability, text content, and other visible information.',
+                frequency: 'daily',
+                scheduledTime: '09:00',
+                dayOfWeek: 'mon',
+                visionProvider: settings.visionProvider
+              });
+              setShowNewJobForm(true);
+            }
+          }}
+        >
           <ShoppingBag size={18} className="text-primary mr-3 mt-0.5 flex-shrink-0" />
           <div>
             <div className="font-medium text-sm">Price drops</div>
@@ -107,17 +123,49 @@ export function WelcomeView({
           </div>
         </div>
         
-        <div className={`bg-accent p-4 text-left flex items-start border-b ${!setupState.isConfigured ? 'opacity-70' : ''}`}>
+        <div 
+          className={`bg-accent p-4 text-left flex items-start border-b ${!setupState.isConfigured ? 'opacity-70' : ''} ${setupState.isConfigured ? 'cursor-pointer hover:bg-accent/80 transition-colors' : ''}`}
+          onClick={() => {
+            if (setupState.isConfigured) {
+              setNewJob({
+                websiteUrl: '',
+                notificationCriteria: 'size [your size] is available for [product name]',
+                analysisPrompt: 'Analyze this webpage to determine if the following is true: "size [your size] is available for [product name]". Check elements like prices, availability, text content, and other visible information.',
+                frequency: 'daily',
+                scheduledTime: '09:00',
+                dayOfWeek: 'mon',
+                visionProvider: settings.visionProvider
+              });
+              setShowNewJobForm(true);
+            }
+          }}
+        >
           <Ticket size={18} className="text-primary mr-3 mt-0.5 flex-shrink-0" />
           <div>
             <div className="font-medium text-sm">Back in stock</div>
             <div className="text-xs text-muted-foreground mt-0.5">
-              e.g. concert tickets become available
+              e.g. your shoe size becomes available
             </div>
           </div>
         </div>
         
-        <div className={`bg-accent p-4 text-left flex items-start ${!setupState.isConfigured ? 'opacity-70' : ''}`}>
+        <div 
+          className={`bg-accent p-4 text-left flex items-start ${!setupState.isConfigured ? 'opacity-70' : ''} ${setupState.isConfigured ? 'cursor-pointer hover:bg-accent/80 transition-colors' : ''}`}
+          onClick={() => {
+            if (setupState.isConfigured) {
+              setNewJob({
+                websiteUrl: '',
+                notificationCriteria: 'a [job title] position is available in [location]',
+                analysisPrompt: 'Analyze this webpage to determine if the following is true: "a [job title] position is available in [location]". Check elements like prices, availability, text content, and other visible information.',
+                frequency: 'daily',
+                scheduledTime: '09:00',
+                dayOfWeek: 'mon',
+                visionProvider: settings.visionProvider
+              });
+              setShowNewJobForm(true);
+            }
+          }}
+        >
           <Briefcase size={18} className="text-primary mr-3 mt-0.5 flex-shrink-0" />
           <div>
             <div className="font-medium text-sm">New content</div>
