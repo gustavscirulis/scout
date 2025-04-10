@@ -68,7 +68,7 @@ export function SettingsView({
         <div className="px-8 pt-6 space-y-8">
           {/* Vision Provider section */}
           <fieldset className="space-y-3">
-            <legend className="text-sm font-medium">AI Model</legend>
+            <legend className="text-sm font-medium">AI model</legend>
             
             <RadioGroup
               value={settings.visionProvider}
@@ -211,7 +211,7 @@ export function SettingsView({
               <fieldset className="space-y-3">
                 <div className="flex flex-col">
                   <label htmlFor="apiKey" className="text-sm font-medium mb-1.5">
-                    OpenAI API Key
+                    OpenAI API key
                   </label>
                   <Input
                     id="apiKey"
@@ -289,6 +289,36 @@ export function SettingsView({
             )}
           </fieldset>
           
+          {/* Screenshot Settings */}
+          <fieldset className="space-y-3">
+            <legend className="text-sm font-medium mb-0">Max height for screenshots</legend>
+            <p className="text-[0.8rem] text-muted-foreground">
+                Taller screenshots can improve accuracy but will consume more tokens during analysis.
+              </p>
+            <div className="flex flex-col">
+              <div className="flex items-center w-32 gap-2">
+                <Input
+                  id="maxScreenshotHeight"
+                  type="number"
+                  value={settings.maxScreenshotHeight}
+                  onChange={(e) => {
+                    const value = parseInt(e.target.value);
+                    if (!isNaN(value) && value >= 1000 && value <= 10000) {
+                      onSettingsChange({
+                        ...settings,
+                        maxScreenshotHeight: value
+                      });
+                    }
+                  }}
+                  min={1000}
+                  max={10000}
+                  step={100}
+                />
+                <span className="text-sm text-muted-foreground">pixels</span>
+              </div>
+            </div>
+          </fieldset>
+          
           {(() => {
             // Check if app is in development mode
             try {
@@ -300,7 +330,7 @@ export function SettingsView({
                 return (
                   <>
                     <fieldset className="space-y-3">
-                      <legend className="text-sm font-medium">Window Options</legend>
+                      <legend className="text-sm font-medium">Window options</legend>
                       
                       <div className="items-top flex space-x-2">
                         <Checkbox

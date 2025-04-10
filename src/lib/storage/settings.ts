@@ -1,6 +1,7 @@
 // Available settings keys and default values
 const defaultSettings = {
-  visionProvider: 'openai' as 'openai' | 'llama'
+  visionProvider: 'openai' as 'openai' | 'llama',
+  maxScreenshotHeight: 5000
 }
 
 export interface Settings {
@@ -13,6 +14,7 @@ export interface Settings {
   notificationDuration: number;
   notificationPosition: 'bottom-right' | 'top-right' | 'bottom-left' | 'top-left';
   windowFloating: boolean;
+  maxScreenshotHeight: number;
 }
 
 // Get all settings from electron store

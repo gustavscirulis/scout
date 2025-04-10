@@ -543,9 +543,10 @@ ipcMain.handle('take-screenshot', async (_event, url: string) => {
       )
     `)
 
-    // Set a maximum height of 5000 pixels
-    const maxHeight = 5000;
-    const height = Math.min(fullHeight, maxHeight);
+    // Get max height from settings
+    const settings = store.get('settings') || { maxScreenshotHeight: 5000 }
+    const maxHeight = settings.maxScreenshotHeight || 5000
+    const height = Math.min(fullHeight, maxHeight)
 
     // Resize window to match height (with max limit)
     offscreenWindow.setSize(1920, height)
