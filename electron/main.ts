@@ -304,7 +304,7 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 350,
     height: 634,
-    show: false,
+    show: false, // Don't show initially
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
@@ -390,13 +390,13 @@ function createWindow() {
     mainWindow.loadFile(indexPath)
   }
   
-  // Make sure the window is positioned correctly before showing
+  // Show window only after content is loaded and positioned correctly
   mainWindow.once('ready-to-show', () => {
     if (tray) {
       const position = getWindowPosition();
       mainWindow?.setPosition(position.x, position.y);
     }
-    // Don't show initially - wait for tray click
+    mainWindow?.show();
   })
 
   // Add window focus handler
