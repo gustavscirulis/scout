@@ -82,6 +82,16 @@
     -webkit-user-select: text;
     user-select: text;
   }
+
+  /* Remove spinners from number inputs */
+  input[type="number"].no-spin::-webkit-inner-spin-button,
+  input[type="number"].no-spin::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type="number"].no-spin {
+    -moz-appearance: textfield;
+  }
 }
 
 @keyframes fade-in {

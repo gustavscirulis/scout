@@ -62,10 +62,17 @@ export function SettingsView({
     installUpdate
   } = useUpdates()
 
+  const [screenshotHeight, setScreenshotHeight] = useState(settings.maxScreenshotHeight.toString());
+
+  // Update local state when settings change
+  useEffect(() => {
+    setScreenshotHeight(settings.maxScreenshotHeight.toString());
+  }, [settings.maxScreenshotHeight]);
+
   return (
     <div className="flex flex-col h-full min-h-[calc(100vh-3rem)] animate-in">
       <div className="flex-1 overflow-auto">
-        <div className="px-8 pt-6 space-y-8">
+        <div className="px-8 pt-6 space-y-8 pb-6">
           {/* Vision Provider section */}
           <fieldset className="space-y-3">
             <legend className="text-sm font-medium">AI model</legend>
@@ -261,6 +268,47 @@ export function SettingsView({
             </>
           )}
           
+          {/* Screenshot Settings */}
+          <fieldset className="space-y-3">
+            <legend className="text-sm font-medium">Max height for screenshots</legend>
+            <p className="text-[0.8rem] text-muted-foreground" style={{ marginTop: '2px' }}>
+                Taller screenshots can improve accuracy but will consume more tokens during analysis.
+              </p>
+            <div className="flex flex-col">
+              <div className="flex items-center w-32 gap-2">
+                <Input
+                  id="maxScreenshotHeight"
+                  type="number"
+                  value={screenshotHeight}
+                  onChange={(e) => {
+                    setScreenshotHeight(e.target.value);
+                  }}
+                  onBlur={(e) => {
+                    const value = e.target.value;
+                    const numValue = value === '' ? 0 : parseInt(value);
+                    if (!isNaN(numValue)) {
+                      // Clamp the value to min/max range
+                      const clampedValue = Math.min(Math.max(numValue, 800), 10000);
+                      onSettingsChange({
+                        ...settings,
+                        maxScreenshotHeight: clampedValue
+                      });
+                      setScreenshotHeight(clampedValue.toString());
+                    } else {
+                      // Reset to previous valid value if not a number
+                      setScreenshotHeight(settings.maxScreenshotHeight.toString());
+                    }
+                  }}
+                  min={800}
+                  max={10000}
+                  step={100}
+                  className="no-spin"
+                />
+                <span className="text-sm text-muted-foreground">pixels</span>
+              </div>
+            </div>
+          </fieldset>
+          
           {/* Updates section */}
           <fieldset className="space-y-2">
             <legend className="text-sm font-medium">Updates</legend>
@@ -287,36 +335,6 @@ export function SettingsView({
                 Unable to check for updates
               </p>
             )}
-          </fieldset>
-          
-          {/* Screenshot Settings */}
-          <fieldset className="space-y-3">
-            <legend className="text-sm font-medium mb-0">Max height for screenshots</legend>
-            <p className="text-[0.8rem] text-muted-foreground">
-                Taller screenshots can improve accuracy but will consume more tokens during analysis.
-              </p>
-            <div className="flex flex-col">
-              <div className="flex items-center w-32 gap-2">
-                <Input
-                  id="maxScreenshotHeight"
-                  type="number"
-                  value={settings.maxScreenshotHeight}
-                  onChange={(e) => {
-                    const value = parseInt(e.target.value);
-                    if (!isNaN(value) && value >= 1000 && value <= 10000) {
-                      onSettingsChange({
-                        ...settings,
-                        maxScreenshotHeight: value
-                      });
-                    }
-                  }}
-                  min={1000}
-                  max={10000}
-                  step={100}
-                />
-                <span className="text-sm text-muted-foreground">pixels</span>
-              </div>
-            </div>
           </fieldset>
           
           {(() => {
