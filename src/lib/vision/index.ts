@@ -141,6 +141,7 @@ export async function testAnalysis(
   matched?: boolean;
   timestamp: Date;
   screenshot?: string;
+  error?: string;
 }> {
   const { ipcRenderer } = window.require('electron')
   // Ensure URL has protocol prefix for the screenshot function
@@ -153,7 +154,12 @@ export async function testAnalysis(
     screenshot = await ipcRenderer.invoke('take-screenshot', normalizedUrl)
   } catch (error) {
     console.error('Screenshot failed:', error)
-    throw new Error(`Could not capture screenshot from ${normalizedUrl}. Please check if the website is accessible.`)
+    return {
+      result: '',
+      timestamp: new Date(),
+      error: `Could not capture screenshot from ${normalizedUrl}. Please check if the website is accessible.`,
+      screenshot: undefined
+    }
   }
   
   try {
@@ -166,7 +172,12 @@ export async function testAnalysis(
       screenshot
     }
   } catch (error) {
-    throw error
+    return {
+      result: '',
+      timestamp: new Date(),
+      error: error instanceof Error ? error.message : 'Failed to analyze screenshot',
+      screenshot
+    }
   }
 }
 
@@ -178,32 +189,39 @@ export async function runTaskAnalysis(
 ): Promise<{
   result: string;
   matched?: boolean;
-  timestamp: Date;
   screenshot?: string;
+  error?: string;
 }> {
   const { ipcRenderer } = window.require('electron')
-  // Ensure URL has protocol prefix
-  const websiteUrl = (!task.websiteUrl.startsWith('http://') && !task.websiteUrl.startsWith('https://')) 
+  const normalizedUrl = (!task.websiteUrl.startsWith('http://') && !task.websiteUrl.startsWith('https://')) 
     ? `http://${task.websiteUrl}` 
     : task.websiteUrl
-  
+
   let screenshot
   try {
-    screenshot = await ipcRenderer.invoke('take-screenshot', websiteUrl)
+    screenshot = await ipcRenderer.invoke('take-screenshot', normalizedUrl)
   } catch (error) {
-    throw new Error(`Could not capture screenshot from ${websiteUrl}. Please check if the website is accessible.`)
+    console.error('Screenshot failed:', error)
+    return {
+      result: '',
+      error: `Could not capture screenshot from ${normalizedUrl}. Please check if the website is accessible.`,
+      screenshot: undefined
+    }
   }
-
+  
   try {
     const result = await analyzeImage(provider, apiKey, screenshot, task.notificationCriteria)
     
     return {
       result: result.analysis,
       matched: result.criteriaMatched,
-      timestamp: new Date(),
       screenshot
     }
   } catch (error) {
-    throw error
+    return {
+      result: '',
+      error: error instanceof Error ? error.message : 'Failed to analyze screenshot',
+      screenshot
+    }
   }
 }

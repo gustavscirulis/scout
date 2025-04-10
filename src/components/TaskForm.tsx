@@ -53,6 +53,7 @@ interface TestResult {
   matched?: boolean;
   timestamp?: Date;
   screenshot?: string;
+  error?: string;
 }
 
 interface TaskFormProps {
@@ -333,54 +334,74 @@ export function TaskForm({
               <label className="text-sm font-medium mb-2 block">Result</label>
               {latestResult && !loading && (
                 <div className="animate-in">
-                  {latestResult.screenshot && (
-                    <div 
-                      className="border border-input rounded-md overflow-hidden relative group transition-shadow duration-200"
-                      onClick={async (e) => {
-                        e.stopPropagation();
-                        try {
-                          const { ipcRenderer } = window.require('electron')
-                          await ipcRenderer.invoke('open-image-preview', latestResult.screenshot)
-                        } catch (error) {
-                          console.error('Error opening image preview:', error)
-                        }
-                      }}
-                      title="Click to enlarge"
-                    >
-                      <img 
-                        src={latestResult.screenshot} 
-                        alt="Screenshot of website" 
-                        className="w-full h-auto" 
-                      />
-                      <div className="px-3 py-2 text-xs text-muted-foreground bg-accent border-t border-input">
-                        <div className="flex flex-col">
-                          <div className="text-sm text-foreground mb-1">{latestResult.result}</div>
-                          {latestResult.timestamp && (
-                            <div className="flex items-center text-xs">
-                              {latestResult.matched !== undefined && (
-                                <>
-                                  <span className={latestResult.matched ? "text-green-600 dark:text-green-500 font-medium flex items-center" : "text-neutral-500 dark:text-neutral-400 font-medium flex items-center"}>
-                                    {latestResult.matched ? (
-                                      <>
-                                        <Check className="w-3 h-3 mr-1 text-green-500" weight="bold" />
-                                        Matched
-                                      </>
-                                    ) : (
-                                      <>
-                                        <X className="w-3 h-3 mr-1 text-neutral-400" weight="bold" />
-                                        Not matched
-                                      </>
-                                    )}
-                                  </span>
-                                  <span className="mx-1.5 text-muted-foreground/40">•</span>
-                                </>
-                              )}
-                              <span className="text-muted-foreground/70">{formatTimeAgo(latestResult.timestamp)}</span>
-                            </div>
-                          )}
+                  {latestResult.error ? (
+                    <div className="border border-destructive/20 rounded-md overflow-hidden">
+                      <div className="px-3 py-2 text-xs text-muted-foreground bg-destructive/10 border-t border-destructive/20">
+                        <div className="flex items-center text-destructive dark:text-destructive-foreground">
+                          <WarningCircle className="w-3.5 h-3.5 mr-1.5 flex-shrink-0" weight="fill" />
+                          <span className="font-medium">{latestResult.error}</span>
                         </div>
+                        {latestResult.screenshot && (
+                          <div className="mt-2">
+                            <img 
+                              src={latestResult.screenshot} 
+                              alt="Screenshot of website" 
+                              className="w-full h-auto" 
+                            />
+                          </div>
+                        )}
                       </div>
                     </div>
+                  ) : (
+                    latestResult.screenshot && (
+                      <div 
+                        className="border border-input rounded-md overflow-hidden relative group transition-shadow duration-200"
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          try {
+                            const { ipcRenderer } = window.require('electron')
+                            await ipcRenderer.invoke('open-image-preview', latestResult.screenshot)
+                          } catch (error) {
+                            console.error('Error opening image preview:', error)
+                          }
+                        }}
+                        title="Click to enlarge"
+                      >
+                        <img 
+                          src={latestResult.screenshot} 
+                          alt="Screenshot of website" 
+                          className="w-full h-auto" 
+                        />
+                        <div className="px-3 py-2 text-xs text-muted-foreground bg-accent border-t border-input">
+                          <div className="flex flex-col">
+                            <div className="text-sm text-foreground mb-1">{latestResult.result}</div>
+                            {latestResult.timestamp && (
+                              <div className="flex items-center text-xs">
+                                {latestResult.matched !== undefined && (
+                                  <>
+                                    <span className={latestResult.matched ? "text-green-600 dark:text-green-500 font-medium flex items-center" : "text-neutral-500 dark:text-neutral-400 font-medium flex items-center"}>
+                                      {latestResult.matched ? (
+                                        <>
+                                          <Check className="w-3 h-3 mr-1 text-green-500" weight="bold" />
+                                          Matched
+                                        </>
+                                      ) : (
+                                        <>
+                                          <X className="w-3 h-3 mr-1 text-neutral-400" weight="bold" />
+                                          Not matched
+                                        </>
+                                      )}
+                                    </span>
+                                    <span className="mx-1.5 text-muted-foreground/40">•</span>
+                                  </>
+                                )}
+                                <span className="text-muted-foreground/70">{formatTimeAgo(latestResult.timestamp)}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )
                   )}
                 </div>
               )}

@@ -18,6 +18,7 @@ export interface Task {
     matched?: boolean
     timestamp?: string
     screenshot?: string
+    error?: string
   }
 }
 
@@ -124,7 +125,8 @@ export const updateTaskResults = async (
       result: string,
       matched?: boolean,
       timestamp?: string,
-      screenshot?: string
+      screenshot?: string,
+      error?: string
     }
   }
 ): Promise<Task | null> => {

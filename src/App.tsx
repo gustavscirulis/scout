@@ -314,20 +314,21 @@ function App() {
   }
 
   const startEditingTask = (taskId: string) => {
-    const task = tasks.find(t => t.id === taskId);
+    const task = tasks.find(t => t.id === taskId)
     if (task) {
-      setEditingJobId(taskId);
       setNewJob({
         websiteUrl: task.websiteUrl,
         notificationCriteria: task.notificationCriteria,
         analysisPrompt: task.analysisPrompt,
         frequency: task.frequency,
         scheduledTime: task.scheduledTime,
-        dayOfWeek: task.dayOfWeek || 'mon',
+        dayOfWeek: task.dayOfWeek,
         visionProvider: settings.visionProvider
-      } as JobFormData);
+      })
+      setEditingJobId(taskId)
+      setTestResult(null) // Clear any existing test result when switching tasks
     }
-  };
+  }
 
   const testAnalysis = async (taskData: JobFormData) => {
     // Clear any existing test result when starting a new test
