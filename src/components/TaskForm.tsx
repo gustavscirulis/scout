@@ -414,7 +414,7 @@ export function TaskForm({
                     </div>
                     {formData.visionProvider === 'llama' && (
                       <div className="mt-2 text-xs text-muted-foreground">
-                        This might take 1–2 minutes
+                        This might take a few minutes
                       </div>
                     )}
                   </div>
