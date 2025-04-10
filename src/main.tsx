@@ -4,9 +4,6 @@ import App from './App'
 import './index.css'
 import signals from './lib/telemetry'
 
-// Enable dark mode by default
-document.documentElement.classList.add('dark')
-
 // Track app initialization
 signals.appStarted()
 

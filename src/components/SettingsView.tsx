@@ -92,7 +92,7 @@ export function SettingsView({
                 value="openai"
                 className={cn(
                   "relative group ring-[1px] ring-border rounded-lg py-4 px-4 text-start h-auto w-auto",
-                  "data-[state=checked]:bg-accent data-[state=checked]:text-accent-foreground data-[state=checked]:ring-2 data-[state=checked]:ring-primary",
+                  "data-[state=checked]:bg-white dark:data-[state=checked]:bg-accent data-[state=checked]:text-accent-foreground data-[state=checked]:ring-2 data-[state=checked]:ring-primary",
                   "hover:bg-transparent"
                 )}
               >
@@ -113,7 +113,7 @@ export function SettingsView({
                 value="llama"
                 className={cn(
                   "relative group ring-[1px] ring-border rounded-lg py-4 px-4 text-start h-auto w-auto",
-                  "data-[state=checked]:bg-accent data-[state=checked]:text-accent-foreground data-[state=checked]:ring-2 data-[state=checked]:ring-primary",
+                  "data-[state=checked]:bg-white dark:data-[state=checked]:bg-accent data-[state=checked]:text-accent-foreground data-[state=checked]:ring-2 data-[state=checked]:ring-primary",
                   "hover:bg-transparent"
                 )}
               >
@@ -395,7 +395,7 @@ export function SettingsView({
               // Silent fail if electron is not available
             }
           }}
-          className="h-8 w-24"
+          className="h-8 w-24 bg-transparent"
         >
           Quit
         </Button>

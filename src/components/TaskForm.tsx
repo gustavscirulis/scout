@@ -335,7 +335,7 @@ export function TaskForm({
                 <div className="animate-in">
                   {latestResult.screenshot && (
                     <div 
-                      className="border border-input rounded-md overflow-hidden hover:shadow-md relative group transition-shadow duration-200"
+                      className="border border-input rounded-md overflow-hidden relative group transition-shadow duration-200"
                       onClick={async (e) => {
                         e.stopPropagation();
                         try {
