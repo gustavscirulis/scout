@@ -217,9 +217,29 @@ export function SettingsView({
             <>
               <fieldset className="space-y-3">
                 <div className="flex flex-col">
-                  <label htmlFor="apiKey" className="text-sm font-medium mb-1.5">
+                  <label htmlFor="apiKey" className="text-sm font-medium mb-1">
                     OpenAI API key
                   </label>
+                  {!apiKey && hasExistingKey && (
+                    <p className="text-[0.8rem] text-muted-foreground">
+                      Saving with an empty field will remove your API key.
+                    </p>
+                  )}
+                  <p className="text-[0.8rem] text-muted-foreground mb-4">
+                    Get your API key from <a 
+                      href="#" 
+                      onClick={(e) => {
+                        e.preventDefault();
+                        try {
+                          const { shell } = window.require('electron');
+                          shell.openExternal('https://platform.openai.com/api-keys');
+                        } catch (error) {
+                          window.open('https://platform.openai.com/api-keys', '_blank');
+                        }
+                      }}
+                      className="text-primary hover:underline"
+                    >here</a>. Stored locally only.
+                  </p>
                   <Input
                     id="apiKey"
                     type="password"
@@ -242,27 +262,6 @@ export function SettingsView({
                       </p>
                     </div>
                   )}
-                  
-                  {!apiKey && hasExistingKey && (
-                    <p className="text-[0.8rem] text-muted-foreground mt-2">
-                      Saving with an empty field will remove your API key.
-                    </p>
-                  )}
-                  <p className="text-[0.8rem] text-muted-foreground mt-2">
-                    Get your API key from <a 
-                      href="#" 
-                      onClick={(e) => {
-                        e.preventDefault();
-                        try {
-                          const { shell } = window.require('electron');
-                          shell.openExternal('https://platform.openai.com/api-keys');
-                        } catch (error) {
-                          window.open('https://platform.openai.com/api-keys', '_blank');
-                        }
-                      }}
-                      className="text-primary hover:underline"
-                    >here</a>. Stored locally only.
-                  </p>
                 </div>
               </fieldset>
             </>
@@ -270,9 +269,9 @@ export function SettingsView({
           
           {/* Screenshot Settings */}
           <fieldset className="space-y-3">
-            <legend className="text-sm font-medium">Max height for screenshots</legend>
+            <legend className="text-sm font-medium">Screenshot height limit</legend>
             <p className="text-[0.8rem] text-muted-foreground" style={{ marginTop: '2px' }}>
-                Taller screenshots can improve accuracy but will consume more tokens during analysis.
+                Taller screenshots can improve accuracy but use more tokens.
               </p>
             <div className="flex flex-col">
               <div className="flex items-center w-32 gap-2">
