@@ -1,6 +1,6 @@
 # Scout
 
-Scout is a Mac app that monitors websites and notifies you when something changes. Perfect for tracking price drops, restocks, job listings, or any other visible update on a webpage.
+Scout is a simple Mac app that keeps an eye on websites for you. Whether you’re waiting for a price drop, a restock, or a new job listing—Scout uses AI to spot the changes you care about and lets you know when they happen. Just set it and forget it.
 
 | Welcome Screen | Task List | Task Details |
 |:-------------:|:---------:|:------------:|

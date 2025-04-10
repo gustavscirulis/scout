@@ -1,11 +1,10 @@
 {
   "name": "Scout",
   "private": true,
-  "version": "0.1.0",
-  "description": "Scout is a desktop app for managing and analyzing data.",
+  "version": "1.0.0",
+  "description": "Scout is a Mac app that monitors websites for changes like price drops, restocks, or new job postings—and notifies you instantly.",
   "author": {
-    "name": "Gustavs Cirulis",
-    "email": "gustavs.cirulis@gmail.com"
+    "name": "Gustavs Cirulis"
   },
   "main": "dist-electron/main.js",
   "type": "module",
