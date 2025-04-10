@@ -387,6 +387,20 @@ export function SettingsView({
       </div>
       <div className="sticky bottom-0 left-0 right-0 border-t border-border/60 h-12 px-2 flex justify-center items-center gap-3 bg-header">
         <Button
+          variant="outline"
+          onClick={() => {
+            try {
+              const electron = window.require('electron');
+              electron.ipcRenderer.send('quit-app');
+            } catch (error) {
+              // Silent fail if electron is not available
+            }
+          }}
+          className="h-8 w-24"
+        >
+          Quit
+        </Button>
+        <Button
           variant="default"
           onClick={onSave}
           className="h-8 w-24"

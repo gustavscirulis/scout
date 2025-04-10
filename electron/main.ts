@@ -428,6 +428,11 @@ ipcMain.on('close-window', () => {
   }
 })
 
+// Handle quit request from renderer
+ipcMain.on('quit-app', () => {
+  app.quit()
+})
+
 // Handle initial window floating setting from renderer
 ipcMain.on('init-window-floating', (_event, floating: boolean) => {
   windowFloating = floating;
@@ -960,6 +965,15 @@ ipcMain.handle('call-openai-api', async (_event, params: {
 app.whenReady().then(() => {
   createWindow()
   setupAutoUpdater()
+  
+  // Add Cmd+Q handler for macOS
+  if (process.platform === 'darwin') {
+    app.on('before-quit', (event) => {
+      // Allow the quit to proceed
+      event.preventDefault()
+      app.quit()
+    })
+  }
 })
 
 // Clean up any screenshot when app quits
