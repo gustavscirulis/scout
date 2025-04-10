@@ -1,6 +1,6 @@
 # Scout
 
-Scout is a simple Mac app that keeps an eye on websites for you. Whether you’re waiting for a price drop, a restock, or a new job listing—Scout uses AI to spot the changes you care about and lets you know when they happen. Just set it and forget it.
+Scout is a simple Mac app that keeps an eye on websites for you. Whether you're waiting for a price drop, a restock, or a new job listing—Scout uses AI to spot the changes you care about and lets you know when they happen. Just set it and forget it.
 
 | Welcome Screen | Task List | Task Details |
 |:-------------:|:---------:|:------------:|
@@ -21,7 +21,7 @@ Download and install Scout from the [releases page](https://github.com/gustavsci
 
 1. **API key** – You'll need either:  
    - Your OpenAI API key (enter it under Settings), or  
-   - Ollama installed with the Llama 3.2 Vision model  
+   - Ollama installed with the Llama 3.2 Vision model (note: Llama can be resource-intensive and may not work well on all computers)  
 2. **Create a task** – Click the "+" icon to start monitoring a new page  
 3. **Test the task** – Use the "Test" button to verify your condition  
 4. **Save to run automatically** – Tasks run in the background on your chosen schedule
