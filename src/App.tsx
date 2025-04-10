@@ -279,8 +279,8 @@ function App() {
     if (settings.visionProvider === 'llama' || settingsView) {
       checkModel()
       
-      // Set up polling if model is not installed
-      if (!llamaModelStatus?.installed) {
+      // Set up polling if model is not fully ready (either not installed or model not available)
+      if (!llamaModelStatus?.installed || !llamaModelStatus?.hasModel) {
         const pollInterval = setInterval(() => {
           checkModel()
         }, 5000) // Check every 5 seconds
@@ -291,7 +291,7 @@ function App() {
     } else {
       setLlamaModelStatus(null)
     }
-  }, [settings.visionProvider, llamaModelStatus?.installed, settingsView])
+  }, [settings.visionProvider, llamaModelStatus?.installed, llamaModelStatus?.hasModel, settingsView])
 
   // Update previous status when Llama status changes
   useEffect(() => {
