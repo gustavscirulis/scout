@@ -2,7 +2,7 @@
   "name": "Scout",
   "private": true,
   "version": "0.0.9",
-  "description": "Scout is a Mac app that monitors websites for changes like price drops, restocks, or new job postings—and notifies you instantly.",
+  "description": "Scout is a Mac app that monitors websites for changes and notifies you about them (e.g. price drops, restocks, or new job postings).",
   "author": {
     "name": "Gustavs Cirulis"
   },

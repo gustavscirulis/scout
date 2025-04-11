@@ -527,6 +527,8 @@ ipcMain.handle('take-screenshot', async (_event, url: string) => {
   )
 
   try {
+    console.log(`[Screenshot] Attempting to capture ${url}`)
+    
     // Set a load timeout in case the page hangs
     const loadPromise = offscreenWindow.loadURL(url)
     
@@ -535,6 +537,8 @@ ipcMain.handle('take-screenshot', async (_event, url: string) => {
       loadPromise,
       new Promise((_, reject) => setTimeout(() => reject(new Error('Page load timeout')), 15000))
     ])
+    
+    console.log('[Screenshot] Page loaded successfully')
     
     // Allow time for page content to render
     await new Promise(resolve => setTimeout(resolve, 2000))
@@ -553,20 +557,24 @@ ipcMain.handle('take-screenshot', async (_event, url: string) => {
     const maxHeight = settings.maxScreenshotHeight || 5000
     const height = Math.min(fullHeight, maxHeight)
 
+    console.log(`[Screenshot] Setting window size to 1920x${height}`)
+    
     // Resize window to match height (with max limit)
     offscreenWindow.setSize(1920, height)
 
     // Wait a moment for resize to take effect
     await new Promise(resolve => setTimeout(resolve, 500))
 
+    console.log('[Screenshot] Capturing page')
     const image = await offscreenWindow.webContents.capturePage()
     const pngBuffer = await image.toPNG()
     const base64Image = pngBuffer.toString('base64')
     const screenshot = `data:image/png;base64,${base64Image}`
     
+    console.log('[Screenshot] Successfully captured and encoded image')
     return screenshot
   } catch (error) {
-    console.error('Screenshot error:', error)
+    console.error('[Screenshot] Error during capture:', error)
     throw error
   } finally {
     offscreenWindow.close()

@@ -38,11 +38,13 @@ export const useTaskManagement = (runAnalysis: RunAnalysisFunction) => {
     const [hours, minutes] = task.scheduledTime.split(':').map(Number)
     const now = new Date()
     const next = new Date()
+    
+    // Set the time in the local timezone
     next.setHours(hours, minutes, 0, 0)
 
     if (task.frequency === 'hourly') {
       if (next <= now) {
-        next.setHours(next.getHours() + 1);
+        next.setHours(next.getHours() + 1)
       }
     } else if (task.frequency === 'daily') {
       if (next <= now) {
@@ -87,41 +89,60 @@ export const useTaskManagement = (runAnalysis: RunAnalysisFunction) => {
   }
 
   const startTaskPolling = () => {
+    console.log('[Task Polling] Starting polling with interval:', POLLING_INTERVAL, 'ms')
     if (pollingInterval.current) {
+      console.log('[Task Polling] Clearing existing polling interval')
       clearInterval(pollingInterval.current)
     }
-
-    pollingInterval.current = setInterval(async () => {
-      await checkTasksToRun()
-    }, POLLING_INTERVAL)
+    pollingInterval.current = setInterval(checkTasksToRun, POLLING_INTERVAL)
+    console.log('[Task Polling] Polling started successfully')
   }
 
   const checkTasksToRun = async () => {
     try {
+      console.log('[Task Polling] Checking for tasks to run at', new Date().toISOString())
       const loadedTasks = await getAllTasks()
       setTasks(loadedTasks)
       
       const now = new Date()
       const runningTasks = loadedTasks.filter(t => t.isRunning)
       
-      if (runningTasks.length === 0) return
+      if (runningTasks.length === 0) {
+        console.log('[Task Polling] No running tasks found')
+        return
+      }
+      
+      console.log(`[Task Polling] Found ${runningTasks.length} running tasks`)
       
       for (const task of runningTasks) {
+        console.log(`[Task Polling] Checking task ${task.id}:`, {
+          frequency: task.frequency,
+          nextScheduledRun: task.nextScheduledRun,
+          lastRun: task.lastRun
+        })
+        
         if (task.nextScheduledRun) {
           const nextRun = new Date(task.nextScheduledRun)
-          if (nextRun <= now) {
+          // Compare dates in the same timezone
+          if (nextRun.getTime() <= now.getTime()) {
+            console.log(`[Task Polling] Task ${task.id} is due to run (scheduled for ${nextRun.toISOString()})`)
             await runAnalysis(task)
             const nextRunTime = getNextRunTime(task)
             await updateTaskNextRunTime(task.id, nextRunTime)
+          } else {
+            console.log(`[Task Polling] Task ${task.id} not due yet (next run: ${nextRun.toISOString()})`)
           }
         } else if (checkForMissedRuns(task)) {
+          console.log(`[Task Polling] Task ${task.id} has missed runs, running now`)
           await runAnalysis(task)
           const nextRunTime = getNextRunTime(task)
           await updateTaskNextRunTime(task.id, nextRunTime)
+        } else {
+          console.log(`[Task Polling] Task ${task.id} has no next run time and no missed runs`)
         }
       }
     } catch (error) {
-      console.error('Failed to check tasks:', error)
+      console.error('[Task Polling] Failed to check tasks:', error)
     }
   }
 
@@ -166,6 +187,17 @@ export const useTaskManagement = (runAnalysis: RunAnalysisFunction) => {
 
   const createNewTask = async (taskData: TaskFormData, testResult: any) => {
     try {
+      const nextRunTime = getNextRunTime({
+        ...taskData,
+        id: '', // temporary ID for calculation
+        isRunning: true,
+        lastRun: undefined,
+        nextScheduledRun: undefined,
+        lastResult: undefined,
+        lastMatchedCriteria: undefined,
+        lastTestResult: undefined
+      })
+
       const newTask: Task = {
         id: self.crypto.randomUUID(),
         websiteUrl: taskData.websiteUrl,
@@ -176,7 +208,7 @@ export const useTaskManagement = (runAnalysis: RunAnalysisFunction) => {
         dayOfWeek: taskData.dayOfWeek,
         isRunning: true,
         lastRun: undefined,
-        nextScheduledRun: undefined,
+        nextScheduledRun: nextRunTime,
         lastResult: testResult?.result,
         lastMatchedCriteria: testResult?.matched,
         lastTestResult: testResult ? {
@@ -190,9 +222,6 @@ export const useTaskManagement = (runAnalysis: RunAnalysisFunction) => {
       const savedTask = await addTask(newTask)
       setTasks([...tasks, savedTask])
       signals.taskCreated()
-
-      const nextRunTime = getNextRunTime(savedTask)
-      await updateTaskNextRunTime(savedTask.id, nextRunTime)
     } catch (error) {
       console.error('Failed to create new task:', error)
       throw error
