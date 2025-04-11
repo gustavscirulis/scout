@@ -69,8 +69,7 @@ const defaultNewJob: JobFormData = {
     const now = new Date()
     return `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`
   })(),
-  dayOfWeek: 'mon' as DayOfWeek,
-  visionProvider: 'openai'
+  dayOfWeek: 'mon' as DayOfWeek
 }
 
 export const useStore = create<AppState>()(

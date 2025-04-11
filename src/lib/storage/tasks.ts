@@ -1,4 +1,5 @@
 import { DayOfWeek, RecurringFrequency } from '../../components/TaskForm'
+import { logger } from '../utils/logger'
 
 export interface Task {
   id: string
@@ -153,7 +154,10 @@ export const updateTaskResults = async (
     
     // Double check that critical properties are preserved
     if (!updatedTask.websiteUrl || !updatedTask.notificationCriteria || updatedTask.id !== taskId) {
-      console.error(`Critical task properties missing in update. ID: ${taskId}`)
+      logger.error(`Critical task properties missing in update`, undefined, { 
+        context: 'Task Storage',
+        data: { taskId, updatedTask }
+      })
       return null
     }
     
@@ -161,7 +165,7 @@ export const updateTaskResults = async (
     await updateTask(updatedTask)
     return updatedTask
   } catch (error) {
-    console.error(`Failed to update task results for ${taskId}:`, error)
+    logger.error(`Failed to update task results for ${taskId}`, error as Error, { context: 'Task Storage' })
     return null
   }
 }
@@ -171,7 +175,7 @@ export const toggleTaskRunningState = async (taskId: string, isRunning: boolean)
   try {
     const task = await getTaskById(taskId)
     if (!task) {
-      console.error(`Task with ID ${taskId} not found when toggling running state`)
+      logger.error(`Task with ID ${taskId} not found when toggling running state`, undefined, { context: 'Task Storage' })
       return null
     }
 
@@ -194,14 +198,17 @@ export const toggleTaskRunningState = async (taskId: string, isRunning: boolean)
 
     // Double check that critical properties are preserved
     if (!updatedTask.websiteUrl || !updatedTask.notificationCriteria || updatedTask.id !== taskId) {
-      console.error(`Critical task properties missing when toggling state for task ${taskId}`)
+      logger.error(`Critical task properties missing when toggling state for task ${taskId}`, undefined, { 
+        context: 'Task Storage',
+        data: { taskId, updatedTask }
+      })
       return null
     }
 
     await updateTask(updatedTask)
     return updatedTask 
   } catch (error) {
-    console.error(`Failed to toggle task state for ${taskId}:`, error)
+    logger.error(`Failed to toggle task state for ${taskId}`, error as Error, { context: 'Task Storage' })
     return null
   }
 }

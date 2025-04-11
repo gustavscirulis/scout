@@ -1,3 +1,5 @@
+import { logger } from '../utils/logger'
+
 // Available settings keys and default values
 const defaultSettings = {
   visionProvider: 'openai' as 'openai' | 'llama',
@@ -24,7 +26,7 @@ export const getSettings = async (): Promise<Settings> => {
     const storedSettings = await electron.ipcRenderer.invoke('get-settings')
     return { ...defaultSettings, ...storedSettings }
   } catch (error) {
-    console.error('Failed to get settings:', error)
+    logger.error('Failed to get settings', error as Error, { context: 'Settings Storage' })
     return { ...defaultSettings }
   }
 }
@@ -38,7 +40,7 @@ export const updateSettings = async (settings: Partial<Settings>): Promise<Setti
     await electron.ipcRenderer.invoke('update-settings', updatedSettings)
     return updatedSettings
   } catch (error) {
-    console.error('Failed to update settings:', error)
+    logger.error('Failed to update settings', error as Error, { context: 'Settings Storage' })
     throw new Error('Failed to update settings')
   }
 }

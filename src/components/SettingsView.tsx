@@ -17,6 +17,7 @@ import llamaIcon from '../assets/llama@2x.png'
 import { VisionProvider } from '../lib/vision'
 import { Settings } from '../lib/storage/settings'
 import { useUpdates } from '../hooks/useUpdates'
+import { logger } from '../lib/utils/logger'
 
 interface SettingsViewProps {
   settings: Settings;
@@ -69,6 +70,16 @@ export function SettingsView({
     setScreenshotHeight(settings.maxScreenshotHeight.toString());
   }, [settings.maxScreenshotHeight]);
 
+  const handleSettingsChange = async (newSettings: Partial<Settings>) => {
+    try {
+      logger.log('Updating settings', { level: 'info', data: { newSettings }, context: 'Settings View' })
+      await onSettingsChange(newSettings as Settings)
+      logger.log('Settings updated successfully', { level: 'info', context: 'Settings View' })
+    } catch (error) {
+      logger.error('Failed to update settings', error as Error, { context: 'Settings View' })
+    }
+  }
+
   return (
     <div className="flex flex-col h-full min-h-[calc(100vh-3rem)] animate-in">
       <div className="flex-1 overflow-auto">
@@ -81,7 +92,7 @@ export function SettingsView({
               value={settings.visionProvider}
               onValueChange={(value: string) => {
                 const newProvider = value as VisionProvider
-                onSettingsChange({
+                handleSettingsChange({
                   ...settings,
                   visionProvider: newProvider
                 })
@@ -288,7 +299,7 @@ export function SettingsView({
                     if (!isNaN(numValue)) {
                       // Clamp the value to min/max range
                       const clampedValue = Math.min(Math.max(numValue, 800), 10000);
-                      onSettingsChange({
+                      handleSettingsChange({
                         ...settings,
                         maxScreenshotHeight: clampedValue
                       });

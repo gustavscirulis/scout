@@ -10,6 +10,7 @@ import crypto from 'crypto'
 import http from 'http'
 import pkg from 'electron-updater'
 import { exec } from 'child_process'
+import { logger } from '../src/lib/utils/logger'
 const { autoUpdater } = pkg
 
 const { app, BrowserWindow, nativeTheme, ipcMain, Tray, screen, shell } = electron
@@ -51,7 +52,7 @@ const decrypt = (encryptedText: string): string => {
     decipher.setAuthTag(authTag)
     return decipher.update(encrypted) + decipher.final('utf8')
   } catch (error) {
-    console.error('Decryption error:', error)
+    logger.error('Decryption error', error as Error, { context: 'Encryption' })
     return ''
   }
 }
@@ -104,7 +105,10 @@ const validateTask = (task: any): Task => {
   // Make sure the task has all required fields
   if (!task.id || !task.websiteUrl || !task.notificationCriteria || 
       !task.frequency || !task.scheduledTime) {
-    console.error('Invalid task missing required fields:', task)
+    logger.error('Invalid task missing required fields', undefined, { 
+      context: 'Task Validation',
+      data: { task }
+    })
     throw new Error('Invalid task: missing required fields')
   }
   
@@ -129,22 +133,25 @@ const validateTask = (task: any): Task => {
 const getAllTasks = (): Task[] => {
   try {
     const tasks = store.get('tasks') as Task[]
-    console.log('[Electron Store] Retrieved tasks:', {
-      totalTasks: tasks?.length || 0,
-      tasks: tasks?.map(t => ({
-        id: t.id,
-        isRunning: t.isRunning,
-        nextScheduledRun: t.nextScheduledRun
-      })) || []
+    logger.log('Retrieved tasks', { 
+      context: 'Electron Store',
+      data: {
+        totalTasks: tasks?.length || 0,
+        tasks: tasks?.map(t => ({
+          id: t.id,
+          isRunning: t.isRunning,
+          nextScheduledRun: t.nextScheduledRun
+        })) || []
+      }
     })
     if (!Array.isArray(tasks)) {
-      console.warn('Tasks in store is not an array, resetting to empty array')
+      logger.warn('Tasks in store is not an array, resetting to empty array', { context: 'Electron Store' })
       store.set('tasks', [])
       return []
     }
     return tasks.map(t => validateTask(t))
   } catch (error) {
-    console.error('Error getting all tasks:', error)
+    logger.error('Error getting all tasks', error as Error, { context: 'Electron Store' })
     return []
   }
 }
@@ -155,7 +162,7 @@ const saveAllTasks = (tasks: Task[]): void => {
     const validatedTasks = tasks.map(task => validateTask(task))
     store.set('tasks', validatedTasks)
   } catch (error) {
-    console.error('Error saving tasks:', error)
+    logger.error('Error saving tasks', error as Error, { context: 'Task Storage' })
     throw error
   }
 }
@@ -166,7 +173,7 @@ const getTaskById = (taskId: string): Task | undefined => {
     const task = tasks.find(task => task.id === taskId)
     return task ? validateTask(task) : undefined
   } catch (error) {
-    console.error(`Error getting task by ID ${taskId}:`, error)
+    logger.error(`Error getting task by ID ${taskId}`, error as Error, { context: 'Task Storage' })
     return undefined
   }
 }
@@ -207,7 +214,7 @@ const addTask = (task: Task): Task => {
     
     return validatedTask
   } catch (error) {
-    console.error('Error adding task:', error)
+    logger.error('Error adding task', error as Error, { context: 'Task Storage' })
     throw error
   }
 }
@@ -230,7 +237,7 @@ const updateTask = (updatedTask: Task): Task => {
     
     return validatedTask
   } catch (error) {
-    console.error('Error updating task:', error)
+    logger.error('Error updating task', error as Error, { context: 'Task Storage' })
     throw error
   }
 }
@@ -562,7 +569,7 @@ ipcMain.handle('take-screenshot', async (_event, url: string) => {
   )
 
   try {
-    console.log(`[Screenshot] Attempting to capture ${url}`)
+    logger.log(`Attempting to capture ${url}`, { context: 'Screenshot' })
     
     // Set a load timeout in case the page hangs
     const loadPromise = offscreenWindow.loadURL(url)
@@ -573,7 +580,7 @@ ipcMain.handle('take-screenshot', async (_event, url: string) => {
       new Promise((_, reject) => setTimeout(() => reject(new Error('Page load timeout')), 15000))
     ])
     
-    console.log('[Screenshot] Page loaded successfully')
+    logger.log('Page loaded successfully', { context: 'Screenshot' })
     
     // Allow time for page content to render
     await new Promise(resolve => setTimeout(resolve, 2000))
@@ -592,7 +599,7 @@ ipcMain.handle('take-screenshot', async (_event, url: string) => {
     const maxHeight = settings.maxScreenshotHeight || 5000
     const height = Math.min(fullHeight, maxHeight)
 
-    console.log(`[Screenshot] Setting window size to 1920x${height}`)
+    logger.log(`Setting window size to 1920x${height}`, { context: 'Screenshot' })
     
     // Resize window to match height (with max limit)
     offscreenWindow.setSize(1920, height)
@@ -600,16 +607,16 @@ ipcMain.handle('take-screenshot', async (_event, url: string) => {
     // Wait a moment for resize to take effect
     await new Promise(resolve => setTimeout(resolve, 500))
 
-    console.log('[Screenshot] Capturing page')
+    logger.log('Capturing page', { context: 'Screenshot' })
     const image = await offscreenWindow.webContents.capturePage()
     const pngBuffer = await image.toPNG()
     const base64Image = pngBuffer.toString('base64')
     const screenshot = `data:image/png;base64,${base64Image}`
     
-    console.log('[Screenshot] Successfully captured and encoded image')
+    logger.log('Successfully captured and encoded image', { context: 'Screenshot' })
     return screenshot
   } catch (error) {
-    console.error('[Screenshot] Error during capture:', error)
+    logger.error('Error during capture', error as Error, { context: 'Screenshot' })
     throw error
   } finally {
     offscreenWindow.close()
@@ -741,28 +748,13 @@ ipcMain.handle('run-ollama', async (_event, params: { model: string, prompt: str
   const { model, prompt, imagePath } = params
   
   try {
-    // On macOS, use the default installation path
-    const ollamaPath = '/usr/local/bin/ollama'
-    
-    // Verify Ollama is installed using absolute path
-    await new Promise<void>((resolve, reject) => {
-      execFile(ollamaPath, ['--version'], (error) => {
-        if (error) {
-          reject(new Error('Ollama not found. Please make sure Ollama is installed and accessible from the command line.'))
-        } else {
-          resolve()
-        }
-      })
-    })
-    
-    // Use Ollama's HTTP API with vision capabilities
     const result = await new Promise<string>((resolve, reject) => {
       try {
         // Read the image file as a base64 string
         const imageBuffer = fs.readFileSync(imagePath)
         const base64Image = imageBuffer.toString('base64')
         
-        console.log(`[Ollama] Sending request to API with image from ${imagePath}`)
+        logger.log(`Sending request to API with image from ${imagePath}`, { context: 'Ollama' })
         
         // Create the HTTP request to Ollama API (correct endpoint is /api/generate)
         const requestData = JSON.stringify({
@@ -793,42 +785,51 @@ ipcMain.handle('run-ollama', async (_event, params: { model: string, prompt: str
           res.on('end', () => {
             try {
               if (res.statusCode !== 200) {
-                console.error(`[Ollama] API returned status code ${res.statusCode}:`, data)
+                logger.error(`API returned status code ${res.statusCode}`, undefined, { 
+                  context: 'Ollama',
+                  data: { response: data }
+                })
                 reject(new Error(`Ollama API returned status code ${res.statusCode}: ${data}`))
                 return
               }
               
-              console.log(`[Ollama] Received response from API: ${data.substring(0, 100)}...`)
+              logger.log(`Received response from API: ${data.substring(0, 100)}...`, { context: 'Ollama' })
               const response = JSON.parse(data)
               if (response.response) {
                 resolve(response.response)
               } else {
-                console.error('[Ollama] No response field in API result:', data)
+                logger.error('No response field in API result', undefined, { 
+                  context: 'Ollama',
+                  data: { response: data }
+                })
                 reject(new Error('No response field in Ollama API result'))
               }
             } catch (error) {
-              console.error('[Ollama] Failed to parse response:', error, 'Data:', data)
+              logger.error('Failed to parse response', error as Error, { 
+                context: 'Ollama',
+                data: { response: data }
+              })
               reject(new Error(`Failed to parse Ollama response: ${error}`))
             }
           })
         })
         
         req.on('error', (error) => {
-          console.error('[Ollama] API request failed:', error)
+          logger.error('API request failed', error as Error, { context: 'Ollama' })
           reject(new Error(`Ollama API request failed: ${error.message}`))
         })
         
         req.write(requestData)
         req.end()
       } catch (error) {
-        console.error('[Ollama] Error preparing request:', error)
+        logger.error('Error preparing request', error as Error, { context: 'Ollama' })
         reject(new Error(`Error preparing Ollama request: ${error}`))
       }
     })
     
     return result
   } catch (error) {
-    console.error('Error running Ollama:', error)
+    logger.error('Error running Ollama', error as Error, { context: 'Ollama' })
     throw error
   }
 })

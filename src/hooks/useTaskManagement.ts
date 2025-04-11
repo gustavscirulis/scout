@@ -3,6 +3,7 @@ import { Task, getAllTasks, addTask, updateTask, deleteTask, toggleTaskRunningSt
 import { RecurringFrequency } from '../components/TaskForm'
 import signals from '../lib/telemetry'
 import { useStore } from '../lib/stores/useStore'
+import { logger } from '../lib/utils/logger'
 
 type RunAnalysisFunction = (task: Task) => Promise<void>
 
@@ -82,25 +83,25 @@ export const useTaskManagement = (runAnalysis: RunAnalysisFunction) => {
       await syncTasks()
       return updatedTask
     } catch (error) {
-      console.error(`Failed to update next run time for task ${taskId}:`, error)
+      logger.error(`Failed to update next run time for task ${taskId}`, error as Error, { context: 'Task Management' })
       setError(error instanceof Error ? error.message : 'Failed to update task')
       return null
     }
   }
 
   const startTaskPolling = () => {
-    console.log('[Task Polling] Starting polling with interval:', POLLING_INTERVAL, 'ms')
+    logger.log(`Starting polling with interval: ${POLLING_INTERVAL}ms`, { context: 'Task Polling' })
     if (pollingInterval.current) {
-      console.log('[Task Polling] Clearing existing polling interval')
+      logger.log('Clearing existing polling interval', { context: 'Task Polling' })
       clearInterval(pollingInterval.current)
     }
     pollingInterval.current = setInterval(checkTasksToRun, POLLING_INTERVAL)
-    console.log('[Task Polling] Polling started successfully')
+    logger.log('Polling started successfully', { context: 'Task Polling' })
   }
 
   const checkTasksToRun = async () => {
     try {
-      console.log('[Task Polling] Checking for tasks to run at', new Date().toISOString())
+      logger.log(`Checking for tasks to run at ${new Date().toISOString()}`, { context: 'Task Polling' })
       
       // First sync tasks and wait for the state to update
       await syncTasks()
@@ -108,63 +109,75 @@ export const useTaskManagement = (runAnalysis: RunAnalysisFunction) => {
       // Get the latest state after sync
       const currentTasks = useStore.getState().tasks
       
-      console.log('[Task Polling] Current tasks state:', {
-        totalTasks: currentTasks.length,
-        tasks: currentTasks.map(t => ({
-          id: t.id,
-          isRunning: t.isRunning,
-          frequency: t.frequency,
-          nextScheduledRun: t.nextScheduledRun,
-          lastRun: t.lastRun
-        }))
+      logger.log('Current tasks state', { 
+        context: 'Task Polling',
+        level: 'debug',
+        data: {
+          totalTasks: currentTasks.length,
+          tasks: currentTasks.map(t => ({
+            id: t.id,
+            isRunning: t.isRunning,
+            frequency: t.frequency,
+            nextScheduledRun: t.nextScheduledRun,
+            lastRun: t.lastRun
+          }))
+        }
       })
       
       const now = new Date()
       const runningTasks = currentTasks.filter(t => t.isRunning)
       
       if (runningTasks.length === 0) {
-        console.log('[Task Polling] No running tasks found')
+        logger.log('No running tasks found', { context: 'Task Polling' })
         return
       }
       
-      console.log(`[Task Polling] Found ${runningTasks.length} running tasks`)
+      logger.log(`Found ${runningTasks.length} running tasks`, { context: 'Task Polling' })
       
       for (const task of runningTasks) {
-        console.log(`[Task Polling] Checking task ${task.id}:`, {
-          frequency: task.frequency,
-          nextScheduledRun: task.nextScheduledRun,
-          lastRun: task.lastRun,
-          isRunning: task.isRunning,
-          currentTime: now.toISOString()
+        logger.log(`Checking task ${task.id}`, { 
+          context: 'Task Polling',
+          level: 'debug',
+          data: {
+            frequency: task.frequency,
+            nextScheduledRun: task.nextScheduledRun,
+            lastRun: task.lastRun,
+            isRunning: task.isRunning,
+            currentTime: now.toISOString()
+          }
         })
         
         if (task.nextScheduledRun) {
           const nextRun = new Date(task.nextScheduledRun)
-          console.log(`[Task Polling] Task ${task.id} next run time:`, {
-            nextRun: nextRun.toISOString(),
-            currentTime: now.toISOString(),
-            timeDifference: nextRun.getTime() - now.getTime()
+          logger.log(`Task ${task.id} next run time`, { 
+            context: 'Task Polling',
+            level: 'debug',
+            data: {
+              nextRun: nextRun.toISOString(),
+              currentTime: now.toISOString(),
+              timeDifference: nextRun.getTime() - now.getTime()
+            }
           })
           
           if (nextRun.getTime() <= now.getTime()) {
-            console.log(`[Task Polling] Task ${task.id} is due to run (scheduled for ${nextRun.toISOString()})`)
+            logger.log(`Task ${task.id} is due to run (scheduled for ${nextRun.toISOString()})`, { context: 'Task Polling' })
             await runAnalysis(task)
             const nextRunTime = getNextRunTime(task)
             await updateTaskNextRunTime(task.id, nextRunTime)
           } else {
-            console.log(`[Task Polling] Task ${task.id} not due yet (next run: ${nextRun.toISOString()})`)
+            logger.log(`Task ${task.id} not due yet (next run: ${nextRun.toISOString()})`, { context: 'Task Polling' })
           }
         } else if (checkForMissedRuns(task)) {
-          console.log(`[Task Polling] Task ${task.id} has missed runs, running now`)
+          logger.log(`Task ${task.id} has missed runs, running now`, { context: 'Task Polling' })
           await runAnalysis(task)
           const nextRunTime = getNextRunTime(task)
           await updateTaskNextRunTime(task.id, nextRunTime)
         } else {
-          console.log(`[Task Polling] Task ${task.id} has no next run time and no missed runs`)
+          logger.log(`Task ${task.id} has no next run time and no missed runs`, { context: 'Task Polling' })
         }
       }
     } catch (error) {
-      console.error('[Task Polling] Failed to check tasks:', error)
+      logger.error('Failed to check tasks', error as Error, { context: 'Task Polling' })
       setError(error instanceof Error ? error.message : 'Failed to check tasks')
     }
   }
@@ -226,9 +239,12 @@ export const useTaskManagement = (runAnalysis: RunAnalysisFunction) => {
         lastTestResult: undefined
       })
 
-      console.log('[Task Creation] Creating new task with next run time:', {
-        nextRunTime: nextRunTime.toISOString(),
-        taskData
+      logger.log('Creating new task', { 
+        context: 'Task Creation',
+        data: {
+          nextRunTime: nextRunTime.toISOString(),
+          taskData
+        }
       })
 
       const newTask: Task = {
@@ -252,23 +268,29 @@ export const useTaskManagement = (runAnalysis: RunAnalysisFunction) => {
         } : undefined
       }
 
-      console.log('[Task Creation] New task created:', {
-        id: newTask.id,
-        isRunning: newTask.isRunning,
-        nextScheduledRun: newTask.nextScheduledRun
+      logger.log('New task created', { 
+        context: 'Task Creation',
+        data: {
+          id: newTask.id,
+          isRunning: newTask.isRunning,
+          nextScheduledRun: newTask.nextScheduledRun
+        }
       })
 
       const savedTask = await addTask(newTask)
-      console.log('[Task Creation] Task saved to storage:', {
-        id: savedTask.id,
-        isRunning: savedTask.isRunning,
-        nextScheduledRun: savedTask.nextScheduledRun
+      logger.log('Task saved to storage', { 
+        context: 'Task Creation',
+        data: {
+          id: savedTask.id,
+          isRunning: savedTask.isRunning,
+          nextScheduledRun: savedTask.nextScheduledRun
+        }
       })
 
       await syncTasks()
       signals.taskCreated()
     } catch (error) {
-      console.error('Failed to create new task:', error)
+      logger.error('Failed to create new task', error as Error, { context: 'Task Creation' })
       setError(error instanceof Error ? error.message : 'Failed to create task')
       throw error
     }
@@ -278,17 +300,20 @@ export const useTaskManagement = (runAnalysis: RunAnalysisFunction) => {
     try {
       const task = await getTaskById(taskId)
       if (!task) {
-        console.error(`Task with ID ${taskId} not found for update`)
+        logger.error(`Task with ID ${taskId} not found for update`, undefined, { context: 'Task Update' })
         return
       }
 
-      console.log('[Task Update] Updating task:', {
-        id: taskId,
-        currentState: {
-          isRunning: task.isRunning,
-          nextScheduledRun: task.nextScheduledRun
-        },
-        newData: taskData
+      logger.log('Updating task', { 
+        context: 'Task Update',
+        data: {
+          id: taskId,
+          currentState: {
+            isRunning: task.isRunning,
+            nextScheduledRun: task.nextScheduledRun
+          },
+          newData: taskData
+        }
       })
 
       // Calculate next run time based on the new task data
@@ -313,15 +338,18 @@ export const useTaskManagement = (runAnalysis: RunAnalysisFunction) => {
       })
       
       if (updatedTask) {
-        console.log('[Task Update] Task updated successfully:', {
-          id: taskId,
-          isRunning: updatedTask.isRunning,
-          nextScheduledRun: updatedTask.nextScheduledRun
+        logger.log('Task updated successfully', { 
+          context: 'Task Update',
+          data: {
+            id: taskId,
+            isRunning: updatedTask.isRunning,
+            nextScheduledRun: updatedTask.nextScheduledRun
+          }
         })
         await syncTasks()
       }
     } catch (error) {
-      console.error('Failed to update task:', error)
+      logger.error('Failed to update task', error as Error, { context: 'Task Update' })
       setError(error instanceof Error ? error.message : 'Failed to update task')
     }
   }
@@ -330,27 +358,30 @@ export const useTaskManagement = (runAnalysis: RunAnalysisFunction) => {
   useEffect(() => {
     const loadTasks = async () => {
       try {
-        console.log('[Task Loading] Starting initial task load')
+        logger.log('Starting initial task load', { context: 'Task Loading' })
         await syncTasks()
         
-        console.log('[Task Loading] Current tasks after sync:', {
-          totalTasks: tasks.length,
-          tasks: tasks.map(t => ({
-            id: t.id,
-            isRunning: t.isRunning,
-            nextScheduledRun: t.nextScheduledRun
-          }))
+        logger.log('Current tasks after sync', { 
+          context: 'Task Loading',
+          data: {
+            totalTasks: tasks.length,
+            tasks: tasks.map(t => ({
+              id: t.id,
+              isRunning: t.isRunning,
+              nextScheduledRun: t.nextScheduledRun
+            }))
+          }
         })
         
         const promises = tasks.map(async (task) => {
           if (task.isRunning) {
             if (checkForMissedRuns(task)) {
-              console.log(`[Task Loading] Task ${task.id} has missed runs, running now`)
+              logger.log(`Task ${task.id} has missed runs, running now`, { context: 'Task Loading' })
               await runAnalysis(task)
             }
             
             if (!task.nextScheduledRun) {
-              console.log(`[Task Loading] Task ${task.id} has no next run time, calculating next run`)
+              logger.log(`Task ${task.id} has no next run time, calculating next run`, { context: 'Task Loading' })
               const nextRun = getNextRunTime(task)
               await updateTaskNextRunTime(task.id, nextRun)
             }
@@ -360,7 +391,7 @@ export const useTaskManagement = (runAnalysis: RunAnalysisFunction) => {
         await Promise.all(promises)
         startTaskPolling()
       } catch (error) {
-        console.error('Failed to load tasks:', error)
+        logger.error('Failed to load tasks', error as Error, { context: 'Task Loading' })
         setError(error instanceof Error ? error.message : 'Failed to load tasks')
       }
     }

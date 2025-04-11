@@ -196,15 +196,6 @@ function App() {
     checkTasksToRun 
   } = useTaskManagement(runAnalysis)
 
-  // Update newJob when visionProvider changes
-  useEffect(() => {
-    const currentJob = useStore.getState().newJob;
-    setNewJob({
-      ...currentJob,
-      visionProvider: settings.visionProvider
-    });
-  }, [settings.visionProvider]);
-  
   // Track settings view for telemetry
   useEffect(() => {
     if (settingsView) {

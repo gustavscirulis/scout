@@ -45,7 +45,6 @@ export interface JobFormData {
   frequency: RecurringFrequency;
   scheduledTime: string;
   dayOfWeek?: DayOfWeek;
-  visionProvider: 'openai' | 'llama';
 }
 
 interface TestResult {
@@ -412,11 +411,6 @@ export function TaskForm({
                     <div className="relative w-5 h-5">
                       <div className="absolute top-0 left-0 w-full h-full border-[2px] border-t-primary border-r-primary/40 border-b-primary/20 border-l-primary/10 rounded-full animate-spin"></div>
                     </div>
-                    {formData.visionProvider === 'llama' && (
-                      <div className="mt-2 text-xs text-muted-foreground">
-                        This might take a few minutes
-                      </div>
-                    )}
                   </div>
                 </div>
               )}
