@@ -1,7 +1,7 @@
 {
   "name": "Scout",
   "private": true,
-  "version": "0.0.9",
+  "version": "1.0.0",
   "description": "Scout is a Mac app that monitors websites for changes and notifies you about them (e.g. price drops, restocks, or new job postings).",
   "author": {
     "name": "Gustavs Cirulis"
@@ -83,7 +83,9 @@
       {
         "provider": "github",
         "owner": "gustavscirulis",
-        "repo": "scout"
+        "repo": "scout",
+        "private": false,
+        "releaseType": "release"
       }
     ],
     "mac": {
@@ -91,10 +93,10 @@
       "target": [
         {
           "target": "dmg",
-          "arch": "x64"
+          "arch": "arm64"
         },
         {
-          "target": "dmg",
+          "target": "zip",
           "arch": "arm64"
         }
       ],

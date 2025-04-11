@@ -17,6 +17,7 @@ import llamaIcon from '../assets/llama@2x.png'
 import { VisionProvider } from '../lib/vision'
 import { Settings } from '../lib/storage/settings'
 import { useUpdates } from '../hooks/useUpdates'
+import { useAppVersion } from '../hooks/useAppVersion'
 import { logger } from '../lib/utils/logger'
 
 interface SettingsViewProps {
@@ -62,6 +63,8 @@ export function SettingsView({
     checkForUpdates,
     installUpdate
   } = useUpdates()
+  
+  const version = useAppVersion()
 
   const [screenshotHeight, setScreenshotHeight] = useState(settings.maxScreenshotHeight.toString());
 
@@ -322,7 +325,9 @@ export function SettingsView({
           {/* Updates section */}
           <fieldset className="space-y-2">
             <legend className="text-sm font-medium">Updates</legend>
-            
+            <div className="gap-2" style={{ marginTop: '2px' }}>
+              <span className="text-xs text-muted-foreground">Current version: {version}</span>
+            </div>
             <Button
               variant={updateDownloaded ? "default" : "outline"}
               size="sm"

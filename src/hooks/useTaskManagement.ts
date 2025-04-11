@@ -20,7 +20,14 @@ export const useTaskManagement = (runAnalysis: RunAnalysisFunction) => {
   const POLLING_INTERVAL = 60 * 1000 // check every minute
 
   const checkForMissedRuns = (task: Task) => {
-    if (!task.lastRun) return false;
+    if (!task.lastRun) {
+      logger.log(`Task ${task.id} has no last run time`, { 
+        context: 'Task Polling',
+        level: 'debug',
+        data: { taskId: task.id }
+      })
+      return false;
+    }
     
     const now = new Date();
     const lastRun = new Date(task.lastRun);
@@ -32,6 +39,20 @@ export const useTaskManagement = (runAnalysis: RunAnalysisFunction) => {
     
     const interval = intervalTimes[task.frequency];
     const timeSinceLastRun = now.getTime() - lastRun.getTime();
+    
+    logger.log(`Checking missed runs for task ${task.id}`, { 
+      context: 'Task Polling',
+      level: 'debug',
+      data: {
+        taskId: task.id,
+        frequency: task.frequency,
+        lastRun: lastRun.toISOString(),
+        currentTime: now.toISOString(),
+        interval: interval,
+        timeSinceLastRun: timeSinceLastRun,
+        hasMissedRun: timeSinceLastRun > interval
+      }
+    });
     
     return timeSinceLastRun > interval;
   };
@@ -118,8 +139,8 @@ export const useTaskManagement = (runAnalysis: RunAnalysisFunction) => {
             id: t.id,
             isRunning: t.isRunning,
             frequency: t.frequency,
-            nextScheduledRun: t.nextScheduledRun,
-            lastRun: t.lastRun
+            nextScheduledRun: t.nextScheduledRun?.toISOString(),
+            lastRun: t.lastRun?.toISOString()
           }))
         }
       })
@@ -140,8 +161,8 @@ export const useTaskManagement = (runAnalysis: RunAnalysisFunction) => {
           level: 'debug',
           data: {
             frequency: task.frequency,
-            nextScheduledRun: task.nextScheduledRun,
-            lastRun: task.lastRun,
+            nextScheduledRun: task.nextScheduledRun?.toISOString(),
+            lastRun: task.lastRun?.toISOString(),
             isRunning: task.isRunning,
             currentTime: now.toISOString()
           }

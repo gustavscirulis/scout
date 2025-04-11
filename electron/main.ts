@@ -112,6 +112,34 @@ const validateTask = (task: any): Task => {
     throw new Error('Invalid task: missing required fields')
   }
   
+  // Validate and convert dates
+  let lastRun: string | undefined
+  let nextScheduledRun: string | undefined
+  
+  if (task.lastRun) {
+    try {
+      lastRun = new Date(task.lastRun).toISOString()
+    } catch (error) {
+      logger.error('Invalid lastRun date format', undefined, {
+        context: 'Task Validation',
+        data: { taskId: task.id, lastRun: task.lastRun }
+      })
+      lastRun = undefined
+    }
+  }
+  
+  if (task.nextScheduledRun) {
+    try {
+      nextScheduledRun = new Date(task.nextScheduledRun).toISOString()
+    } catch (error) {
+      logger.error('Invalid nextScheduledRun date format', undefined, {
+        context: 'Task Validation',
+        data: { taskId: task.id, nextScheduledRun: task.nextScheduledRun }
+      })
+      nextScheduledRun = undefined
+    }
+  }
+  
   return {
     id: task.id,
     websiteUrl: task.websiteUrl,
@@ -121,8 +149,8 @@ const validateTask = (task: any): Task => {
     dayOfWeek: task.dayOfWeek,
     isRunning: Boolean(task.isRunning),
     lastResult: task.lastResult,
-    lastRun: task.lastRun,
-    nextScheduledRun: task.nextScheduledRun,  // Add this field to preserve it
+    lastRun: lastRun,
+    nextScheduledRun: nextScheduledRun,
     notificationCriteria: task.notificationCriteria,
     lastMatchedCriteria: task.lastMatchedCriteria,
     lastTestResult: task.lastTestResult
@@ -653,9 +681,13 @@ ipcMain.handle('update-tray-icon', () => {
 // Keep track of the latest temporary screenshot file
 let latestScreenshotPath: string | null = null;
 
-// Handler to check if app is packaged (for UI decisions)
-ipcMain.on('is-app-packaged', (event) => {
-  event.returnValue = app.isPackaged
+// IPC handlers
+ipcMain.handle('is-app-packaged', () => {
+  return app.isPackaged
+})
+
+ipcMain.handle('get-app-version', () => {
+  return app.getVersion()
 })
 
 // Handle opening images in preview window
@@ -847,39 +879,31 @@ ipcMain.handle('update-settings', (_event, settings: { visionProvider: string })
 
 // Setup auto-updater
 function setupAutoUpdater() {
-  // Allow updates check in development mode for testing
-  autoUpdater.forceDevUpdateConfig = true
-  
-  // Configure for GitHub
-  autoUpdater.setFeedURL({
-    provider: 'github',
-    owner: 'gustavscirulis',
-    repo: 'scout'
-  })
+  // Only check for updates in production mode
+  if (process.env.NODE_ENV === 'production') {
+    // Configure for GitHub
+    autoUpdater.setFeedURL({
+      provider: 'github',
+      owner: 'gustavscirulis',
+      repo: 'scout'
+    })
 
-  // No debug logging in production
+    // Check for updates silently on startup
+    autoUpdater.checkForUpdatesAndNotify()
 
-  // Check for updates silently on startup
-  autoUpdater.checkForUpdatesAndNotify()
+    // Setup update events
+    autoUpdater.on('update-available', () => {
+      if (mainWindow) {
+        mainWindow.webContents.send('update-available')
+      }
+    })
 
-  // Setup update events
-  autoUpdater.on('update-available', () => {
-    if (mainWindow) {
-      mainWindow.webContents.send('update-available')
-    }
-  })
-
-  autoUpdater.on('update-downloaded', () => {
-    if (mainWindow) {
-      mainWindow.webContents.send('update-downloaded')
-    }
-  })
-
-  autoUpdater.on('error', () => {
-    if (mainWindow) {
-      mainWindow.webContents.send('update-error')
-    }
-  })
+    autoUpdater.on('update-downloaded', () => {
+      if (mainWindow) {
+        mainWindow.webContents.send('update-downloaded')
+      }
+    })
+  }
 }
 
 // IPC handlers for updates
