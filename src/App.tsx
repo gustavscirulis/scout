@@ -369,6 +369,11 @@ function App() {
     }
   };
 
+  const syncTasks = async () => {
+    const loadedTasks = await getAllTasks();
+    setTasks(loadedTasks);
+  };
+
   return appWithTooltips(
     <div className="flex flex-col h-full w-full">
       <Header
@@ -429,7 +434,11 @@ function App() {
                 {tasks.length > 0 && (
                   <TaskList
                     tasks={tasks}
-                    onTaskClick={startEditingTask}
+                    onTaskClick={async (taskId) => {
+                      // Refresh tasks before starting edit
+                      await syncTasks();
+                      startEditingTask(taskId);
+                    }}
                   />
                 )}
               </>
@@ -443,15 +452,18 @@ function App() {
                 loading={loading}
                 onFormChange={setNewJob}
                 onTest={testAnalysis}
-                onSave={(data) => {
+                onSave={async (data) => {
                   if (data.websiteUrl && data.notificationCriteria) {
-                    updateExistingTask(editingJobId, data).then(() => {
-                      setEditingJobId(null); // Clear editing mode
-                      resetNewJobForm(); // Reset the form
-                    });
+                    await updateExistingTask(editingJobId, data);
+                    // Refresh tasks after update
+                    await syncTasks();
+                    setEditingJobId(null); // Clear editing mode
+                    resetNewJobForm(); // Reset the form
                   }
                 }}
-                onBack={() => {
+                onBack={async () => {
+                  // Refresh tasks before going back
+                  await syncTasks();
                   setEditingJobId(null); // Clear editing mode
                   resetNewJobForm(); // Reset the form
                 }}
@@ -603,23 +615,22 @@ function App() {
                 loading={loading}
                 onFormChange={setNewJob}
                 onTest={testAnalysis}
-                onSave={(data) => {
+                onSave={async (data) => {
                   if (data.websiteUrl && data.notificationCriteria) {
-                    createNewTask(data, testResult).then(() => {
-                      // First reset the form
-                      resetNewJobForm();
-                      // Then hide the form
-                      setShowNewJobForm(false);
-                      // Clear any editing mode
-                      setEditingJobId(null);
-                      // Finally reload tasks from storage
-                      getAllTasks().then(loadedTasks => {
-                        setTasks(loadedTasks);
-                      });
-                    });
+                    await createNewTask(data, testResult);
+                    // Refresh tasks after creation
+                    await syncTasks();
+                    // First reset the form
+                    resetNewJobForm();
+                    // Then hide the form
+                    setShowNewJobForm(false);
+                    // Clear any editing mode
+                    setEditingJobId(null);
                   }
                 }}
-                onBack={() => {
+                onBack={async () => {
+                  // Refresh tasks before going back
+                  await syncTasks();
                   setShowNewJobForm(false);
                   resetNewJobForm();
                 }}

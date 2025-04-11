@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware'
 import { Task } from '../storage/tasks'
 import { Settings } from '../storage/settings'
 import { DayOfWeek, RecurringFrequency, JobFormData } from '../../components/TaskForm'
+import { getAllTasks } from '../storage/tasks'
 
 interface AppState {
   // API Key State
@@ -19,29 +20,31 @@ interface AppState {
 
   // Tasks State
   tasks: Task[]
+  isLoadingTasks: boolean
+  error: string | null
+  syncTasks: () => Promise<void>
   setTasks: (tasks: Task[]) => void
-  addTask: (task: Task) => void
-  updateTask: (taskId: string, task: Partial<Task>) => void
-  deleteTask: (taskId: string) => void
+  setError: (error: string | null) => void
 
   // UI State
   settingsView: boolean
   showNewJobForm: boolean
   editingJobId: string | null
   loading: boolean
-  error: string
   testResult: { result: string; matched?: boolean; timestamp?: Date; screenshot?: string } | null
   setSettingsView: (show: boolean) => void
   setShowNewJobForm: (show: boolean) => void
   setEditingJobId: (id: string | null) => void
   setLoading: (loading: boolean) => void
-  setError: (error: string) => void
   setTestResult: (result: { result: string; matched?: boolean; timestamp?: Date; screenshot?: string } | null) => void
 
   // New Job Form State
   newJob: JobFormData
   setNewJob: (job: JobFormData) => void
   resetNewJobForm: () => void
+
+  // State refresh
+  refreshState: () => Promise<void>
 }
 
 const defaultSettings: Settings = {
@@ -53,7 +56,8 @@ const defaultSettings: Settings = {
   notificationSoundEnabled: true,
   notificationDuration: 5,
   notificationPosition: 'bottom-right',
-  windowFloating: false
+  windowFloating: false,
+  maxScreenshotHeight: 5000
 }
 
 const defaultNewJob: JobFormData = {
@@ -71,54 +75,122 @@ const defaultNewJob: JobFormData = {
 
 export const useStore = create<AppState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       // API Key State
       apiKey: '',
       hasExistingKey: false,
-      setApiKey: (key: string) => set({ apiKey: key }),
+      setApiKey: async (key: string) => {
+        try {
+          const electron = window.require('electron')
+          await electron.ipcRenderer.invoke('save-api-key', key)
+          await get().refreshState() // Refresh entire state after API key change
+        } catch (error) {
+          console.error('Failed to save API key:', error)
+          set({ error: error instanceof Error ? error.message : 'Failed to save API key' })
+        }
+      },
       setHasExistingKey: (hasKey: boolean) => set({ hasExistingKey: hasKey }),
 
       // Settings State
       settings: defaultSettings,
       tempSettings: defaultSettings,
-      setSettings: (settings: Settings) => set({ settings }),
+      setSettings: async (settings: Settings) => {
+        try {
+          const electron = window.require('electron')
+          await electron.ipcRenderer.invoke('update-settings', settings)
+          await get().refreshState() // Refresh entire state after settings change
+        } catch (error) {
+          console.error('Failed to update settings:', error)
+          set({ error: error instanceof Error ? error.message : 'Failed to update settings' })
+        }
+      },
       setTempSettings: (settings: Settings) => set({ tempSettings: settings }),
 
       // Tasks State
       tasks: [],
+      isLoadingTasks: false,
+      error: null,
+      syncTasks: async () => {
+        try {
+          set({ isLoadingTasks: true, error: null })
+          const tasks = await getAllTasks()
+          set({ tasks, isLoadingTasks: false })
+        } catch (error) {
+          console.error('Failed to sync tasks:', error)
+          set({ 
+            error: error instanceof Error ? error.message : 'Failed to sync tasks',
+            isLoadingTasks: false 
+          })
+        }
+      },
       setTasks: (tasks: Task[]) => set({ tasks }),
-      addTask: (task: Task) => set((state) => ({ tasks: [...state.tasks, task] })),
-      updateTask: (taskId: string, task: Partial<Task>) => set((state) => ({
-        tasks: state.tasks.map((t) => (t.id === taskId ? { ...t, ...task } : t))
-      })),
-      deleteTask: (taskId: string) => set((state) => ({
-        tasks: state.tasks.filter((t) => t.id !== taskId)
-      })),
+      setError: (error: string | null) => set({ error }),
 
       // UI State
       settingsView: false,
       showNewJobForm: false,
       editingJobId: null,
       loading: false,
-      error: '',
       testResult: null,
-      setSettingsView: (show: boolean) => set({ settingsView: show }),
-      setShowNewJobForm: (show: boolean) => set({ showNewJobForm: show }),
-      setEditingJobId: (id: string | null) => set({ editingJobId: id }),
+      setSettingsView: async (show: boolean) => {
+        set({ settingsView: show })
+        if (!show) {
+          await get().refreshState() // Refresh state when leaving settings view
+        }
+      },
+      setShowNewJobForm: async (show: boolean) => {
+        set({ showNewJobForm: show })
+        if (!show) {
+          await get().refreshState() // Refresh state when leaving new job form
+        }
+      },
+      setEditingJobId: async (id: string | null) => {
+        set({ editingJobId: id })
+        if (!id) {
+          await get().refreshState() // Refresh state when leaving edit mode
+        }
+      },
       setLoading: (loading: boolean) => set({ loading }),
-      setError: (error: string) => set({ error }),
-      setTestResult: (result: { result: string; matched?: boolean; timestamp?: Date; screenshot?: string } | null) => set({ testResult: result }),
+      setTestResult: (result: { result: string; matched?: boolean; timestamp?: Date; screenshot?: string } | null) => 
+        set({ testResult: result }),
 
       // New Job Form State
       newJob: defaultNewJob,
       setNewJob: (job: JobFormData) => set({ newJob: job }),
-      resetNewJobForm: () => set({ newJob: defaultNewJob })
+      resetNewJobForm: () => set({ newJob: defaultNewJob }),
+
+      // State refresh
+      refreshState: async () => {
+        try {
+          const electron = window.require('electron')
+          
+          // Sync settings
+          const settings = await electron.ipcRenderer.invoke('get-settings')
+          
+          // Sync API key
+          const apiKey = await electron.ipcRenderer.invoke('get-api-key')
+          
+          // Sync tasks
+          const tasks = await getAllTasks()
+          
+          // Update all state at once
+          set({
+            settings,
+            apiKey,
+            hasExistingKey: !!apiKey,
+            tasks,
+            error: null
+          })
+        } catch (error) {
+          console.error('Failed to refresh state:', error)
+          set({ error: error instanceof Error ? error.message : 'Failed to refresh state' })
+        }
+      }
     }),
     {
-      name: 'app-storage',
+      name: 'scout-ui-state',
       partialize: (state) => ({
         settings: state.settings,
-        tasks: state.tasks,
         apiKey: state.apiKey,
         hasExistingKey: state.hasExistingKey
       })

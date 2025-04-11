@@ -129,7 +129,20 @@ const validateTask = (task: any): Task => {
 const getAllTasks = (): Task[] => {
   try {
     const tasks = store.get('tasks') as Task[]
-    return Array.isArray(tasks) ? tasks.map(t => validateTask(t)) : []
+    console.log('[Electron Store] Retrieved tasks:', {
+      totalTasks: tasks?.length || 0,
+      tasks: tasks?.map(t => ({
+        id: t.id,
+        isRunning: t.isRunning,
+        nextScheduledRun: t.nextScheduledRun
+      })) || []
+    })
+    if (!Array.isArray(tasks)) {
+      console.warn('Tasks in store is not an array, resetting to empty array')
+      store.set('tasks', [])
+      return []
+    }
+    return tasks.map(t => validateTask(t))
   } catch (error) {
     console.error('Error getting all tasks:', error)
     return []
@@ -137,15 +150,21 @@ const getAllTasks = (): Task[] => {
 }
 
 const saveAllTasks = (tasks: Task[]): void => {
-  // Validate tasks before saving
-  const validatedTasks = tasks.map(task => validateTask(task))
-  store.set('tasks', validatedTasks)
+  try {
+    // Validate all tasks before saving
+    const validatedTasks = tasks.map(task => validateTask(task))
+    store.set('tasks', validatedTasks)
+  } catch (error) {
+    console.error('Error saving tasks:', error)
+    throw error
+  }
 }
 
 const getTaskById = (taskId: string): Task | undefined => {
   try {
     const tasks = getAllTasks()
-    return tasks.find(task => task.id === taskId)
+    const task = tasks.find(task => task.id === taskId)
+    return task ? validateTask(task) : undefined
   } catch (error) {
     console.error(`Error getting task by ID ${taskId}:`, error)
     return undefined
@@ -170,36 +189,46 @@ const checkForSuccessfulTasks = (): boolean => {
   return hasSuccess
 }
 
-const addTask = (task: Task): void => {
+const addTask = (task: Task): Task => {
   try {
     const validatedTask = validateTask(task)
     const tasks = getAllTasks()
+    
+    // Check for duplicate ID
+    if (tasks.some(t => t.id === validatedTask.id)) {
+      throw new Error(`Task with ID ${validatedTask.id} already exists`)
+    }
+    
     tasks.push(validatedTask)
     saveAllTasks(tasks)
     
     // Check if we need to update the tray icon
     checkForSuccessfulTasks()
+    
+    return validatedTask
   } catch (error) {
     console.error('Error adding task:', error)
     throw error
   }
 }
 
-const updateTask = (updatedTask: Task): void => {
+const updateTask = (updatedTask: Task): Task => {
   try {
     const validatedTask = validateTask(updatedTask)
     const tasks = getAllTasks()
     const index = tasks.findIndex(task => task.id === validatedTask.id)
     
-    if (index !== -1) {
-      tasks[index] = validatedTask
-      saveAllTasks(tasks)
-      
-      // Check if we need to update the tray icon
-      checkForSuccessfulTasks()
-    } else {
-      console.error(`Task with ID ${validatedTask.id} not found for update`)
+    if (index === -1) {
+      throw new Error(`Task with ID ${validatedTask.id} not found for update`)
     }
+    
+    tasks[index] = validatedTask
+    saveAllTasks(tasks)
+    
+    // Check if we need to update the tray icon
+    checkForSuccessfulTasks()
+    
+    return validatedTask
   } catch (error) {
     console.error('Error updating task:', error)
     throw error
@@ -209,14 +238,20 @@ const updateTask = (updatedTask: Task): void => {
 const deleteTask = (taskId: string): void => {
   try {
     const tasks = getAllTasks()
-    const updatedTasks = tasks.filter(task => task.id !== taskId)
+    const taskToDelete = tasks.find(task => task.id === taskId)
     
-    // Verify that a task was actually removed
-    if (tasks.length === updatedTasks.length) {
-      console.warn(`No task found with ID ${taskId} to delete`)
+    if (!taskToDelete) {
+      throw new Error(`Task with ID ${taskId} not found in storage`)
     }
     
+    const updatedTasks = tasks.filter(task => task.id !== taskId)
     saveAllTasks(updatedTasks)
+    
+    // Verify the task was actually removed
+    const tasksAfterDeletion = getAllTasks()
+    if (tasksAfterDeletion.some(task => task.id === taskId)) {
+      throw new Error('Task deletion failed')
+    }
     
     // Check if we need to update the tray icon after deletion
     checkForSuccessfulTasks()
@@ -480,13 +515,13 @@ ipcMain.handle('get-task', (_event, taskId: string) => {
 })
 
 ipcMain.handle('add-task', (_event, task: Task) => {
-  addTask(task)
-  return { success: true }
+  const addedTask = addTask(task)
+  return { success: true, task: addedTask }
 })
 
 ipcMain.handle('update-task', (_event, task: Task) => {
-  updateTask(task)
-  return { success: true }
+  const updatedTask = updateTask(task)
+  return { success: true, task: updatedTask }
 })
 
 ipcMain.handle('delete-task', (_event, taskId: string) => {

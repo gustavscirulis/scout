@@ -74,16 +74,15 @@ export const getTaskById = async (taskId: string): Promise<Task | null> => {
 }
 
 // Add a new task
-export const addTask = async (taskData: TaskFormData): Promise<Task> => {
+export const addTask = async (task: Task): Promise<Task> => {
   try {
     const electron = window.require('electron')
-    const task: Task = {
-      ...taskData,
-      id: crypto.randomUUID(),
-      isRunning: true,
+    const serializedTask = serializeTask(task)
+    const response = await electron.ipcRenderer.invoke('add-task', serializedTask)
+    if (!response.success) {
+      throw new Error('Failed to add task')
     }
-    await electron.ipcRenderer.invoke('add-task', serializeTask(task))
-    return task
+    return deserializeTask(response.task)
   } catch (error) {
     console.error('Failed to add task:', error)
     throw new Error('Failed to add task')
@@ -94,8 +93,12 @@ export const addTask = async (taskData: TaskFormData): Promise<Task> => {
 export const updateTask = async (task: Task): Promise<Task> => {
   try {
     const electron = window.require('electron')
-    await electron.ipcRenderer.invoke('update-task', serializeTask(task))
-    return task
+    const serializedTask = serializeTask(task)
+    const response = await electron.ipcRenderer.invoke('update-task', serializedTask)
+    if (!response.success) {
+      throw new Error('Failed to update task')
+    }
+    return deserializeTask(response.task)
   } catch (error) {
     console.error(`Failed to update task ${task.id}:`, error)
     throw new Error('Failed to update task')
