@@ -678,9 +678,6 @@ ipcMain.handle('update-tray-icon', () => {
   return { success: true, hasSuccessfulTasks }
 })
 
-// Keep track of the latest temporary screenshot file
-let latestScreenshotPath: string | null = null;
-
 // IPC handlers
 ipcMain.handle('is-app-packaged', () => {
   return app.isPackaged
@@ -689,6 +686,9 @@ ipcMain.handle('is-app-packaged', () => {
 ipcMain.handle('get-app-version', () => {
   return app.getVersion()
 })
+
+// Keep track of the latest temporary screenshot file
+let latestScreenshotPath: string | null = null;
 
 // Handle opening images in preview window
 ipcMain.handle('open-image-preview', async (_event, dataUrl: string) => {

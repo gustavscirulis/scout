@@ -93,11 +93,11 @@
       "target": [
         {
           "target": "dmg",
-          "arch": "arm64"
+          "arch": ["arm64", "x64"]
         },
         {
           "target": "zip",
-          "arch": "arm64"
+          "arch": ["arm64", "x64"]
         }
       ],
       "hardenedRuntime": true,
@@ -119,6 +119,7 @@
       "writeUpdateInfo": true,
       "sign": false
     },
-    "afterSign": "build/notarize.cjs"
+    "afterSign": "build/notarize.cjs",
+    "artifactName": "Scout-${version}-${arch}.${ext}"
   }
 }

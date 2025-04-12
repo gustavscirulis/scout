@@ -15,7 +15,14 @@ Scout is a simple Mac app that keeps an eye on websites for you. Whether you're 
 
 ## Installation
 
-Download and install Scout from the [releases page](https://github.com/gustavscirulis/scout/releases).
+Download and install Scout from the [releases page](https://github.com/gustavscirulis/scout/releases). Choose the version that matches your Mac's architecture:
+
+- **Apple Silicon (M1/M2/M3) Macs**: Download the `-arm64` version
+- **Intel Macs**: Download the `-x64` version
+
+Both versions are available as:
+- `.dmg` installer (recommended)
+- `.zip` archive (for manual installation)
 
 ## Getting Started
 
