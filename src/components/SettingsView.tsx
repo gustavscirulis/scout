@@ -116,7 +116,7 @@ export function SettingsView({
                 <div className="flex items-center gap-2 mb-2.5">
                   <OpenAiLogo className="h-4 w-4 text-muted-foreground" />
                 </div>
-                <span className="font-semibold tracking-tight">GPT-4o</span>
+                <span className="font-semibold tracking-tight">GPT-4.1 Mini</span>
                 <p className="text-xs text-muted-foreground mt-1">Fast and accurate but paid</p>
               </RadioGroupItem>
 

@@ -96,7 +96,7 @@ The script will automatically:
 ## Acknowledgements
 
 - **Claude Code** – For helping me build the app without coding skills
-- **OpenAI GPT-4o** – For powering the Vision API and generating the app icon
+- **OpenAI GPT-4.1 Mini** – For powering the Vision API
 - **Ollama** – For providing local AI capabilities with Llama 3.2 Vision
 - **shadcn/ui** – For accessible, elegant UI components
 - **Phosphor Icons** – For the icon set used in the app
